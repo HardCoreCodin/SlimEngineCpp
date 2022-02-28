@@ -1,7 +1,7 @@
 <img src="Slim3D_logo.png" alt="Slim3D_logo"><br>
 
 Minimalist base-project for interactive graphical applications (2D/3D)<br>
-Written in plain C++ (For the original C variant, see [SlimApp](https://github.com/HardCoreCodin/SlimEngine) <br>)<br>
+Written in plain C++ (For the original C variant, see [SlimEngine](https://github.com/HardCoreCodin/SlimEngine) )<br>)<br>
 Pure-software (no hardware acceleration of any kind)<br>
 Focuses on simplicity, ease of use and brain-dead setup (single header file, no dependencies)<br>
 <br>
