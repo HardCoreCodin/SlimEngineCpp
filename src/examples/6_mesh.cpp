@@ -109,7 +109,7 @@ Slim3D* createEngine() {
     mesh1->copyFrom((char*)__FILE__,
                     (char*)"suzanne.mesh", offset);
     mesh2->copyFrom((char*)__FILE__,
-                    (char*)"dragon.mesh",  offset);
+                    (char*)"dog.mesh",  offset);
     settings::scene::mesh_files = mesh_files;
     settings::scene::meshes   = 2;
     settings::scene::grids      = 1;

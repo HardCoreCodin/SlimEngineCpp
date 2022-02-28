@@ -132,12 +132,10 @@ Well documented example applications cover the features:<br>
   </p>
 
 * <b><u>obj2mesh</b>:</u> Also privided is a separate CLI tool for converting `.obj` files to `.mesh` files.<br>
-  It is written in plain C (so is compatible with C++)<br>
   Usage: `./obj2mesh src.obj trg.mesh`<br>
   - invert_winding_order : Reverses the vertex ordering (for objs exported with clockwise order)<br>
 
 * <b><u>bmp2texture</b>:</u> Also provided is a separate CLI tool for converting `.bmp` files to `.texture` files.<br>
-  It is written in plain C (so is compatible with C++)<br>
   Usage: `./bmp2texture src.bmp trg.texture`<br>
   - m : Generate mip-maps<br>
   - w : Wrap-around<br>

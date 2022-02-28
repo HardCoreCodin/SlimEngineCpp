@@ -87,6 +87,12 @@ struct MyApp : Slim3D {
         for (u32 i = 0; i < settings::scene::geometries; i++, geo++) {
             vec3 color{Color(geo->color)};
             switch (geo->type) {
+                case GeometryType_Mesh:
+                    scene.meshes[geo->id].draw(
+                            viewport,geo->transform,
+                            false, color,
+                            0.5f, 0);
+                    break;
                 case GeometryType_Coil:
                 case GeometryType_Helix:
                     scene.curves[geo->id].draw(viewport,*geo, color,0.5f,0);
@@ -162,7 +168,7 @@ Slim3D* createEngine() {
     mesh1.copyFrom((char*)__FILE__,
                    (char*)"suzanne.mesh", offset);
     mesh2.copyFrom((char*)__FILE__,
-                   (char*)"dragon.mesh",  offset);
+                   (char*)"dog.mesh",  offset);
     settings::scene::mesh_files = mesh_files;
     settings::scene::meshes   = 2;
     settings::scene::curves   = 2;

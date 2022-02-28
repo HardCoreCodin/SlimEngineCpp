@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.8)
 #project(PerspectiveProjection)
 #add_executable(PerspectiveProjection WIN32 src/examples/visualizations/perspective_projection.cpp)
 
-#project(obj2mesh)
-#add_executable(obj2mesh src/obj2mesh.c)
+project(obj2mesh)
+add_executable(obj2mesh src/obj2mesh.cpp)
 #
 #project(bmp2texture)
 #add_executable(bmp2texture src/bmp2texture.c)
