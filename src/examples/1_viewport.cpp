@@ -1,9 +1,9 @@
-#include "../Slim3D/app.h"
+#include "../SlimEngineCpp/app.h"
 // Or using the single-header file:
-// #include "../Slim3D.h"
+// #include "../SlimEngineCpp.h"
 
 enum HUDLineIndex { Fps, Mfs, Width, Height, MouseX, MouseY };
-struct MyApp : Slim3D {
+struct MyApp : SlimEngine {
     void OnWindowResize(u16 width, u16 height) override {
         setDimensionsInHUD(width, height);
     }
@@ -67,12 +67,12 @@ struct MyApp : Slim3D {
     }
 };
 
-Slim3D* createEngine() {
+SlimEngine* createEngine() {
     settings::hud::show = true;
     settings::hud::default_color = Green;
     settings::hud::line_count = 6;
     settings::hud::line_height = 1.2f;
     settings::scene::grids      = 1;
     settings::scene::geometries = 1;
-    return (Slim3D*)new MyApp();
+    return (SlimEngine*)new MyApp();
 }

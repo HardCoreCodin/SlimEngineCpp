@@ -1,8 +1,8 @@
-#include "../Slim3D/app.h"
+#include "../SlimEngineCpp/app.h"
 // Or using the single-header file:
-// #include "../Slim3D.h"
+// #include "../SlimEngineCpp.h"
 
-struct MyApp : Slim3D {
+struct MyApp : SlimEngine {
     Geometry &helix = scene.geometries[0];
     Geometry &coil  = scene.geometries[1];
     Geometry &box   = scene.geometries[2];
@@ -82,11 +82,11 @@ struct MyApp : Slim3D {
     }
 };
 
-Slim3D* createEngine() {
+SlimEngine* createEngine() {
     settings::scene::boxes      = 1;
     settings::scene::grids      = 1;
     settings::scene::curves     = 2;
     settings::scene::geometries = 4;
 
-    return (Slim3D*)new MyApp();
+    return (SlimEngine*)new MyApp();
 }

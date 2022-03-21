@@ -1,8 +1,8 @@
-#include "../Slim3D/app.h"
+#include "../SlimEngineCpp/app.h"
 // Or using the single-header file:
-// #include "../Slim3D.h"
+// #include "../SlimEngineCpp.h"
 
-struct MyApp : Slim3D {
+struct MyApp : SlimEngine {
     void drawScene() {
         bool normals = controls::is_pressed::ctrl;
         Geometry *geo = scene.geometries;
@@ -98,7 +98,7 @@ struct MyApp : Slim3D {
     Geometry &mesh2 = scene.geometries[2];
 };
 
-Slim3D* createEngine() {
+SlimEngine* createEngine() {
     static String mesh_files[2];
     static char string_buffers[2][100];
     String *mesh1 = &mesh_files[0];
@@ -118,5 +118,5 @@ Slim3D* createEngine() {
     settings::hud::default_color = Green;
     settings::hud::line_count = 2;
 
-    return (Slim3D*)new MyApp();
+    return (SlimEngine*)new MyApp();
 }

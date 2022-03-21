@@ -10,7 +10,8 @@
 #include <string.h>
 #include <malloc.h>
 
-#include "./Slim3D/scene/mesh.h"
+
+#include "./SlimEngineCpp/scene/mesh.h"
 
 void os::setWindowTitle(char* str) {}
 void os::setCursorVisibility(bool on) {}
@@ -164,8 +165,24 @@ int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_orde
     }
     fclose(file);
 
+    // Dog/Monkey >
+//    mat3 rot45{};
+//    rot45.X.x = 0.70710678118f;
+//    rot45.X.z = 0.70710678118f;
+//    rot45.Z.x = -0.70710678118f;
+//    rot45.Z.z = 0.70710678118f;
+//    mat3 rot90 = rot45 * rot45;
+////    mat3 rot = rot45 * rot90; // Dog
+//    mat3 rot = rot90; // Monkey
+//
+//    vertex_position = mesh.vertex_normals;
+//    for (u32 i = 0; i < mesh.normals_count; i++, vertex_position++)
+//        *vertex_position = rot * *vertex_position;
+    // Dog/Monkey <
+
     vertex_position = mesh.vertex_positions;
     for (u32 i = 0; i < mesh.vertex_count; i++, vertex_position++) {
+//        *vertex_position = rot * *vertex_position; // Dog/Monkey
         mesh.aabb.min.x = mesh.aabb.min.x < vertex_position->x ? mesh.aabb.min.x : vertex_position->x;
         mesh.aabb.min.y = mesh.aabb.min.y < vertex_position->y ? mesh.aabb.min.y : vertex_position->y;
         mesh.aabb.min.z = mesh.aabb.min.z < vertex_position->z ? mesh.aabb.min.z : vertex_position->z;
@@ -173,6 +190,25 @@ int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_orde
         mesh.aabb.max.y = mesh.aabb.max.y > vertex_position->y ? mesh.aabb.max.y : vertex_position->y;
         mesh.aabb.max.z = mesh.aabb.max.z > vertex_position->z ? mesh.aabb.max.z : vertex_position->z;
     }
+
+    vec3 centroid = mesh.aabb.min + mesh.aabb.max / 2.0f;
+    if (centroid.nonZero()) {
+        mesh.aabb.min -= centroid;
+        mesh.aabb.max -= centroid;
+        vertex_position = mesh.vertex_positions;
+        for (u32 i = 0; i < mesh.vertex_count; i++, vertex_position++)
+            *vertex_position -= centroid;
+    }
+
+    // Dog/Monkey >
+//    f32 scale = 0.1f; // dog
+//    f32 scale = 4.0f; // monkey
+//    vertex_position = mesh.vertex_positions;
+//    for (u32 i = 0; i < mesh.vertex_count; i++, vertex_position++)
+//        *vertex_position *= scale;
+//    mesh.aabb.min *= scale;
+//    mesh.aabb.max *= scale;
+    // Dog/Monkey <
 
     EdgeVertexIndices current_edge_vertex_indices, *edge_vertex_indices;
     vertex_position_indices = mesh.vertex_position_indices;
@@ -231,8 +267,8 @@ int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_orde
 int main(int argc, char *argv[]) {
     if (argc == 2 && !strcmp(argv[1], (char*)"--help")) {
         printf((char*)("Exactly 2 file paths need to be provided: "
-                "An '.obj' file (input) then a '.mesh' file (output), "
-                "and an optional flag '-invert_winding_order' for inverting winding order"));
+                       "An '.obj' file (input) then a '.mesh' file (output), "
+                       "and an optional flag '-invert_winding_order' for inverting winding order"));
         return 0;
     } else if (argc == 3 || // 2 arguments
                argc == 4    // 3 arguments
@@ -244,7 +280,7 @@ int main(int argc, char *argv[]) {
     }
 
     printf((char*)("Exactly 2 file paths need to be provided: "
-            "An '.obj' file (input) then a '.mesh' file (output), "
-            "and an optional flag '-invert_winding_order' for inverting winding order"));
+                   "An '.obj' file (input) then a '.mesh' file (output), "
+                   "and an optional flag '-invert_winding_order' for inverting winding order"));
     return 1;
 }
