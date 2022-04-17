@@ -6,6 +6,8 @@ struct quat {
     vec3 axis;
     f32 amount;
 
+    static quat Identity;
+
     quat() noexcept : quat{vec3{0}, 1.0f} {}
     quat(f32 axis_x, f32 axis_y, f32 axis_z, f32 amount) noexcept : axis{axis_x, axis_y, axis_z}, amount{amount} {}
     quat(vec3 axis, f32 amount) noexcept : axis{axis}, amount{amount} {}
@@ -68,34 +70,11 @@ struct quat {
         };
     }
 
-    INLINE void setRotationAroundAxis(const vec3 &Axis, f32 radians) {
-        radians *= -0.5f;
-
-        axis = Axis * sinf(radians);
-        amount = cosf(radians);
-
-        f32 one_over_length = 1.0f / length();
-        axis *= one_over_length;
-        amount *= one_over_length;
+    INLINE quat rotated(const vec3 &Axis, f32 radians) const {
+        return *this * AxisAngle(Axis, radians);
     }
 
-    INLINE void setRotationAroundX(f32 radians) {
-        setRotationAroundAxis(vec3::X, radians);
-    }
-
-    INLINE void setRotationAroundY(f32 radians) {
-        setRotationAroundAxis(vec3::Y, radians);
-    }
-
-    INLINE void setRotationAroundZ(f32 radians) {
-        setRotationAroundAxis(vec3::Z, radians);
-    }
-
-    INLINE quat rotatedAroundAxis(const vec3 &Axis, f32 radians) const {
-        return *this * getRotationAroundAxis(Axis, radians);
-    }
-
-    static INLINE quat getRotationAroundAxis(const vec3 &axis, f32 radians) {
+    static INLINE quat AxisAngle(const vec3 &axis, f32 radians) {
         radians *= 0.5f;
         return quat{
             axis * sinf(radians),
@@ -103,29 +82,12 @@ struct quat {
         }.normalized();
     }
 
-    static INLINE quat getRotationAroundX(f32 radians) {
-        return getRotationAroundAxis(vec3::X, radians);
-    }
-
-    static INLINE quat getRotationAroundY(f32 radians) {
-        return getRotationAroundAxis(vec3::Y, radians);
-    }
-
-    static INLINE quat getRotationAroundZ(f32 radians) {
-        return getRotationAroundAxis(vec3::Z, radians);
-    }
-
-    INLINE quat rotatedAroundX(f32 radians) const {
-        return *this * getRotationAroundX(radians);
-    }
-
-    INLINE quat rotatedAroundY(f32 radians) const {
-        return *this * getRotationAroundY(radians);
-    }
-
-    INLINE quat rotatedAroundZ(f32 radians) const {
-        return *this * getRotationAroundZ(radians);
-    }
+    static INLINE quat RotationAroundX(f32 radians) { return AxisAngle(vec3::X, radians); }
+    static INLINE quat RotationAroundY(f32 radians) { return AxisAngle(vec3::Y, radians); }
+    static INLINE quat RotationAroundZ(f32 radians) { return AxisAngle(vec3::Z, radians); }
+    INLINE void setRotationAroundX(f32 radians) { *this = RotationAroundX(radians); }
+    INLINE void setRotationAroundY(f32 radians) { *this = RotationAroundY(radians); }
+    INLINE void setRotationAroundZ(f32 radians) { *this = RotationAroundZ(radians); }
 
     INLINE void setXYZ(vec3 &X, vec3 &Y, vec3 &Z) const {
         f32 q0 = amount;
@@ -146,3 +108,4 @@ struct quat {
         Z.z = 2 * (q0 * q0 + q3 * q3) - 1;
     }
 };
+quat quat::Identity = {};

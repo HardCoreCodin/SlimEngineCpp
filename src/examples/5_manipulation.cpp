@@ -1,74 +1,80 @@
+#include "../SlimEngineCpp/scene/selection.h"
+#include "../SlimEngineCpp/draw/grid.h"
+#include "../SlimEngineCpp/draw/curve.h"
+#include "../SlimEngineCpp/draw/box.h"
+#include "../SlimEngineCpp/draw/selection.h"
 #include "../SlimEngineCpp/app.h"
 // Or using the single-header file:
-//#include "../SlimEngineCpp.h"
+// #include "../SlimEngineCpp.h"
+
 #include "./_common.h"
 
-struct MyApp : SlimEngine {
-    Geometry &helix = scene.geometries[0];
-    Geometry &coil  = scene.geometries[1];
-    Geometry &box   = scene.geometries[2];
-    Geometry &grid  = scene.geometries[3];
+struct ManipulationExample : SlimEngine {
+    Grid grid{11, 11};
+    Curve helix{10};
+    Curve coil{30};
+    Box box{};
+    Geometry grid_geo{
+            {
+                    {0, 0, 0},
+                    {0, 45 * DEG_TO_RAD, 0},
+                    {5, 1, 5}
+            },
+            GeometryType_Grid,
+            Green
+    };
+    Geometry helix_geo{
+            {
+                    {-3, 4, 2}
+            },
+            GeometryType_Helix,
+            Cyan
+    };
+    Geometry coil_geo{
+            {
+                    {4, 4, 2}
+            },
+            GeometryType_Coil,
+            Magenta,
+            1
+    };
+    Geometry box_geo{
+            {},
+            GeometryType_Coil,
+            Yellow
+    };
 
-    MyApp() {
-        viewport.camera->position = {0, 8, -13};
-        viewport.camera->setRotationAroundX(-25 * DEG_TO_RAD);
-        grid.transform.setRotationAroundY(45 * DEG_TO_RAD);
-        scene.grids[0] = Grid{11, 11};
-        scene.curves[0].revolution_count = 10;
-        scene.curves[1].revolution_count = 30;
-        helix.type = GeometryType_Helix;
-        coil.type  = GeometryType_Coil;
-        grid.type  = GeometryType_Grid;
-        box.type   = GeometryType_Box;
-        box.color   = Yellow;
-        grid.color  = Green;
-        coil.color  = Magenta;
-        helix.color = Cyan;
-        helix.transform.position = {-3, 4, 2};
-        coil.transform.position  = {4, 4, 2};
-        grid.transform.scale     = {5, 1, 5};
-        helix.id = box.id = grid.id = 0;
-        coil.id  = 1;
-    }
+    Camera camera{
+            {0, 7, -11},
+            {-25 * DEG_TO_RAD, 0, 0}
+    };
+    Viewport viewport{window::canvas, &camera};
+    Selection selection;
 
-    void OnWindowRedraw() override {
-        if (!mouse::is_captured)
-            scene.manipulateSelection(viewport);
-        if (!controls::is_pressed::alt)
-            viewport.updateNavigation(
-                    time::update_timer.delta_time);
+    Scene scene{ {1, 4, 1, 1, 1 }, nullptr,
+                 &camera, &grid_geo, &grid, &box, &helix };
 
-        drawScene();
-        scene.selection.draw(viewport,
-                             scene.mesh_aabbs);
-        drawMouseAndKeyboard(viewport);
-    }
-
-    void drawScene() {
-        Geometry *geo = scene.geometries;
-        for (u32 i = 0; i < settings::scene::geometries; i++, geo++) {
-            vec3 color{Color(geo->color)};
-            switch (geo->type) {
-                case GeometryType_Coil:
-                case GeometryType_Helix:
-                    scene.curves[geo->id].draw(viewport,*geo, color,0.5f,0);
-                    break;
-                case GeometryType_Box:
-                    scene.boxes[geo->id].draw(viewport,geo->transform, color,0.5f, 0);
-                    break;
-                case GeometryType_Grid:
-                    scene.grids[geo->id].draw(viewport,geo->transform, color,0.5f, 0);
-                    break;
-                default:
-                    break;
-            }
+    void OnUpdate(f32 delta_time) override {
+        if (!mouse::is_captured) selection.manipulate(viewport, scene);
+        if (!controls::is_pressed::alt) {
+            viewport.updateNavigation(delta_time);
+            viewport.updateProjectionMatrix();
         }
     }
-
-    void OnMouseButtonDown(mouse::Button &mouse_button) override {
-        mouse::pos_raw_diff = {0, 0};
+    void OnRender() override {
+        draw(grid, grid_geo.transform, viewport, Color(grid_geo.color), 0.5f, 0);
+        draw(box,  box_geo.transform, viewport, Color(box_geo.color), 0.5f, 0);
+        draw(coil, coil_geo, viewport, Color(coil_geo.color), 0.5f, 0);
+        draw(helix, helix_geo, viewport, Color(helix_geo.color), 0.5f, 0);
+        if (controls::is_pressed::alt) draw(selection, viewport, scene);
+        drawMouseAndKeyboard(viewport);
     }
-
+    void OnWindowResize(u16 width, u16 height) override {
+        viewport.updateDimensions(width, height);
+    }
+    void OnMouseButtonDown(mouse::Button &mouse_button) override {
+        mouse::pos_raw_diff_x = mouse::pos_raw_diff_y = 0;
+    }
     void OnMouseButtOnDoubleClicked(mouse::Button &mouse_button) override {
         if (&mouse_button == &mouse::left_button) {
             mouse::is_captured = !mouse::is_captured;
@@ -77,7 +83,6 @@ struct MyApp : SlimEngine {
             OnMouseButtonDown(mouse_button);
         }
     }
-
     void OnKeyChanged(u8 key, bool is_pressed) override {
         NavigationMove &move = viewport.navigation.move;
         NavigationTurn &turn = viewport.navigation.turn;
@@ -93,10 +98,5 @@ struct MyApp : SlimEngine {
 };
 
 SlimEngine* createEngine() {
-    settings::scene::boxes      = 1;
-    settings::scene::grids      = 1;
-    settings::scene::curves     = 2;
-    settings::scene::geometries = 4;
-
-    return (SlimEngine*)new MyApp();
+    return (SlimEngine*)new ManipulationExample();
 }

@@ -6,82 +6,174 @@
 #include "../math/mat3.h"
 #include "../math/mat4.h"
 #include "../math/quat.h"
-#include "../viewport/canvas.h"
 
+struct Edge { vec3 from, to; };
+struct Rect { vec2i min, max; };
+struct Curve { f32 revolution_count{1}, thickness{0.1f}; };
 
-struct Rect {
-    vec2i min, max;
+//struct Orientation {
+//    union {
+//        mat3 matrix;
+//        struct { vec3 right, up, forward; };
+//    };
+//    Orientation() : matrix{mat3{}} {}
+//    Orientation(f32 x_radians, f32 y_radians = 0, f32 z_radians = 0) : Orientation{} {
+//        setRotation(x_radians, y_radians, z_radians);
+//    }
+//
+//    INLINE void rotate(f32 x_radians, f32 y_radians, f32 z_radians) {
+//        setRotation(angles.x + x_radians, angles.y + y_radians, angles.x + z_radians);
+//    }
+//
+//    INLINE void rotate(f32 x_radians, f32 y_radians) {
+//        setRotation(angles.x + x_radians, angles.y + y_radians);
+//    }
+//
+//    INLINE void setRotation(f32 x_radians, f32 y_radians, f32 z_radians) {
+//        angles.x = x_radians;
+//        angles.y = y_radians;
+//        angles.z = z_radians;
+//        _update();
+//    }
+//
+//    INLINE void setRotation(f32 x_radians, f32 y_radians) {
+//        angles.x = x_radians;
+//        angles.y = y_radians;
+//        _update();
+//    }
+//
+//    INLINE void rotateAroundX(f32 radians) {
+//        setRotationAroundX(angles.x + radians);
+//    }
+//
+//    INLINE void rotateAroundY(f32 radians) {
+//        setRotationAroundY(angles.y + radians);
+//    }
+//
+//    INLINE void rotateAroundZ(f32 radians) {
+//        setRotationAroundZ(angles.z + radians);
+//    }
+//
+//    INLINE void setRotationAroundX(f32 radians) {
+//        angles.x = radians;
+//        _update();
+//    }
+//
+//    INLINE void setRotationAroundY(f32 radians) {
+//        angles.y = radians;
+//        _update();
+//    }
+//
+//    INLINE void setRotationAroundZ(f32 radians) {
+//        angles.z = radians;
+//        _update();
+//    }
+//
+//protected:
+//    vec3 angles;
+//
+//    void _update() {
+//        mat3 mat;
+//        if (angles.z != 0.0f) mat = mat3::RotationAroundZ(angles.z);
+//        if (angles.x != 0.0f) mat *= mat3::RotationAroundX(angles.x);
+//        if (angles.y != 0.0f) mat *= mat3::RotationAroundY(angles.y);
+//        matrix = mat;
+//    }
+//};
+//
+//struct Rotation {
+//    quat rotation{};
+//
+//    INLINE void rotateAroundXYZ(f32 x_radians, f32 y_radians, f32 z_radians) {
+//        setRotationAroundXYZ(angles.x + x_radians, angles.y + y_radians, angles.x + z_radians);
+//    }
+//
+//    INLINE void rotateAroundXY(f32 x_radians, f32 y_radians) {
+//        setRotationAroundXY(angles.x + x_radians, angles.y + y_radians);
+//    }
+//
+//    INLINE void setRotationAroundXYZ(f32 x_radians, f32 y_radians, f32 z_radians) {
+//        angles.x = x_radians;
+//        angles.y = y_radians;
+//        angles.z = z_radians;
+//        _updateRotation();
+//    }
+//
+//    INLINE void setRotationAroundXY(f32 x_radians, f32 y_radians) {
+//        angles.x = x_radians;
+//        angles.y = y_radians;
+//        x_rotation.setRotationAroundX(angles.x);
+//        y_rotation.setRotationAroundY(angles.y);
+//        _updateRotation();
+//    }
+//
+//    INLINE void rotateAroundX(f32 radians) {
+//        setRotationAroundX(angles.x + radians);
+//    }
+//
+//    INLINE void rotateAroundY(f32 radians) {
+//        setRotationAroundY(angles.y + radians);
+//    }
+//
+//    INLINE void rotateAroundZ(f32 radians) {
+//        setRotationAroundZ(angles.z + radians);
+//    }
+//
+//    INLINE void setRotationAroundX(f32 radians) {
+//        angles.x = radians;
+//        _updateRotation();
+//    }
+//
+//    INLINE void setRotationAroundY(f32 radians) {
+//        angles.y = radians;
+//        _updateRotation();
+//    }
+//
+//    INLINE void setRotationAroundZ(f32 radians) {
+//        angles.z = radians;
+//        _updateRotation();
+//    }
+//
+//protected:
+//    vec3 angles;
+//
+//    void _updateRotation() {
+//        x_rotation.setRotationAroundX(angles.x);
+//        y_rotation.setRotationAroundY(angles.y);
+//        z_rotation.setRotationAroundZ(angles.z);
+//
+//        rotation = ((x_rotation * y_rotation).normalized() * z_rotation).normalized();
+//    }
+//};
 
-    void draw(Canvas &canvas,  const vec3 &color = Color(White), f32 opacity = 1.0f) const {
-        if (max.x < 0 || min.x >= canvas.dimensions.width ||
-            max.y < 0 || min.y >= canvas.dimensions.height)
-            return;
+template <class T>
+struct Orientation {
+    T rotation{};
 
-        canvas.drawHLine(min.x, max.x, min.y, color, opacity);
-        canvas.drawHLine(min.x, max.x, max.y, color, opacity);
-        canvas.drawVLine(min.y, max.y, min.x, color, opacity);
-        canvas.drawVLine(min.y, max.y, max.x, color, opacity);
+    Orientation() : rotation{T::Identity} {}
+    explicit Orientation(f32 x_radians, f32 y_radians = 0, f32 z_radians = 0) {
+        setRotation(x_radians, y_radians, z_radians);
     }
 
-    void fill(Canvas &canvas, const vec3 &color = Color(White), f32 opacity = 1.0f) const {
-        if (max.x < 0 || min.x >= canvas.dimensions.width ||
-            max.y < 0 || min.y >= canvas.dimensions.height)
-            return;
-
-        i32 min_x, min_y, max_x, max_y;
-        subRange(min.x, max.x, canvas.dimensions.width,  0, &min_x, &max_x);
-        subRange(min.y, max.y, canvas.dimensions.height, 0, &min_y, &max_y);
-        for (i32 y = min_y; y <= max_y; y++)
-            canvas.drawHLine(min_x, max_x, y, color, opacity);
-    }
-};
-
-struct Rotation {
-    quat rotation{};
-    vec3 right, up, forward;
-
-    mat3 getRotationMatrix() const {
-        return {right, up, forward};
-//        return {
-//                right.x, right.y, right.z,
-//                up.x, up.y, up.z,
-//                forward.x, forward.y, forward.z
-//        };
+    INLINE void rotate(f32 x_radians, f32 y_radians, f32 z_radians) {
+        setRotation(angles.x + x_radians, angles.y + y_radians, angles.x + z_radians);
     }
 
-    INLINE mat3 getInverseRotationMatrix() const {
-        return getRotationMatrix().transposed();
-//        return {
-//                right.x, up.x, forward.x,
-//                right.y, up.y, forward.y,
-//                right.z, up.z, forward.z
-//        };
+    INLINE void rotate(f32 x_radians, f32 y_radians) {
+        setRotation(angles.x + x_radians, angles.y + y_radians);
     }
 
-    INLINE void rotateAroundXYZ(f32 x_radians, f32 y_radians, f32 z_radians) {
-        setRotationAroundXYZ(angles.x + x_radians, angles.y + y_radians, angles.x + z_radians);
-    }
-
-    INLINE void rotateAroundXY(f32 x_radians, f32 y_radians) {
-        setRotationAroundXY(angles.x + x_radians, angles.y + y_radians);
-    }
-
-    INLINE void setRotationAroundXYZ(f32 x_radians, f32 y_radians, f32 z_radians) {
+    INLINE void setRotation(f32 x_radians, f32 y_radians, f32 z_radians) {
         angles.x = x_radians;
         angles.y = y_radians;
         angles.z = z_radians;
-        x_rotation.setRotationAroundX(angles.x);
-        y_rotation.setRotationAroundY(angles.y);
-        z_rotation.setRotationAroundZ(angles.z);
-        _updateRotation();
+        _update();
     }
 
-    INLINE void setRotationAroundXY(f32 x_radians, f32 y_radians) {
+    INLINE void setRotation(f32 x_radians, f32 y_radians) {
         angles.x = x_radians;
         angles.y = y_radians;
-        x_rotation.setRotationAroundX(angles.x);
-        y_rotation.setRotationAroundY(angles.y);
-        _updateRotation();
+        _update();
     }
 
     INLINE void rotateAroundX(f32 radians) {
@@ -98,38 +190,38 @@ struct Rotation {
 
     INLINE void setRotationAroundX(f32 radians) {
         angles.x = radians;
-        x_rotation.setRotationAroundX(angles.x);
-        _updateRotation();
+        _update();
     }
 
     INLINE void setRotationAroundY(f32 radians) {
         angles.y = radians;
-        y_rotation.setRotationAroundY(angles.y);
-        _updateRotation();
+        _update();
     }
 
     INLINE void setRotationAroundZ(f32 radians) {
         angles.z = radians;
-        z_rotation.setRotationAroundZ(angles.z);
-        _updateRotation();
+        _update();
     }
 
 protected:
-    quat x_rotation, y_rotation, z_rotation;
     vec3 angles;
 
-    void _updateRotation() {
-        rotation = ((x_rotation * y_rotation).normalized() * z_rotation).normalized();
-        rotation.setXYZ(right, up, forward);
+    void _update() {
+        rotation = T::Identity;
+        if (angles.z != 0.0f) rotation = T::RotationAroundZ(angles.z);
+        if (angles.x != 0.0f) rotation *= T::RotationAroundX(angles.x);
+        if (angles.y != 0.0f) rotation *= T::RotationAroundY(angles.y);
     }
 };
 
-struct Transform {
-    static Rotation scratch_rot;
+struct Transform : public Orientation<quat> {
+    vec3 position{0.0f};
+    vec3 scale{1.0f};
 
-    quat rotation{};
-    vec3 position{0};
-    vec3 scale{1};
+    Transform() : Orientation<quat>{}, position{0.0f}, scale{1.0f} {}
+    Transform(const vec3 &position) : Orientation<quat>{}, position{position}, scale{1.0f} {}
+    Transform(const vec3 &position, const vec3 &orientation, const vec3 &scale = vec3{1.0f}) :
+            Orientation{orientation.x, orientation.y, orientation.z}, position{position}, scale{scale} {}
 
     mat3 getRotationMatrix() const {
         return mat3{rotation};
@@ -149,55 +241,55 @@ struct Transform {
         };
     }
 
-    INLINE void rotateAroundXYZ(f32 x_radians, f32 y_radians, f32 z_radians) {
-        scratch_rot.rotateAroundXYZ(x_radians, y_radians, z_radians);
-        rotation = scratch_rot.rotation;
-    }
-
-    INLINE void rotateAroundXY(f32 x_radians, f32 y_radians) {
-        scratch_rot.rotateAroundXY(x_radians, y_radians);
-        rotation = scratch_rot.rotation;
-    }
-
-    INLINE void setRotationAroundXYZ(f32 x_radians, f32 y_radians, f32 z_radians) {
-        scratch_rot.setRotationAroundXYZ(x_radians, y_radians, z_radians);
-        rotation = scratch_rot.rotation;
-    }
-
-    INLINE void setRotationAroundXY(f32 x_radians, f32 y_radians) {
-        scratch_rot.setRotationAroundXY(x_radians, y_radians);
-        rotation = scratch_rot.rotation;
-    }
-
-    INLINE void rotateAroundX(f32 radians) {
-        scratch_rot.rotateAroundX(radians);
-        rotation = scratch_rot.rotation;
-    }
-
-    INLINE void rotateAroundY(f32 radians) {
-        scratch_rot.rotateAroundY(radians);
-        rotation = scratch_rot.rotation;
-    }
-
-    INLINE void rotateAroundZ(f32 radians) {
-        scratch_rot.rotateAroundZ(radians);
-        rotation = scratch_rot.rotation;
-    }
-
-    INLINE void setRotationAroundX(f32 radians) {
-        scratch_rot.setRotationAroundX(radians);
-        rotation = scratch_rot.rotation;
-    }
-
-    INLINE void setRotationAroundY(f32 radians) {
-        scratch_rot.setRotationAroundY(radians);
-        rotation = scratch_rot.rotation;
-    }
-
-    INLINE void setRotationAroundZ(f32 radians) {
-        scratch_rot.setRotationAroundZ(radians);
-        rotation = scratch_rot.rotation;
-    }
+//    INLINE void rotateAroundXYZ(f32 x_radians, f32 y_radians, f32 z_radians) {
+//        scratch_rot.rotateAroundXYZ(x_radians, y_radians, z_radians);
+//        rotation = scratch_rot.rotation;
+//    }
+//
+//    INLINE void rotateAroundXY(f32 x_radians, f32 y_radians) {
+//        scratch_rot.rotateAroundXY(x_radians, y_radians);
+//        rotation = scratch_rot.rotation;
+//    }
+//
+//    INLINE void setRotationAroundXYZ(f32 x_radians, f32 y_radians, f32 z_radians) {
+//        scratch_rot.setRotationAroundXYZ(x_radians, y_radians, z_radians);
+//        rotation = scratch_rot.rotation;
+//    }
+//
+//    INLINE void setRotationAroundXY(f32 x_radians, f32 y_radians) {
+//        scratch_rot.setRotationAroundXY(x_radians, y_radians);
+//        rotation = scratch_rot.rotation;
+//    }
+//
+//    INLINE void rotateAroundX(f32 radians) {
+//        scratch_rot.rotateAroundX(radians);
+//        rotation = scratch_rot.rotation;
+//    }
+//
+//    INLINE void rotateAroundY(f32 radians) {
+//        scratch_rot.rotateAroundY(radians);
+//        rotation = scratch_rot.rotation;
+//    }
+//
+//    INLINE void rotateAroundZ(f32 radians) {
+//        scratch_rot.rotateAroundZ(radians);
+//        rotation = scratch_rot.rotation;
+//    }
+//
+//    INLINE void setRotationAroundX(f32 radians) {
+//        scratch_rot.setRotationAroundX(radians);
+//        rotation = scratch_rot.rotation;
+//    }
+//
+//    INLINE void setRotationAroundY(f32 radians) {
+//        scratch_rot.setRotationAroundY(radians);
+//        rotation = scratch_rot.rotation;
+//    }
+//
+//    INLINE void setRotationAroundZ(f32 radians) {
+//        scratch_rot.setRotationAroundZ(radians);
+//        rotation = scratch_rot.rotation;
+//    }
 
     void externPosAndDir(const vec3 &pos, const vec3 &dir, vec3 &out_pos, vec3 &out_dir) const {
         out_pos = position + (rotation * (scale * position));
@@ -225,16 +317,17 @@ private:
     INLINE vec3 _unrotate(const vec3 &pos) const { return rotation.conjugate() * pos; }
     INLINE vec3 _untranslate(const vec3 &pos) const { return pos - position; }
 };
-Rotation Transform::scratch_rot;
 
 enum GeometryType {
     GeometryType_None = 0,
+
     GeometryType_Mesh,
     GeometryType_Grid,
     GeometryType_Box,
     GeometryType_Helix,
     GeometryType_Coil,
-    GeometryType_Tetrahedron
+
+    GeometryType_Count
 };
 
 struct Geometry {
@@ -242,11 +335,10 @@ struct Geometry {
     enum GeometryType type{GeometryType_None};
     enum ColorID color{White};
     u32 id{0};
-//    u8 material_id{0};
 };
 
 struct AABB {
-    vec3 min, max;
+    vec3 min{-1}, max{1};
 
     AABB(f32 min_x, f32 min_y, f32 min_z,
          f32 max_x, f32 max_y, f32 max_z) : AABB{
@@ -256,11 +348,6 @@ struct AABB {
     AABB(f32 min_value, f32 max_value) : AABB{vec3{min_value}, vec3{max_value}} {}
     AABB(const vec3 &min, const vec3 &max) : min{min}, max{max} {}
     AABB() : AABB{0, 0} {}
-
-    explicit AABB(const Geometry &geometry) :
-        min{geometry.type == GeometryType_Tetrahedron ? (SQRT3 / -3) : -1},
-        max{geometry.type == GeometryType_Tetrahedron ? (SQRT3 / +3) : +1}
-        {}
 
     AABB& operator *= (const Transform &transform) {
         const vec3 vertices[8] = {
@@ -351,45 +438,6 @@ struct AABB {
 //    bool is_directional;
 //};
 
-
-struct ProjectionPlane {
-    vec3 start, right, down;
-
-    INLINE void update(const vec3 &camera_right,
-                       const vec3 &camera_up,
-                       const vec3 &camera_forward,
-                       f32 focal_length,
-                       f32 half_width,
-                       f32 half_height) {
-        right = camera_right * (0.5f - half_width);
-        down = -camera_up;
-        start = camera_up * (half_height - 0.5f)
-              + camera_forward * (half_height * focal_length)
-              + right;
-    }
-};
-
-struct Frustum {
-    mat4 projection_matrix{};
-    f32 near_clipping_plane_distance{VIEWPORT_DEFAULT__NEAR_CLIPPING_PLANE_DISTANCE};
-    f32 far_clipping_plane_distance{ VIEWPORT_DEFAULT__FAR_CLIPPING_PLANE_DISTANCE};
-    bool use_cube_NDC{false}, flip_z{false}, cull_back_faces{true};
-
-    Frustum() {
-        updateProjectionMatrix(CAMERA_DEFAULT__FOCAL_LENGTH, (f32)DEFAULT_HEIGHT / (f32)DEFAULT_WIDTH);
-    }
-
-    void updateProjectionMatrix(f32 focal_length, f32 height_over_width) {
-        const f32 n = near_clipping_plane_distance;
-        const f32 f = far_clipping_plane_distance;
-        const f32 d = 1.0f / (f - n);
-        projection_matrix.X = { focal_length * height_over_width, 0, 0, 0};
-        projection_matrix.Y = {0, focal_length, 0, 0};
-        projection_matrix.Z = {0, 0, (use_cube_NDC ? (f + n) : f) * d, 1.0f};
-        projection_matrix.W = {0, 0, (use_cube_NDC ? (-2 * f * n) : (-n * f)) * d, 0};
-    }
-};
-
 enum BoxSide {
     NoSide = 0,
     Top    = 1,
@@ -422,16 +470,6 @@ struct RayHit {
 struct Ray {
     vec3 origin, direction;
     RayHit hit{};
-
-    Ray() = default;
-    Ray(const vec2i &coords, const vec3 &origin, const ProjectionPlane &projection_plane) :
-            origin{origin},
-            direction{
-                    projection_plane.down.scaleAdd((f32)coords.y,
-                                                   projection_plane.right.scaleAdd((f32)coords.x,
-                                                                                   projection_plane.start)
-                    ).normalized()
-            } {}
 
     INLINE BoxSide hitCube() {
         vec3 octant, RD_rcp = 1.0f / direction;
@@ -498,43 +536,6 @@ struct Ray {
 
         return true;
     }
-
-    INLINE bool hitScene(Geometry *geometries, AABB *mesh_aabbs) {
-        static Ray local_ray;
-        static Transform xform;
-
-        bool found{false};
-        bool current_found{false};
-
-        Geometry *geo = geometries;
-
-        for (u32 i = 0; i < settings::scene::geometries; i++, geo++) {
-            xform = geo->transform;
-            if (geo->type == GeometryType_Mesh)
-                xform.scale *= mesh_aabbs[geo->id].max;
-
-            xform.internPosAndDir(origin, direction, local_ray.origin, local_ray.direction);
-
-            current_found = local_ray.hitCube();
-            if (current_found) {
-                local_ray.hit.position         = xform.internPos(local_ray.hit.position);
-                local_ray.hit.distance_squared = (local_ray.hit.position - origin).squaredLength();
-                if (local_ray.hit.distance_squared < hit.distance_squared) {
-                    hit = local_ray.hit;
-                    hit.geo_type = geo->type;
-                    hit.geo_id = i;
-                    found = true;
-                }
-            }
-        }
-
-        if (found) {
-            hit.distance = sqrtf(hit.distance_squared);
-            hit.normal = geometries[hit.geo_id].transform.externDir(hit.normal).normalized();
-        }
-
-        return found;
-    }
 };
 
 
@@ -546,7 +547,7 @@ struct Ray {
 //
 //    quat rotation;
 //
-//    void _updateRotation() {
+//    void _update() {
 //        rotation = ((roll_rotation * yaw_rotation).normalized() * pitch_rotation).normalized();
 //        matrix = mat3{rotation};
 //    }
@@ -572,7 +573,7 @@ struct Ray {
 //        pitch_rotation = quat::getRotationAroundX(angle.x);
 //        yaw_rotation   = quat::getRotationAroundY(angle.y);
 //        roll_rotation = quat::getRotationAroundZ(angle.z);
-//        _updateRotation();
+//        _update();
 //    }
 //
 //    INLINE vec3 rotate(const vec3 &pos) {
@@ -588,25 +589,25 @@ struct Ray {
 //        angle.y += yaw_radians;
 //        pitch_rotation = quat::getRotationAroundX(angle.x);
 //        yaw_rotation   = quat::getRotationAroundY(angle.y);
-//        _updateRotation();
+//        _update();
 //    }
 //
 //    INLINE void pitch(f32 radians) {
 //        angle.x += radians;
 //        pitch_rotation = quat::getRotationAroundX(angle.x);
-//        _updateRotation();
+//        _update();
 //    }
 //
 //    INLINE void yaw(f32 radians) {
 //        angle.y += radians;
 //        yaw_rotation = quat::getRotationAroundY(angle.y);
-//        _updateRotation();
+//        _update();
 //    }
 //
 //    INLINE void roll(f32 radians) {
 //        angle.z += radians;
 //        roll_rotation = quat::getRotationAroundZ(angle.z);
-//        _updateRotation();
+//        _update();
 //    }
 //};
 

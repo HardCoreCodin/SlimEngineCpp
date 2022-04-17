@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./edge.h"
+#include "../core/types.h"
 
 struct GridAxisVertices {
     vec3 from[GRID__MAX_SEGMENTS];
@@ -41,17 +41,6 @@ union GridVertices {
 
     bool update(u8 U_segments, u8 V_segments) {
         return u.update(U_segments, true) && v.update(V_segments, false);
-    }
-
-    void toViewSpace(const Viewport &viewport, const Transform &xform, u8 U_segments, u8 V_segments, GridVertices &transformed_vertices) const {
-        const Camera &cam = *viewport.camera;
-        for (u8 side = 0; side < 2; side++) {
-            for (u8 axis = 0; axis < 2; axis++) {
-                u8 segment_count = axis ? V_segments : U_segments;
-                for (u8 segment = 0; segment < segment_count; segment++)
-                    transformed_vertices.buffer[axis][side][segment] = (cam.internPos(xform.externPos(buffer[axis][side][segment])));
-            }
-        }
     }
 };
 
@@ -123,18 +112,5 @@ struct Grid {
         edges.update(vertices, U_segments, V_segments);
 
         return true;
-    }
-
-    void draw(const Viewport &viewport, const Transform &transform, const vec3 &color = Color(White), f32 opacity = 1.0f, u8 line_width = 1) const {
-        static Grid view_space_grid;
-
-        // Transform vertices positions from local-space to world-space and then to view-space:
-        vertices.toViewSpace(viewport, transform, u_segments, v_segments, view_space_grid.vertices);
-
-        // Distribute transformed vertices positions to edges:
-        view_space_grid.edges.update(view_space_grid.vertices, u_segments, v_segments);
-
-        for (u8 u = 0; u < u_segments; u++) view_space_grid.edges.u.edges[u].draw(viewport, color, opacity, line_width);
-        for (u8 v = 0; v < v_segments; v++) view_space_grid.edges.v.edges[v].draw(viewport, color, opacity, line_width);
     }
 };

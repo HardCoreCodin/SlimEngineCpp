@@ -1,0 +1,32 @@
+#pragma once
+
+#include "./edge.h"
+#include "../scene/mesh.h"
+#include "../viewport/viewport.h"
+
+
+void draw(const Mesh &mesh, const Transform &xform, bool draw_normals, const Viewport &viewport, const vec3 &color = Color(White), f32 opacity = 1.0f, u8 line_width = 1) {
+    const Camera &cam = *viewport.camera;
+    vec3 pos;
+    Edge edge;
+    EdgeVertexIndices *edge_index = mesh.edge_vertex_indices;
+    for (u32 i = 0; i < mesh.edge_count; i++, edge_index++) {
+        edge.from = cam.internPos(xform.externPos(mesh.vertex_positions[edge_index->from]));
+        edge.to   = cam.internPos(xform.externPos(mesh.vertex_positions[edge_index->to]));
+        draw(edge, viewport, color, opacity, line_width);
+    }
+
+    if (draw_normals && mesh.normals_count && mesh.vertex_normals && mesh.vertex_normal_indices) {
+        TriangleVertexIndices *normal_index = mesh.vertex_normal_indices;
+        TriangleVertexIndices *position_index = mesh.vertex_position_indices;
+        for (u32 t = 0; t < mesh.triangle_count; t++, normal_index++, position_index++) {
+            for (u8 i = 0; i < 3; i++) {
+                pos = mesh.vertex_positions[position_index->ids[i]];
+                edge.to = mesh.vertex_normals[normal_index->ids[i]] * 0.1f + pos;
+                edge.from = cam.internPos(xform.externPos(pos));
+                edge.to = cam.internPos(xform.externPos(edge.to));
+                draw(edge, viewport, Color(Red), opacity * 0.5f, line_width);
+            }
+        }
+    }
+}

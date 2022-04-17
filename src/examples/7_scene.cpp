@@ -1,68 +1,122 @@
+#include "../SlimEngineCpp/scene/selection.h"
+#include "../SlimEngineCpp/draw/grid.h"
+#include "../SlimEngineCpp/draw/hud.h"
+#include "../SlimEngineCpp/draw/mesh.h"
+#include "../SlimEngineCpp/draw/curve.h"
+#include "../SlimEngineCpp/draw/box.h"
+#include "../SlimEngineCpp/draw/selection.h"
 #include "../SlimEngineCpp/app.h"
 // Or using the single-header file:
 // #include "../SlimEngineCpp.h"
 
-struct MyApp : SlimEngine {
-    Geometry &dragon   = scene.geometries[1];
-    Geometry &suzanne1 = scene.geometries[2];
-    Geometry &suzanne2 = scene.geometries[3];
-    Geometry &grid     = scene.geometries[0];
-    Geometry &helix    = scene.geometries[4];
-    Geometry &coil     = scene.geometries[5];
-    Geometry &box      = scene.geometries[6];
+struct SceneExample : SlimEngine {
+    char string_buffers[3][100];
+    String scene_file = String::getFilePath((char*)"this.scene"    , string_buffers[0], (char*)__FILE__);
+    String mesh_files[2] = {
+            String::getFilePath((char*)"suzanne.mesh", string_buffers[1], (char*)__FILE__),
+            String::getFilePath((char*)"dog.mesh"    , string_buffers[2], (char*)__FILE__)
+    };
+    Mesh monkey_mesh, dog_mesh, *meshes = &monkey_mesh;
+    Curve helix{10}, coil{30}, *curves = &helix;
+    Grid grid{11, 11};
+    Box box{};
+    Geometry grid_geo{
+            {
+                    {0, 0, 5},
+                    {0, 45 * DEG_TO_RAD, 0},
+                    {5, 1, 5}
+            },
+            GeometryType_Grid,
+            Green
+    };
+    Geometry helix_geo{
+            {
+                    {-3, 4, 2}
+            },
+            GeometryType_Helix,
+            Cyan
+    };
+    Geometry coil_geo{
+            {
+                    {4, 4, 2}
+            },
+            GeometryType_Coil,
+            Magenta,
+            1
+    };
+    Geometry box_geo{
+            {},
+            GeometryType_Coil,
+            Yellow
+    };
+    Geometry monkey1_geo{
+            { {-10, 0, 0} },
+            GeometryType_Mesh,
+            Cyan
+    };
+    Geometry monkey2_geo{
+            { {10, 0, 0} },
+            GeometryType_Mesh,
+            Blue
+    };
+    Geometry dog_geo{
+            { {10, 5, 4} },
+            GeometryType_Mesh,
+            Magenta,
+            1
+    };
+    Geometry *geometries = &grid_geo;
 
-    MyApp() {
-        scene.grids[0] = Grid{11, 11};
-        grid.transform.scale = {5, 1, 5};
+    Camera camera{
+            {0, 7, -11},
+            {-25 * DEG_TO_RAD, 0, 0}
+    };
+    HUDLine Fps{(char*)"Fps    : "};
+    HUDLine Mfs{(char*)"Mic-s/f: "};
+    HUDLine *hud_lines = &Fps;
+    Viewport viewport{
+            window::canvas,
+            &camera,
+            {
+                    {2, 1.2f, Green, true},
+                    hud_lines
+            }
+    };
 
-        helix.type = GeometryType_Helix;
-        coil.type = GeometryType_Coil;
-        grid.type = GeometryType_Grid;
-        box.type = GeometryType_Box;
-        box.color = Yellow;
-        grid.color = Green;
-        coil.color = Magenta;
-        helix.color = Cyan;
-        helix.transform.position = {-3, 4, 2};
-        coil.transform.position = {4, 4, 2};
-        grid.transform.scale = {5, 1, 5};
-        helix.id = box.id = grid.id = 0;
-        coil.id = 1;
-        scene.curves[0].revolution_count = 10;
-        scene.curves[1].revolution_count = 30;
+    memory::MonotonicAllocator memory_allocator{Mesh::getTotalMemoryForMeshes(mesh_files, 2)};
+    Scene scene{
+            {1, 7, 1, 1, 2, 2 }, scene_file.char_ptr,
+            &camera, geometries, &grid, &box, curves,
+            meshes, mesh_files, &memory_allocator
+    };
+    Selection selection;
 
-        suzanne1.transform.position = {10, 5, 4};
-        suzanne1.color = Magenta;
-        suzanne1.type = GeometryType_Mesh;
-        suzanne1.id = 0;
-
-        suzanne2 = suzanne1;
-        suzanne2.color = Cyan;
-        suzanne2.transform.position.x = -10;
-
-        dragon = suzanne1;
-        dragon.id = 1;
-        dragon.transform.position.z = 10;
-        dragon.color = Blue;
-
-        viewport.camera->position = {0, 7, -11};
-        viewport.camera->setRotationAroundX(-25 * DEG_TO_RAD);
-        viewport.hud.settings.line_height = 1.2f;
-        viewport.hud.position = {10, 10};
-        viewport.hud.lines[0].title = (char *) "Fps    : ";
-        viewport.hud.lines[1].title = (char *) "mic-s/f: ";
+    void OnUpdate(f32 delta_time) override {
         setCountersInHUD();
+        if (!mouse::is_captured) selection.manipulate(viewport, scene);
+        if (!controls::is_pressed::alt) {
+            viewport.updateNavigation(delta_time);
+            viewport.updateProjectionMatrix();
+        }
     }
+    void OnRender() override {
+        draw(grid, grid_geo.transform,
+             viewport, Color(grid_geo.color), 0.5f, 0);
+        draw(dog_mesh, dog_geo.transform, controls::is_pressed::ctrl,
+             viewport, Color(dog_geo.color), 0.5f, 0);
+        draw(monkey_mesh, monkey1_geo.transform, controls::is_pressed::ctrl,
+             viewport, Color(monkey1_geo.color), 0.5f, 0);
+        draw(monkey_mesh, monkey2_geo.transform, controls::is_pressed::ctrl,
+             viewport, Color(monkey2_geo.color), 0.5f, 0);
 
-    void OnWindowRedraw() override {
-        if (!mouse::is_captured)
-            scene.manipulateSelection(viewport);
-        if (!controls::is_pressed::alt)
-            viewport.updateNavigation(time::update_timer.delta_time);
+        draw(grid, grid_geo.transform, viewport, Color(grid_geo.color), 0.5f, 0);
+        draw(box,  box_geo.transform, viewport, Color(box_geo.color), 0.5f, 0);
+        draw(coil, coil_geo, viewport, Color(coil_geo.color), 0.5f, 0);
+        draw(helix, helix_geo, viewport, Color(helix_geo.color), 0.5f, 0);
 
-        drawScene();
-        scene.selection.draw(viewport, scene.mesh_aabbs);
         setCountersInHUD();
+        if (controls::is_pressed::alt) draw(selection, viewport, scene);
+        if (viewport.hud.settings.show) draw(viewport.hud, viewport);
 
         f64 now = (f64) time::getTicks();
         f64 tps = (f64) time::ticks_per_second;
@@ -78,41 +132,15 @@ struct MyApp : SlimEngine {
             }
             i32 x = viewport.dimensions.width / 2 - 150;
             i32 y = 20;
-            viewport.canvas.drawText(text, x, y, color, 1);
+            drawText(text, x, y, viewport, color, 1);
         }
     }
-
-    void drawScene() {
-        Geometry *geo = scene.geometries;
-        for (u32 i = 0; i < settings::scene::geometries; i++, geo++) {
-            vec3 color{Color(geo->color)};
-            switch (geo->type) {
-                case GeometryType_Mesh:
-                    scene.meshes[geo->id].draw(
-                            viewport,geo->transform,
-                            false, color,
-                            0.5f, 0);
-                    break;
-                case GeometryType_Coil:
-                case GeometryType_Helix:
-                    scene.curves[geo->id].draw(viewport,*geo, color,0.5f,0);
-                    break;
-                case GeometryType_Box:
-                    scene.boxes[geo->id].draw(viewport,geo->transform, color,0.5f, 0);
-                    break;
-                case GeometryType_Grid:
-                    scene.grids[geo->id].draw(viewport,geo->transform, color,0.5f, 0);
-                    break;
-                default:
-                    break;
-            }
-        }
+    void OnWindowResize(u16 width, u16 height) override {
+        viewport.updateDimensions(width, height);
     }
-
     void OnMouseButtonDown(mouse::Button &mouse_button) override {
-        mouse::pos_raw_diff = {0, 0};
+        mouse::pos_raw_diff_x = mouse::pos_raw_diff_y = 0;
     }
-
     void OnMouseButtOnDoubleClicked(mouse::Button &mouse_button) override {
         if (&mouse_button == &mouse::left_button) {
             mouse::is_captured = !mouse::is_captured;
@@ -121,12 +149,6 @@ struct MyApp : SlimEngine {
             OnMouseButtonDown(mouse_button);
         }
     }
-
-    void setCountersInHUD() {
-        viewport.hud.lines[0].value = (i32)time::update_timer.average_frames_per_second;
-        viewport.hud.lines[1].value = (i32)time::update_timer.average_microseconds_per_frame;
-    }
-
     void OnKeyChanged(u8 key, bool is_pressed) override {
         NavigationMove &move = viewport.navigation.move;
         NavigationTurn &turn = viewport.navigation.turn;
@@ -138,6 +160,8 @@ struct MyApp : SlimEngine {
         if (key == 'S') move.backward = is_pressed;
         if (key == 'A') move.left     = is_pressed;
         if (key == 'D') move.right    = is_pressed;
+        if (key == 'M' && !is_pressed)
+            scene.geometries[1].id = scene.geometries[2].id = (scene.geometries[1].id + 1) % 2;
 
         if (!is_pressed && key == controls::key_map::tab)
             viewport.hud.settings.show = !viewport.hud.settings.show;
@@ -145,39 +169,17 @@ struct MyApp : SlimEngine {
         if (controls::is_pressed::ctrl &&
             !is_pressed && key == 'S' || key == 'Z') {
             scene.last_io_is_save = key == 'S';
-            char *file = settings::scene::file_path.char_ptr;
-            if (scene.last_io_is_save) scene.save(file);
-            else                       scene.load(file);
+            if (scene.last_io_is_save) scene.save(scene_file.char_ptr);
+            else                       scene.load(scene_file.char_ptr);
             scene.last_io_ticks = time::getTicks();
         }
+    }
+    void setCountersInHUD() {
+        Fps.value = (i32)time::render_timer.average_frames_per_second;
+        Mfs.value = (i32)time::render_timer.average_microseconds_per_frame;
     }
 };
 
 SlimEngine* createEngine() {
-    static String mesh_files[2];
-    static char string_buffers[3][100];
-    String &scene = settings::scene::file_path;
-    String &mesh1 = mesh_files[0];
-    String &mesh2 = mesh_files[1];
-    mesh1.char_ptr = string_buffers[0];
-    mesh2.char_ptr = string_buffers[1];
-    scene.char_ptr = string_buffers[2];
-    u32 offset = String::getDirectoryLength((char*)__FILE__);
-    scene.copyFrom((char*)__FILE__,
-                   (char*)"this.scene", offset);
-    mesh1.copyFrom((char*)__FILE__,
-                   (char*)"suzanne.mesh", offset);
-    mesh2.copyFrom((char*)__FILE__,
-                   (char*)"dog.mesh",  offset);
-    settings::scene::mesh_files = mesh_files;
-    settings::scene::meshes   = 2;
-    settings::scene::curves   = 2;
-    settings::scene::boxes    = 1;
-    settings::scene::grids      = 1;
-    settings::scene::geometries = 7;
-    settings::hud::show = true;
-    settings::hud::default_color = Green;
-    settings::hud::line_count = 2;
-
-    return (SlimEngine*)new MyApp();
+    return (SlimEngine*)new SceneExample();
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../scene/edge.h"
+#include "../core/types.h"
 
 
 struct EdgeVertexIndices {
@@ -69,32 +69,6 @@ struct Mesh {
             aabb{aabb}
          {}
 
-    void draw(const Viewport &viewport, const Transform &xform, bool draw_normals, const vec3 &color = Color(White), f32 opacity = 1.0f, u8 line_width = 1) {
-        const Camera &cam = *viewport.camera;
-        vec3 pos;
-        Edge edge;
-        EdgeVertexIndices *edge_index = edge_vertex_indices;
-        for (u32 i = 0; i < edge_count; i++, edge_index++) {
-            edge.from = cam.internPos(xform.externPos(vertex_positions[edge_index->from]));
-            edge.to   = cam.internPos(xform.externPos(vertex_positions[edge_index->to]));
-            edge.draw(viewport, color, opacity, line_width);
-        }
-
-        if (draw_normals && normals_count && vertex_normals && vertex_normal_indices) {
-            TriangleVertexIndices *normal_index = vertex_normal_indices;
-            TriangleVertexIndices *position_index = vertex_position_indices;
-            for (u32 t = 0; t < triangle_count; t++, normal_index++, position_index++) {
-                for (u8 i = 0; i < 3; i++) {
-                    pos = vertex_positions[position_index->ids[i]];
-                    edge.to = vertex_normals[normal_index->ids[i]] * 0.1f + pos;
-                    edge.from = cam.internPos(xform.externPos(pos));
-                    edge.from = cam.internPos(xform.externPos(edge.to));
-                    edge.draw(viewport, Color(Red), opacity * 0.5f, line_width);
-                }
-            }
-        }
-    }
-
     static u32 getMemorySize(char *file_path, Mesh &mesh) {
         void *file = os::openFileForReading(file_path);
 
@@ -123,7 +97,7 @@ struct Mesh {
         return memory_size;
     }
 
-    void load(char *file_path) {
+    void load(char *file_path, memory::MonotonicAllocator *memory_allocator) {
         void *file = os::openFileForReading(file_path);
 
         vertex_normals          = null;
@@ -138,22 +112,22 @@ struct Mesh {
         os::readFromFile(&uvs_count,      sizeof(u32),  file);
         os::readFromFile(&normals_count,  sizeof(u32),  file);
 
-        vertex_positions        = (vec3*                 )memory::allocate(sizeof(vec3)                  * vertex_count);
-        vertex_position_indices = (TriangleVertexIndices*)memory::allocate(sizeof(TriangleVertexIndices) * triangle_count);
-        edge_vertex_indices     = (EdgeVertexIndices*    )memory::allocate(sizeof(EdgeVertexIndices)     * edge_count);
+        vertex_positions        = (vec3*                 )memory_allocator->allocate(sizeof(vec3)                  * vertex_count);
+        vertex_position_indices = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * triangle_count);
+        edge_vertex_indices     = (EdgeVertexIndices*    )memory_allocator->allocate(sizeof(EdgeVertexIndices)     * edge_count);
 
         os::readFromFile(vertex_positions,             sizeof(vec3)                  * vertex_count,   file);
         os::readFromFile(vertex_position_indices,      sizeof(TriangleVertexIndices) * triangle_count, file);
         os::readFromFile(edge_vertex_indices,          sizeof(EdgeVertexIndices)     * edge_count,     file);
         if (uvs_count) {
-            vertex_uvs         = (vec2*                 )memory::allocate(sizeof(vec2)                  * uvs_count);
-            vertex_uvs_indices = (TriangleVertexIndices*)memory::allocate(sizeof(TriangleVertexIndices) * triangle_count);
+            vertex_uvs         = (vec2*                 )memory_allocator->allocate(sizeof(vec2)                  * uvs_count);
+            vertex_uvs_indices = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * triangle_count);
             os::readFromFile(vertex_uvs,               sizeof(vec2)                  * uvs_count,      file);
             os::readFromFile(vertex_uvs_indices,       sizeof(TriangleVertexIndices) * triangle_count, file);
         }
         if (normals_count) {
-            vertex_normals          = (vec3*                 )memory::allocate(sizeof(vec3)                  * normals_count);
-            vertex_normal_indices   = (TriangleVertexIndices*)memory::allocate(sizeof(TriangleVertexIndices) * triangle_count);
+            vertex_normals          = (vec3*                 )memory_allocator->allocate(sizeof(vec3)                  * normals_count);
+            vertex_normal_indices   = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * triangle_count);
             os::readFromFile(vertex_normals,                sizeof(vec3)                  * normals_count,  file);
             os::readFromFile(vertex_normal_indices,         sizeof(TriangleVertexIndices) * triangle_count, file);
         }
@@ -184,4 +158,104 @@ struct Mesh {
 
         os::closeFile(file);
     }
+
+    static u32 getTotalMemoryForMeshes(String *mesh_files, u32 mesh_count) {
+        u32 memory_size{0};
+        Mesh mesh;
+        for (u32 i = 0; i < mesh_count; i++) memory_size += Mesh::getMemorySize(mesh_files[i].char_ptr, mesh);
+        return memory_size;
+    }
+};
+
+struct CubeMesh : Mesh {
+    const vec3 CUBE_VERTEX_POSITIONS[CUBE_VERTEX_COUNT] = {
+            {-1, -1, -1},
+            {1, -1, -1},
+            {1, 1, -1},
+            {-1, 1, -1},
+            {-1, -1, 1},
+            {1, -1, 1},
+            {1, 1, 1},
+            {-1, 1, 1}
+    };
+
+    const TriangleVertexIndices CUBE_VERTEX_POSITION_INDICES[CUBE_TRIANGLE_COUNT] = {
+            {0, 1, 2},
+            {1, 5, 6},
+            {5, 4, 7},
+            {4, 0, 3},
+            {3, 2, 6},
+            {1, 0, 4},
+            {0, 2, 3},
+            {1, 6, 2},
+            {5, 7, 6},
+            {4, 3, 7},
+            {3, 6, 7},
+            {1, 4, 5}
+    };
+
+    const vec3 CUBE_VERTEX_NORMALS[CUBE_NORMAL_COUNT] = {
+            {0, 0, -1},
+            {1, 0, 0},
+            {0, 0, 1},
+            {-1, 0, 0},
+            {0, 1, 0},
+            {0, -1, 0}
+    };
+
+    const TriangleVertexIndices CUBE_VERTEX_NORMAL_INDICES[CUBE_TRIANGLE_COUNT] = {
+            {0, 0, 0},
+            {1, 1, 1},
+            {2, 2, 2},
+            {3, 3, 3},
+            {4, 4, 4},
+            {5, 5, 5},
+            {0, 0, 0},
+            {1, 1, 1},
+            {2, 2, 2},
+            {3, 3, 3},
+            {4, 4, 4},
+            {5, 5, 5}
+    };
+
+    const vec2 CUBE_VERTEX_UVS[CUBE_UV_COUNT] = {
+            {0.0f, 0.0f},
+            {0.0f, 1.0f},
+            {1.0f, 1.0f},
+            {1.0f, 0.0f},
+    };
+
+    const TriangleVertexIndices CUBE_VERTEX_UV_INDICES[CUBE_TRIANGLE_COUNT] = {
+            {0, 1, 2},
+            {0, 1, 2},
+            {0, 1, 2},
+            {0, 1, 2},
+            {0, 1, 2},
+            {0, 1, 2},
+            {0, 2, 3},
+            {0, 2, 3},
+            {0, 2, 3},
+            {0, 2, 3},
+            {0, 2, 3},
+            {0, 2, 3}
+    };
+
+    CubeMesh() : Mesh{
+            CUBE_TRIANGLE_COUNT,
+            CUBE_VERTEX_COUNT,
+            CUBE_NORMAL_COUNT,
+            CUBE_UV_COUNT,
+            0,
+
+            (vec3*)CUBE_VERTEX_POSITIONS,
+            (vec3*)CUBE_VERTEX_NORMALS,
+            (vec2*)CUBE_VERTEX_UVS,
+
+            (TriangleVertexIndices*)CUBE_VERTEX_POSITION_INDICES,
+            (TriangleVertexIndices*)CUBE_VERTEX_NORMAL_INDICES,
+            (TriangleVertexIndices*)CUBE_VERTEX_UV_INDICES,
+            nullptr,
+
+            {-1 , +1}
+    } {}
 };

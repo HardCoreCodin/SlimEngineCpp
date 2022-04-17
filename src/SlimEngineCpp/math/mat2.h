@@ -8,6 +8,8 @@ union mat2  {
         vec2 X, Y;
     };
 
+    static mat2 Identity;
+
     mat2() : mat2{
         vec2{1.0f, 0.0f},
         vec2{0.0f, 1.0f}
@@ -186,6 +188,7 @@ union mat2  {
         } / det();
     }
 };
+mat2 mat2::Identity = {};
 
 INLINE mat2 operator * (f32 lhs, const mat2 &rhs) {
     return rhs * lhs;

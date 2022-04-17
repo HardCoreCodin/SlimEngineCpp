@@ -282,11 +282,12 @@ int APIENTRY WinMain(HINSTANCE hInstance,
                      HINSTANCE hPrevInstance,
                      LPSTR     lpCmdLine,
                      int       nCmdShow) {
-    void* window_content_memory = GlobalAlloc(GPTR, RENDER_SIZE);
-    if (window_content_memory)
-        window::content = (u32*)window_content_memory;
-    else
+    void* window_content_and_canvas_memory = GlobalAlloc(GPTR, WINDOW_CONTENT_SIZE + CANVAS_SIZE);
+    if (!window_content_and_canvas_memory)
         return -1;
+
+    window::content = (u32*)window_content_and_canvas_memory;
+    window::canvas.pixels = (PixelQuad*)((u8*)window_content_and_canvas_memory + WINDOW_CONTENT_SIZE);
 
     controls::key_map::ctrl = VK_CONTROL;
     controls::key_map::alt = VK_MENU;
@@ -304,6 +305,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
     time::nanoseconds_per_tick  = 1000.0 * time::microseconds_per_tick;
 
     new(&time::update_timer) time::Timer;
+    new(&time::render_timer) time::Timer;
 
     CURRENT_ENGINE = createEngine();
     if (!CURRENT_ENGINE->is_running)
@@ -363,7 +365,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
             TranslateMessage(&message);
             DispatchMessageA(&message);
         }
-        CURRENT_ENGINE->update();
+        CURRENT_ENGINE->OnWindowRedraw();
         InvalidateRgn(window_handle, nullptr, false);
     }
 

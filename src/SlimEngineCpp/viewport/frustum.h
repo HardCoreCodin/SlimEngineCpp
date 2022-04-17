@@ -1,15 +1,32 @@
 #pragma once
 
-#include "../viewport/viewport.h"
+#include "../core/types.h"
 
-struct Edge {
-    vec3 from, to;
+struct Frustum {
+    mat4 projection_matrix{};
+    f32 near_clipping_plane_distance{VIEWPORT_DEFAULT__NEAR_CLIPPING_PLANE_DISTANCE};
+    f32 far_clipping_plane_distance{ VIEWPORT_DEFAULT__FAR_CLIPPING_PLANE_DISTANCE};
+    bool use_cube_NDC{false}, flip_z{false}, cull_back_faces{true};
 
-    bool cullAndClip(const Viewport &viewport, Edge &clipped_edge) const {
-        f32 distance = viewport.frustum.near_clipping_plane_distance;
+    Frustum() {
+        updateProjectionMatrix(CAMERA_DEFAULT__FOCAL_LENGTH, (f32)DEFAULT_HEIGHT / (f32)DEFAULT_WIDTH);
+    }
 
-        vec3 A{from};
-        vec3 B{to};
+    void updateProjectionMatrix(f32 focal_length, f32 height_over_width) {
+        const f32 n = near_clipping_plane_distance;
+        const f32 f = far_clipping_plane_distance;
+        const f32 d = 1.0f / (f - n);
+        projection_matrix.X = { focal_length * height_over_width, 0, 0, 0};
+        projection_matrix.Y = {0, focal_length, 0, 0};
+        projection_matrix.Z = {0, 0, (use_cube_NDC ? (f + n) : f) * d, 1.0f};
+        projection_matrix.W = {0, 0, (use_cube_NDC ? (-2 * f * n) : (-n * f)) * d, 0};
+    }
+
+    bool cullAndClipEdge(Edge &edge, f32 focal_length, f32 aspect_ratio) const {
+        f32 distance = near_clipping_plane_distance;
+
+        vec3 A{edge.from};
+        vec3 B{edge.to};
 
         u8 out = (A.z < distance) | ((B.z < distance) << 1);
         if (out) {
@@ -18,7 +35,7 @@ struct Edge {
             else         B = B.lerpTo(A, (distance - B.z) / (A.z - B.z));
         }
 
-        distance = viewport.frustum.far_clipping_plane_distance;
+        distance = far_clipping_plane_distance;
         out = (A.z > distance) | ((B.z > distance) << 1);
         if (out) {
             if (out == 3) return false;
@@ -27,7 +44,7 @@ struct Edge {
         }
 
         // Left plane (facing to the right):
-        vec3 N{viewport.camera->focal_length, 0, viewport.dimensions.width_over_height};
+        vec3 N{focal_length, 0, aspect_ratio};
         f32 NdotA = N | A;
         f32 NdotB = N | B;
 
@@ -51,7 +68,7 @@ struct Edge {
         }
 
         // Bottom plane (facing up):
-        N = {0, viewport.camera->focal_length, 1};
+        N = {0, focal_length, 1};
         NdotA = N | A;
         NdotB = N | B;
 
@@ -74,21 +91,18 @@ struct Edge {
             else         B = B.lerpTo(A, NdotB / (NdotB - NdotA));
         }
 
-        clipped_edge.from = A;
-        clipped_edge.to   = B;
+        edge.from = A;
+        edge.to   = B;
 
         return true;
     }
 
-    bool project(const Viewport &viewport, Edge &projected_edge) const {
-        if (!cullAndClip(viewport, projected_edge))
-            return false;
+    void projectEdge(Edge &edge, const Dimensions &dimensions) const {
+        vec4 A4{edge.from, 1.0f};
+        vec4 B4{edge.to  , 1.0f};
 
-        vec4 A4{from, 1.0f};
-        vec4 B4{to  , 1.0f};
-
-        A4 = viewport.frustum.projection_matrix * A4;
-        B4 = viewport.frustum.projection_matrix * B4;
+        A4 = projection_matrix * A4;
+        B4 = projection_matrix * B4;
 
         vec3 A{A4.x, A4.y, A4.z};
         vec3 B{B4.x, B4.y, B4.z};
@@ -102,30 +116,16 @@ struct Edge {
         B.x += 1;
         A.y += 1;
         B.y += 1;
-        A.x *= viewport.dimensions.h_width;
-        B.x *= viewport.dimensions.h_width;
-        A.y *= viewport.dimensions.h_height;
-        B.y *= viewport.dimensions.h_height;
+        A.x *= dimensions.h_width;
+        B.x *= dimensions.h_width;
+        A.y *= dimensions.h_height;
+        B.y *= dimensions.h_height;
 
         // Flip Y:
-        A.y = viewport.dimensions.f_height - A.y;
-        B.y = viewport.dimensions.f_height - B.y;
+        A.y = dimensions.f_height - A.y;
+        B.y = dimensions.f_height - B.y;
 
-        projected_edge.from = A;
-        projected_edge.to   = B;
-
-        return true;
-    }
-
-    void draw(const Viewport &viewport, const vec3 &color = Color(White), f32 opacity = 1.0f, u8 line_width = 1) const {
-        static Edge projected_edge;
-        if (project(viewport, projected_edge))
-            viewport.canvas.drawLine(projected_edge.from.x,
-                                     projected_edge.from.y,
-                                     projected_edge.from.z,
-                                     projected_edge.to.x,
-                                     projected_edge.to.y,
-                                     projected_edge.to.z,
-                                     color, opacity, line_width);
+        edge.from = A;
+        edge.to   = B;
     }
 };

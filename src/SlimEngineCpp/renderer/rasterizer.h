@@ -3,7 +3,6 @@
 #include "../math/vec2.h"
 #include "../math/mat4.h"
 #include "../scene/scene.h"
-#include "../scene/cube.h"
 #include "../viewport/viewport.h"
 
 

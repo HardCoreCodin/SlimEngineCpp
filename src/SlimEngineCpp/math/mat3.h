@@ -3,10 +3,16 @@
 #include "./quat.h"
 
 union mat3 {
+    f32 components[9];
     vec3 axis[3];
     struct {
         vec3 X, Y, Z;
     };
+    struct {
+        vec3 right, up, forward;
+    };
+
+    static mat3 Identity;
 
     mat3() noexcept : X{1.0f, 0.0f, 0.0f},
              Y{0.0f, 1.0f, 0.0f},
@@ -22,33 +28,39 @@ union mat3 {
     mat3(const mat3 &other) noexcept : mat3{other.X, other.Y, other.Z} {}
     explicit mat3(const quat &q) noexcept { q.setXYZ(X, Y, Z); }
 
-    INLINE void setRotationAroundX(f32 angle) {
-        Z.z = Y.y = cos(angle);
-        Y.z = Z.y = sin(angle);
-        Y.z = -Y.z;
-        X.z = X.y = Y.x = Z.x = 0;
-        X.x = 1;
+    static INLINE mat3 RotationAroundX(f32 radians) {
+        f32 c = cos(radians);
+        f32 s = sin(radians);
+        return {
+                {1, 0, 0},
+                {0, c, -s},
+                {0, s, c}
+        };
     }
 
-    INLINE void setRotationAroundY(f32 angle) {
-        X.x = Z.z = cos(angle);
-        Z.x = X.z = sin(angle);
-        Z.x = -Z.x;
-        Y.x = Y.z = X.y = Z.y = 0;
-        Y.y = 1;
+    static INLINE mat3 RotationAroundY(f32 radians) {
+        f32 c = cos(radians);
+        f32 s = sin(radians);
+        return {
+                {c, 0, s},
+                {0, 1, 0},
+                {-s, 0, c}
+        };
     }
 
-    INLINE void setRotationAroundZ(f32 angle) {
-        X.x = Y.y = cos(angle);
-        Y.x = X.y = sin(angle);
-        X.y = -X.y;
-        X.z = Y.z = Z.x = Z.y = 0;
-        Z.z = 1;
+    static INLINE mat3 RotationAroundZ(f32 radians) {
+        f32 c = cos(radians);
+        f32 s = sin(radians);
+        return {
+                {c, -s, 0},
+                {s, c, 0},
+                {0, 0, 1}
+        };
     }
 
-    INLINE void rotateAroundX(f32 angle) {
-        f32 c = cos(angle);
-        f32 s = sin(angle);
+    INLINE void rotateAroundX(f32 radians) {
+        f32 c = cos(radians);
+        f32 s = sin(radians);
         mat3 lhs = *this;
         X.y = c*lhs.X.y + s*lhs.X.z; // Row 1 | Column 1
         Y.y = c*lhs.Y.y + s*lhs.Y.z; // Row 2 | Column 1
@@ -59,9 +71,9 @@ union mat3 {
         Z.z = c*lhs.Z.z - s*lhs.Z.y; // Row 3 | Column 2
     }
 
-    INLINE void rotateAroundY(f32 angle) {
-        f32 c = cos(angle);
-        f32 s = sin(angle);
+    INLINE void rotateAroundY(f32 radians) {
+        f32 c = cos(radians);
+        f32 s = sin(radians);
         mat3 lhs = *this;
         X.x = c*lhs.X.x - s*lhs.X.z; // Row 1 | Column 1
         Y.x = c*lhs.Y.x - s*lhs.Y.z; // Row 2 | Column 1
@@ -72,9 +84,9 @@ union mat3 {
         Z.z = c*lhs.Z.z + s*lhs.Z.x; // Row 3 | Column 2
     }
 
-    INLINE void rotateAroundZ(f32 angle) {
-        f32 c = cos(angle);
-        f32 s = sin(angle);
+    INLINE void rotateAroundZ(f32 radians) {
+        f32 c = cos(radians);
+        f32 s = sin(radians);
         mat3 lhs = *this;
         X.x = c*lhs.X.x + s*lhs.X.y; // Row 1 | Column 1
         Y.x = c*lhs.Y.x + s*lhs.Y.y; // Row 2 | Column 1
@@ -85,21 +97,21 @@ union mat3 {
         Z.y = c*lhs.Z.y - s*lhs.Z.x; // Row 3 | Column 2
     }
 
-    INLINE mat3 rotatedAroundXby(f32 angle) const {
+    INLINE mat3 rotatedAroundXby(f32 radians) const {
         mat3 out{*this};
-        out.rotateAroundX(angle);
+        out.rotateAroundX(radians);
         return out;
     }
 
-    INLINE mat3 rotatedAroundYby(f32 angle) const {
+    INLINE mat3 rotatedAroundYby(f32 radians) const {
         mat3 out{*this};
-        out.rotateAroundY(angle);
+        out.rotateAroundY(radians);
         return out;
     }
 
-    INLINE mat3 rotatedAroundZby(f32 angle) const {
+    INLINE mat3 rotatedAroundZby(f32 radians) const {
         mat3 out{*this};
-        out.rotateAroundZ(angle);
+        out.rotateAroundZ(radians);
         return out;
     }
 
@@ -338,6 +350,7 @@ union mat3 {
         X.z *= factor; Y.z *= factor; Z.z *= factor;
     }
 };
+mat3 mat3::Identity = {};
 
 INLINE mat3 operator * (f32 lhs, const mat3 &rhs) {
     return rhs * lhs;

@@ -1,78 +1,71 @@
+#include "../SlimEngineCpp/scene/grid.h"
+#include "../SlimEngineCpp/draw/grid.h"
+#include "../SlimEngineCpp/draw/hud.h"
 #include "../SlimEngineCpp/app.h"
 // Or using the single-header file:
 // #include "../SlimEngineCpp.h"
 
-enum HUDLineIndex { Fps, Mfs, Width, Height, MouseX, MouseY };
-struct MyApp : SlimEngine {
-    void OnWindowResize(u16 width, u16 height) override {
-        setDimensionsInHUD(width, height);
-    }
-    void OnMouseMovementSet(i32 x, i32 y) override {
+struct ViewportExample : SlimEngine {
+    HUDLine Fps{(char*)"Fps    : "};
+    HUDLine Mfs{(char*)"Mic-s/f: "};
+    HUDLine Width{(char*)"Width  : "};
+    HUDLine Height{(char*)"Height : "};
+    HUDLine MouseX{(char*)"Mouse X: "};
+    HUDLine MouseY{(char*)"Mouse X: "};
+
+    Grid grid{11, 11};
+    Transform grid_transform{
+        {0, 0, 5},
+        {0, 45 * DEG_TO_RAD, 0},
+        {5, 1, 5}
+    };
+    Camera camera{
+        {0, 7, -11},
+        {-25 * DEG_TO_RAD, 0, 0}
+    };
+    Viewport viewport{
+        window::canvas,
+        &camera,
+        {
+        {6, 1.2f, Green, true},
+            &Fps
+        }
+    };
+
+    ViewportExample() {
+        updateDimensions(viewport.dimensions.width, viewport.dimensions.height);
+        setCountersInHUD();
         setMouseInHUD();
     }
+
+    void OnRender() override {
+        draw(grid, grid_transform, viewport, Color(White), 0.5f, 0);
+        setCountersInHUD();
+        if (viewport.hud.settings.show)
+            draw(viewport.hud, viewport);
+    }
+    void OnWindowResize(u16 width, u16 height) override { updateDimensions(width, height); }
+    void OnMouseMovementSet(i32 x, i32 y) override { setMouseInHUD(); }
     void OnKeyChanged (u8 key, bool is_pressed) override {
         if (!is_pressed && key == controls::key_map::tab)
             viewport.hud.settings.show = !viewport.hud.settings.show;
     }
-    void setDimensionsInHUD(i32 width, i32 height) {
-        viewport.hud.lines[Width ].value = width;
-        viewport.hud.lines[Height].value = height;
+
+    void updateDimensions(u16 width, u16 height) {
+        viewport.updateDimensions(width, height);
+        Width.value = (i32)width;
+        Height.value = (i32)height;
     }
     void setMouseInHUD() {
-        viewport.hud.lines[MouseX].value = mouse::pos.x;
-        viewport.hud.lines[MouseY].value = mouse::pos.y;
+        MouseX.value = mouse::pos_x;
+        MouseY.value = mouse::pos_y;
     }
     void setCountersInHUD() {
-        u16 fps = time::update_timer.average_frames_per_second;
-        u16 msf = time::update_timer.average_microseconds_per_frame;
-        viewport.hud.lines[Fps].value = (i32)fps;
-        viewport.hud.lines[Mfs].value = (i32)msf;
-    }
-
-
-    void OnWindowRedraw() override {
-        scene.grids->draw(
-                viewport,
-                scene.geometries->transform,
-                Color(scene.geometries->color),
-                0.5f, 0);
-        setCountersInHUD();
-    }
-
-    void setupViewport() {
-        viewport.hud.position = {10, 10};
-        viewport.hud.lines[Fps   ].title = (char*)"Fps    : ";
-        viewport.hud.lines[Mfs   ].title = (char*)"mic-s/f: ";
-        viewport.hud.lines[Width ].title = (char*)"Width  : ";
-        viewport.hud.lines[Height].title = (char*)"Height : ";
-        viewport.hud.lines[MouseX].title = (char*)"mouse X: ";
-        viewport.hud.lines[MouseY].title = (char*)"mouse Y: ";
-        viewport.camera->position = {0, 7, -11};
-        viewport.camera->setRotationAroundX(-25 * DEG_TO_RAD);
-
-        setDimensionsInHUD(viewport.dimensions.width,
-                           viewport.dimensions.height);
-        setCountersInHUD();
-        setMouseInHUD();
-    }
-
-    MyApp() {
-        scene.grids[0] = Grid{11, 11};
-        Geometry &grid = scene.geometries[0];
-        grid.type = GeometryType_Grid;
-        grid.transform.scale = {5, 1, 5};
-        grid.transform.position.z = 5;
-        grid.transform.setRotationAroundY(45 * DEG_TO_RAD);
-        setupViewport();
+        Fps.value = (i32)time::render_timer.average_frames_per_second;
+        Mfs.value = (i32)time::render_timer.average_microseconds_per_frame;
     }
 };
 
 SlimEngine* createEngine() {
-    settings::hud::show = true;
-    settings::hud::default_color = Green;
-    settings::hud::line_count = 6;
-    settings::hud::line_height = 1.2f;
-    settings::scene::grids      = 1;
-    settings::scene::geometries = 1;
-    return (SlimEngine*)new MyApp();
+    return (SlimEngine*)new ViewportExample();
 }

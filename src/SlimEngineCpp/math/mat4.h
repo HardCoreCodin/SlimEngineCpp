@@ -9,6 +9,8 @@ union mat4 {
         vec4 X, Y, Z, W;
     };
 
+    static mat4 Identity;
+
     mat4() noexcept :
         X{1, 0, 0, 0},
         Y{0, 1, 0, 0},
@@ -325,6 +327,7 @@ union mat4 {
         X.w *= factor; Y.w *= factor; Z.w *= factor; W.w *= factor;
     }
 };
+mat4 mat4::Identity = {};
 
 INLINE mat4 operator * (f32 lhs, const mat4 &rhs) {
     return rhs * lhs;

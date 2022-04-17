@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./scene/scene.h"
+#include "./viewport/canvas.h"
 //#include "./renderer/mesh_shaders.h"
 
 
@@ -9,6 +9,7 @@ namespace window {
     u16 height{DEFAULT_HEIGHT};
     char* title{(char*)""};
     u32 *content{nullptr};
+    Canvas canvas{nullptr};
 
     union RGBA2u32 {
         u32 value;
@@ -17,7 +18,7 @@ namespace window {
         RGBA2u32() : value{0} {}
     };
 
-    void display(const Canvas &canvas) {
+    void display() {
         PixelQuad *src_pixel = canvas.pixels;
         u32 *trg_value = content;
         vec3 color;
@@ -65,55 +66,71 @@ namespace window {
 }
 
 
-struct MemoryInitializer {
-    MemoryInitializer() {
-        u64 memory_size = sizeof(Selection) + settings::memory::extra;
-        memory_size += settings::scene::geometries * sizeof(Geometry);
-//        memory_size += settings::scene::textures   * sizeof(Texture);
-        memory_size += settings::scene::meshes     * sizeof(Mesh);
-        memory_size += settings::scene::curves     * sizeof(Curve);
-        memory_size += settings::scene::boxes      * sizeof(Box);
-        memory_size += settings::scene::grids      * sizeof(Grid);
-        memory_size += settings::scene::cameras    * sizeof(Camera);
-//        memory_size += settings::scene::materials  * sizeof(Material);
-//        memory_size += settings::scene::lights     * sizeof(Light);
-        memory_size += settings::hud::line_count   * sizeof(HUDLine);
+//struct MemoryInitializer {
+//    MemoryInitializer() {
+//        u64 memory_size = settings::memory::extra;
+//        memory_size += settings::scene::geometries * sizeof(Geometry);
+//        memory_size += settings::scene::curves     * sizeof(Curve);
+//        memory_size += settings::scene::grids      * sizeof(Grid);
+//        memory_size += settings::scene::cameras    * sizeof(Camera);
+//        memory_size += settings::hud::line_count   * sizeof(HUDLine);
+//        memory_size += FRAME_BUFFER_MEMORY_SIZE;
 
-//        if (settings::scene::textures && settings::scene::texture_files) {
-//            for (u32 i = 0; i < settings::scene::textures; i++)
-//                memory_size += Texture::getMemorySize(settings::scene::texture_files[i].char_ptr);
+//        memory::capacity = memory_size;
+//        memory::address = (u8*)os::getMemory(memory_size);
+//        memory::initialized = bool(memory::address);
+//    }
+
+//    MemoryInitializer() {
+//        u64 memory_size = sizeof(Selection) + settings::memory::extra;
+//        memory_size += settings::scene::geometries * sizeof(Geometry);
+////        memory_size += settings::scene::textures   * sizeof(Texture);
+//        memory_size += settings::scene::meshes     * sizeof(Mesh);
+//        memory_size += settings::scene::curves     * sizeof(Curve);
+//        memory_size += settings::scene::boxes      * sizeof(Box);
+//        memory_size += settings::scene::grids      * sizeof(Grid);
+//        memory_size += settings::scene::cameras    * sizeof(Camera);
+////        memory_size += settings::scene::materials  * sizeof(Material);
+////        memory_size += settings::scene::lights     * sizeof(Light);
+//        memory_size += settings::hud::line_count   * sizeof(HUDLine);
+//
+////        if (settings::scene::textures && settings::scene::texture_files) {
+////            for (u32 i = 0; i < settings::scene::textures; i++)
+////                memory_size += Texture::getMemorySize(settings::scene::texture_files[i].char_ptr);
+////        }
+//
+//        if (settings::scene::meshes && settings::scene::mesh_files) {
+//            Mesh mesh;
+//            for (u32 i = 0; i < settings::scene::meshes; i++) {
+//                memory_size += Mesh::getMemorySize(settings::scene::mesh_files[i].char_ptr, mesh) + sizeof(AABB);
+////                if (mesh.triangle_count > settings::scene::max_triangle_count) settings::scene::max_triangle_count = mesh.triangle_count;
+////                if (mesh.vertex_count > settings::scene::max_vertex_count) settings::scene::max_vertex_count = mesh.vertex_count;
+////                if (mesh.normals_count > settings::scene::max_normal_count) settings::scene::max_normal_count = mesh.normals_count;
+//            }
 //        }
-
-        if (settings::scene::meshes && settings::scene::mesh_files) {
-            Mesh mesh;
-            for (u32 i = 0; i < settings::scene::meshes; i++) {
-                memory_size += Mesh::getMemorySize(settings::scene::mesh_files[i].char_ptr, mesh) + sizeof(AABB);
-//                if (mesh.triangle_count > settings::scene::max_triangle_count) settings::scene::max_triangle_count = mesh.triangle_count;
-//                if (mesh.vertex_count > settings::scene::max_vertex_count) settings::scene::max_vertex_count = mesh.vertex_count;
-//                if (mesh.normals_count > settings::scene::max_normal_count) settings::scene::max_normal_count = mesh.normals_count;
-            }
-        }
-
-//        memory_size += settings::scene::max_vertex_count * (sizeof(vec3) + sizeof(vec4) + 1);
-//        memory_size += settings::scene::max_normal_count * sizeof(vec3);
-        memory_size += FRAME_BUFFER_MEMORY_SIZE;
-
-        memory::capacity = memory_size;
-        memory::address = (u8*)os::getMemory(memory_size);
-        memory::initialized = bool(memory::address);
-    }
-};
+//
+////        memory_size += settings::scene::max_vertex_count * (sizeof(vec3) + sizeof(vec4) + 1);
+////        memory_size += settings::scene::max_normal_count * sizeof(vec3);
+//        memory_size += FRAME_BUFFER_MEMORY_SIZE;
+//
+//        memory::capacity = memory_size;
+//        memory::address = (u8*)os::getMemory(memory_size);
+//        memory::initialized = bool(memory::address);
+//    }
+//};
 
 
 struct SlimEngine {
-    MemoryInitializer _memory_initializer;
-    Scene scene;
-    Viewport viewport{scene.cameras};
+//    memory::MonotonicAllocator memory_allocator;
+
+//    MemoryInitializer _memory_initializer;
+//    Canvas canvas;
+//    Scene scene;
+//    Viewport viewport{scene.cameras};
 //    Rasterizer rasterizer{scene};
 
     bool is_running{true};
 
-    virtual void OnWindowRedraw() {};
     virtual void OnWindowResize(u16 width, u16 height) {};
     virtual void OnKeyChanged(  u8 key, bool pressed) {};
     virtual void OnMouseButtonUp(  mouse::Button &mouse_button) {};
@@ -123,43 +140,28 @@ struct SlimEngine {
     virtual void OnMousePositionSet(i32 x, i32 y) {};
     virtual void OnMouseMovementSet(i32 x, i32 y) {};
     virtual void OnMouseRawMovementSet(i32 x, i32 y) {};
+    virtual void OnRender() {};
+    virtual void OnUpdate(f32 delta_time) {};
+    virtual void OnWindowRedraw() {
+        time::update_timer.beginFrame();
+        OnUpdate(time::update_timer.delta_time);
+        time::update_timer.endFrame();
 
-    void* allocateMemory(u64 size) {
-        void *new_memory = memory::allocate(size);
-        if (new_memory) return new_memory;
-
-        is_running = false;
-
-        return nullptr;
-    }
+        window::canvas.clear();
+        time::render_timer.beginFrame();
+        OnRender();
+        time::render_timer.endFrame();
+        window::display();
+        mouse::resetChanges();
+    };
 
     void resize(u16 width, u16 height) {
         window::width = width;
         window::height = height;
-        viewport.canvas.dimensions.update(width, height, width);
-        viewport.updateProjectionMatrix();
-        viewport.updateProjectionPlane();
+        window::canvas.dimensions.update(width, height);
 
         OnWindowResize(width, height);
-
-        update();
-    }
-
-    void update() {
-        Canvas &canvas = viewport.canvas;
-        HUD &hud = viewport.hud;
-
-        canvas.clear();
-
-        time::update_timer.beginFrame();
         OnWindowRedraw();
-        time::update_timer.endFrame();
-
-        if (hud.settings.show)
-            hud.draw(canvas);
-
-        window::display(canvas);
-        mouse::resetChanges();
     }
 };
 
