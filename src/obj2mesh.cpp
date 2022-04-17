@@ -32,10 +32,8 @@ enum VertexAttributes {
     VertexAttributes_PositionsUVsAndNormals
 };
 
-int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_order) {
+int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_order = false, f32 scale = 1, float rotY = 0) {
     Mesh mesh;
-    mesh.aabb.min.x = mesh.aabb.min.y = mesh.aabb.min.z = 0;
-    mesh.aabb.max.x = mesh.aabb.max.y = mesh.aabb.max.z = 0;
     mesh.triangle_count = 0;
     mesh.normals_count = 0;
     mesh.vertex_count = 0;
@@ -47,6 +45,7 @@ int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_orde
     mesh.vertex_uvs_indices      = null;
 
     FILE* file;
+
     file = fopen(obj_file_path, "r");
     char line[1024];
 
@@ -165,51 +164,6 @@ int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_orde
     }
     fclose(file);
 
-    // Dog/Monkey >
-    mat3 rot45{};
-    rot45.X.x = 0.70710678118f;
-    rot45.X.z = 0.70710678118f;
-    rot45.Z.x = -0.70710678118f;
-    rot45.Z.z = 0.70710678118f;
-    mat3 rot90 = rot45 * rot45;
-    mat3 rot = rot45 * rot90; // Dog
-//    mat3 rot = rot90; // Monkey
-
-    vertex_position = mesh.vertex_normals;
-    for (u32 i = 0; i < mesh.normals_count; i++, vertex_position++)
-        *vertex_position = rot * *vertex_position;
-    // Dog/Monkey <
-
-    vertex_position = mesh.vertex_positions;
-    for (u32 i = 0; i < mesh.vertex_count; i++, vertex_position++) {
-        *vertex_position = rot * *vertex_position; // Dog/Monkey
-        mesh.aabb.min.x = mesh.aabb.min.x < vertex_position->x ? mesh.aabb.min.x : vertex_position->x;
-        mesh.aabb.min.y = mesh.aabb.min.y < vertex_position->y ? mesh.aabb.min.y : vertex_position->y;
-        mesh.aabb.min.z = mesh.aabb.min.z < vertex_position->z ? mesh.aabb.min.z : vertex_position->z;
-        mesh.aabb.max.x = mesh.aabb.max.x > vertex_position->x ? mesh.aabb.max.x : vertex_position->x;
-        mesh.aabb.max.y = mesh.aabb.max.y > vertex_position->y ? mesh.aabb.max.y : vertex_position->y;
-        mesh.aabb.max.z = mesh.aabb.max.z > vertex_position->z ? mesh.aabb.max.z : vertex_position->z;
-    }
-
-    vec3 centroid = mesh.aabb.min + mesh.aabb.max / 2.0f;
-    if (centroid.nonZero()) {
-        mesh.aabb.min -= centroid;
-        mesh.aabb.max -= centroid;
-        vertex_position = mesh.vertex_positions;
-        for (u32 i = 0; i < mesh.vertex_count; i++, vertex_position++)
-            *vertex_position -= centroid;
-    }
-
-    // Dog/Monkey >
-    f32 scale = 0.1f; // dog
-//    f32 scale = 4.0f; // monkey
-    vertex_position = mesh.vertex_positions;
-    for (u32 i = 0; i < mesh.vertex_count; i++, vertex_position++)
-        *vertex_position *= scale;
-    mesh.aabb.min *= scale;
-    mesh.aabb.max *= scale;
-    // Dog/Monkey <
-
     EdgeVertexIndices current_edge_vertex_indices, *edge_vertex_indices;
     vertex_position_indices = mesh.vertex_position_indices;
     for (u32 i = 0; i < mesh.triangle_count; i++, vertex_position_indices++) {
@@ -238,6 +192,40 @@ int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_orde
             }
         }
     }
+
+    mat3 rot;
+    if (rotY) {
+        rot = mat3::RotationAroundY(rotY *  DEG_TO_RAD);
+        vertex_normal = mesh.vertex_normals;
+        for (u32 i = 0; i < mesh.normals_count; i++, vertex_normal++)
+            *vertex_normal = rot * *vertex_normal;
+    }
+
+    vertex_position = mesh.vertex_positions;
+    for (u32 i = 0; i < mesh.vertex_count; i++, vertex_position++) {
+        if (rotY) *vertex_position = rot * *vertex_position;
+        mesh.aabb.min.x = mesh.aabb.min.x < vertex_position->x ? mesh.aabb.min.x : vertex_position->x;
+        mesh.aabb.min.y = mesh.aabb.min.y < vertex_position->y ? mesh.aabb.min.y : vertex_position->y;
+        mesh.aabb.min.z = mesh.aabb.min.z < vertex_position->z ? mesh.aabb.min.z : vertex_position->z;
+        mesh.aabb.max.x = mesh.aabb.max.x > vertex_position->x ? mesh.aabb.max.x : vertex_position->x;
+        mesh.aabb.max.y = mesh.aabb.max.y > vertex_position->y ? mesh.aabb.max.y : vertex_position->y;
+        mesh.aabb.max.z = mesh.aabb.max.z > vertex_position->z ? mesh.aabb.max.z : vertex_position->z;
+    }
+
+    vec3 centroid = (mesh.aabb.min + mesh.aabb.max) / 2.0f;
+    if (centroid.nonZero()) {
+        mesh.aabb.min -= centroid;
+        mesh.aabb.max -= centroid;
+        vertex_position = mesh.vertex_positions;
+        for (u32 i = 0; i < mesh.vertex_count; i++, vertex_position++)
+            *vertex_position -= centroid;
+    }
+
+    vertex_position = mesh.vertex_positions;
+    for (u32 i = 0; i < mesh.vertex_count; i++, vertex_position++)
+        *vertex_position *= scale;
+    mesh.aabb.min *= scale;
+    mesh.aabb.max *= scale;
 
     file = fopen(mesh_file_path, (char*)"wb");
 
@@ -268,15 +256,48 @@ int main(int argc, char *argv[]) {
     if (argc == 2 && !strcmp(argv[1], (char*)"--help")) {
         printf((char*)("Exactly 2 file paths need to be provided: "
                        "An '.obj' file (input) then a '.mesh' file (output), "
-                       "and an optional flag '-invert_winding_order' for inverting winding order"));
+                       "an optional flag '-invert_winding_order' for inverting winding order"
+                       "an optional flag 'scale:<float>' for scaling the mesh,"
+                       "an optional flag 'rotY:<float> for rotating the mesh around Y"
+                       ));
         return 0;
     } else if (argc == 3 || // 2 arguments
-               argc == 4    // 3 arguments
+               argc == 4 || // 3 arguments
+               argc == 5 || // 4 arguments
+               argc == 6    // 5 arguments
             ) {
         char *obj_file_path = argv[1];
         char *mesh_file_path = argv[2];
-        bool invert_winding_order = argc == 4 ? !strcmp(argv[3], (char*)"-invert_winding_order") : false;
-        return obj2mesh(obj_file_path, mesh_file_path, invert_winding_order);
+        if (argc == 3) return obj2mesh(obj_file_path, mesh_file_path);
+
+        bool invert_winding_order = false;
+        float scale{1}, rotY{0};
+        for (u32 i = 3; i < (u32)argc; i++) {
+            char *arg = argv[i];
+            if (strcmp(arg, (char *) "-invert_winding_order") == 0)
+                invert_winding_order = true;
+            else {
+                char *scale_arg_prefix = (char *) "scale:";
+                bool is_scale_arg = true;
+                for (u32 c = 0; c < 6; c++)
+                    if (arg[c] != scale_arg_prefix[c]) {
+                        is_scale_arg = false;
+                        break;
+                    }
+                if (is_scale_arg) scale = (f32)atof(arg + 6);
+                else {
+                    char *rotY_arg_prefix = (char *) "rotY:";
+                    bool is_rotY_arg = true;
+                    for (u32 c = 0; c < 5; c++)
+                        if (arg[c] != rotY_arg_prefix[c]) {
+                            is_rotY_arg = false;
+                            break;
+                        }
+                    if (is_rotY_arg) rotY = (f32)atof(arg + 5);
+                }
+            }
+        }
+        return obj2mesh(obj_file_path, mesh_file_path, invert_winding_order, scale, rotY);
     }
 
     printf((char*)("Exactly 2 file paths need to be provided: "
