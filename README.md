@@ -62,8 +62,8 @@ Well documented example applications cover the features:<br>
   Customizing the scene/viewport can be done in callbacks that get invoked when they're ready.<br>
   The HUD is fully customizable, and can hold any number of lines set at viewport-initialization time.<br>
   <p>
-    <img src="src/examples/1_viewport_initialization_c.png" width="370">
     <img src="src/examples/1_viewport_setup_c.png" width="480">  
+    <img src="src/examples/1_viewport_initialization_c.png" width="370">
     <img src="src/examples/1_viewport_HUD_update_c.png" width="470">
     <img src="src/examples/1_viewport_updateAndRender_c.png" width="550">
   </p>
@@ -85,8 +85,8 @@ Well documented example applications cover the features:<br>
   The scene can have any number of cameras which can be bound to any viewport dynamically.<br>
   The camera can be drawn as part of the drawing of the scene<br>
   <p>
-    <img src="src/examples/3_cameras_update_c.png" width="550">
     <img src="src/examples/3_cameras_setup_c.png" width="520">
+    <img src="src/examples/3_cameras_update_c.png" width="550">
   </p>
 
 * <b><u>Shapes</b>:</u> Setup and drawing parametric geometries (Grid, Box, Curves, etc.)<br>
@@ -94,8 +94,8 @@ Well documented example applications cover the features:<br>
   SlimEngine++ allocates and initializes the scene based on quantities set at app-initialization time.<br>
   Wireframe drawing of the scene to the viewport can be set-up to occur on window-redraw.<br>  
   <p>
-    <img src="src/examples/4_shapes_update_c.png" width="620">
     <img src="src/examples/4_shapes_setup_c.png" width="460">
+    <img src="src/examples/4_shapes_update_c.png" width="620">
     <img src="src/examples/4_shapes_drawing_c.png" width="840">
   </p>
 
@@ -125,8 +125,8 @@ Well documented example applications cover the features:<br>
   <img src="src/examples/7_scene.gif" alt="7_scene" height="360"><br>
   Scenes can be saved to a file and later loaded back in-place.
   <p>
-    <img src="src/examples/7_scene_message_c.png" width="520">
     <img src="src/examples/7_scene_setup_c.png" width="980">
+    <img src="src/examples/7_scene_message_c.png" width="520">
   </p>
 
 * <b><u>obj2mesh</b>:</u> Also privided is a separate CLI tool for converting `.obj` files to `.mesh` files.<br>
