@@ -20,12 +20,6 @@ struct HUDLine {
             alternate_value_color{default_color},
             title{title_char_ptr}
     {}
-
-//    HUDLine(char* title_char_ptr, char* title_char_ptr, enum ColorID default_color = White) :
-//            title_color{default_color},
-//            value_color{default_color},
-//            alternate_value_color{default_color}
-//    {}
 };
 
 struct HUDSettings {

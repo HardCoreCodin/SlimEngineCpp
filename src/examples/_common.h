@@ -1,7 +1,9 @@
 #pragma once
 
+#ifndef SLIM_ENGINE_SHF
 #include "../SlimEngineCpp/draw/text.h"
 #include "../SlimEngineCpp/draw/rectangle.h"
+#endif
 // Or using the single-header file:
 // #include "../SlimEngineCpp.h"
 
