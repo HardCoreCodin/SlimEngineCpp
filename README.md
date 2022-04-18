@@ -130,15 +130,11 @@ Well documented example applications cover the features:<br>
   </p>
 
 * <b><u>obj2mesh</b>:</u> Also privided is a separate CLI tool for converting `.obj` files to `.mesh` files.<br>
-  Usage: `./obj2mesh src.obj trg.mesh`<br>
+  Usage: `./obj2mesh src.obj trg.mesh [-invert_winding_order] [scale:<float>] [rotY:<float>]`<br>
   - invert_winding_order : Reverses the vertex ordering (for objs exported with clockwise order)<br>
-
-* <b><u>bmp2texture</b>:</u> Also provided is a separate CLI tool for converting `.bmp` files to `.texture` files.<br>
-  Usage: `./bmp2texture src.bmp trg.texture`<br>
-  - m : Generate mip-maps<br>
-  - w : Wrap-around<br>
-  - f : Filter<br>
-
+  - scale:\<float\>: Apply an embedded scaling<br>
+  - rotY:\<float\>: Apply an embedded rotation around the Y axis<br>
+  
 <b>SlimEngine++</b> does not come with any GUI functionality at this point.<br>
 Some example apps have an optional HUD (heads up display) that shows additional information.<br>
 It can be toggled on or off using the`tab` key.<br>
