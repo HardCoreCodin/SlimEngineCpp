@@ -229,12 +229,13 @@ int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_orde
 
     file = fopen(mesh_file_path, (char*)"wb");
 
-    fwrite(&mesh.aabb,           sizeof(AABB), 1, file);
     fwrite(&mesh.vertex_count,   sizeof(u32),  1, file);
     fwrite(&mesh.triangle_count, sizeof(u32),  1, file);
     fwrite(&mesh.edge_count,     sizeof(u32),  1, file);
     fwrite(&mesh.uvs_count,      sizeof(u32),  1, file);
     fwrite(&mesh.normals_count,  sizeof(u32),  1, file);
+    fwrite(&mesh.aabb.min,       sizeof(vec3), 1, file);
+    fwrite(&mesh.aabb.max,       sizeof(vec3), 1, file);
     fwrite( mesh.vertex_positions,        sizeof(vec3)                 , mesh.vertex_count,   file);
     fwrite( mesh.vertex_position_indices, sizeof(TriangleVertexIndices), mesh.triangle_count, file);
     fwrite( mesh.edge_vertex_indices,     sizeof(EdgeVertexIndices)    , mesh.edge_count,     file);

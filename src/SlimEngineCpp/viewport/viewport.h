@@ -7,16 +7,17 @@
 
 struct Viewport {
     Canvas &canvas;
-    HUD hud{};
+    HUD hud;
     Dimensions dimensions;
     vec2i position{0, 0};
     Navigation navigation;
     Frustum frustum;
     Camera *camera{nullptr};
 
-    Viewport(Canvas &canvas, Camera *cam, HUD hud = {}) : canvas{canvas}, hud{hud} {
+    Viewport(Canvas &canvas, Camera *camera, HUDSettings hud_settings = {}, HUDLine *hud_lines = nullptr) :
+            canvas{canvas}, hud{hud_settings, hud_lines} {
         dimensions = canvas.dimensions;
-        setCamera(*cam);
+        setCamera(*camera);
     }
 
     void setCamera(Camera &cam) {
@@ -36,18 +37,16 @@ struct Viewport {
 
     void updateNavigation(f32 delta_time) {
         navigation.update(*camera, delta_time);
+        updateProjectionMatrix();
     }
 
     INLINE Ray getRayAt(const vec2i &coords) const {
-        vec3 &up = camera->rotation.up;
-        vec3 &right = camera->rotation.right;
-        vec3 &forward = camera->rotation.forward;
-        vec3 start = up * (dimensions.h_height - 0.5f)
-                + forward * (dimensions.h_height * camera->focal_length)
-                + right * (0.5f - dimensions.h_width);
+        vec3 start = camera->rotation.up * (dimensions.h_height - 0.5f) +
+                camera->rotation.forward * (dimensions.h_height * camera->focal_length) +
+                camera->rotation.right * (0.5f - dimensions.h_width);
         return {
-                camera->position,
-                up.scaleAdd(-((f32)coords.y), right.scaleAdd((f32)coords.x, start)).normalized()
+            camera->position,
+            camera->rotation.up.scaleAdd(-((f32)coords.y),camera->rotation.right.scaleAdd((f32)coords.x, start)).normalized()
         };
     }
 

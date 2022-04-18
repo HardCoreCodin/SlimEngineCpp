@@ -256,7 +256,6 @@ union vec2 {
     struct {f32 components[2]; };
     struct {f32 x, y; };
     struct {f32 u, v; };
-    struct {f32 r, g, b; };
 
     vec2() : vec2{0} {}
     vec2(f32 x, f32 y) noexcept : x(x), y(y) {}

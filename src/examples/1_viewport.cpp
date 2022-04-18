@@ -6,51 +6,29 @@
 // #include "../SlimEngineCpp.h"
 
 struct ViewportExample : SlimEngine {
-    HUDLine Fps{(char*)"Fps    : "};
-    HUDLine Mfs{(char*)"Mic-s/f: "};
-    HUDLine Width{(char*)"Width  : "};
+    Grid grid{11, 11};
+    Geometry grid1{{{0, 0, 5}, {0, 45 * DEG_TO_RAD, 0}, {5, 1, 5}}, GeometryType_Grid, Green};
+    Camera camera{{0, 7, -11},{-25 * DEG_TO_RAD, 0, 0}};
+    HUDLine Fps{   (char*)"Fps    : "};
+    HUDLine Mfs{   (char*)"Mic-s/f: "};
+    HUDLine Width{ (char*)"Width  : "};
     HUDLine Height{(char*)"Height : "};
     HUDLine MouseX{(char*)"Mouse X: "};
-    HUDLine MouseY{(char*)"Mouse X: "};
+    HUDLine MouseY{(char*)"Mouse X: "}, *hud_lines{&Fps};
+    HUDSettings hud_settings{6, 1.2f, Green, true};
+    Viewport viewport{window::canvas,&camera, hud_settings, hud_lines};
 
-    Grid grid{11, 11};
-    Transform grid_transform{
-        {0, 0, 5},
-        {0, 45 * DEG_TO_RAD, 0},
-        {5, 1, 5}
-    };
-    Camera camera{
-        {0, 7, -11},
-        {-25 * DEG_TO_RAD, 0, 0}
-    };
-    Viewport viewport{
-        window::canvas,
-        &camera,
-        {
-        {6, 1.2f, Green, true},
-            &Fps
-        }
-    };
-
-    ViewportExample() {
-        updateDimensions(viewport.dimensions.width, viewport.dimensions.height);
-        setCountersInHUD();
-        setMouseInHUD();
-    }
-
+    void OnUpdate(f32 delta_time) override { setCountersInHUD(); }
     void OnRender() override {
-        draw(grid, grid_transform, viewport, Color(White), 0.5f, 0);
-        setCountersInHUD();
-        if (viewport.hud.settings.show)
-            draw(viewport.hud, viewport);
+        draw(grid, grid1.transform, viewport, Color(White), 0.5f, 0);
+        if (viewport.hud.settings.show) draw(viewport.hud, viewport);
     }
-    void OnWindowResize(u16 width, u16 height) override { updateDimensions(width, height); }
-    void OnMouseMovementSet(i32 x, i32 y) override { setMouseInHUD(); }
     void OnKeyChanged (u8 key, bool is_pressed) override {
         if (!is_pressed && key == controls::key_map::tab)
             viewport.hud.settings.show = !viewport.hud.settings.show;
     }
-
+    void OnWindowResize(u16 width, u16 height) override { updateDimensions(width, height); }
+    void OnMouseMovementSet(i32 x, i32 y) override { setMouseInHUD(); }
     void updateDimensions(u16 width, u16 height) {
         viewport.updateDimensions(width, height);
         Width.value = (i32)width;

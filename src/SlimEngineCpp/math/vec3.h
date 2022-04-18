@@ -9,7 +9,7 @@ union vec3 {
     struct {f32 x, y, z; };
     struct {f32 u, v, w; };
     struct {f32 r, g, b; };
-    struct {vec2 v2; f32 _; };
+//    struct {vec2 v2; f32 _; };
 
     vec3() noexcept : vec3{0} {}
     vec3(f32 x, f32 y, f32 z) noexcept : x(x), y(y), z(z) {}

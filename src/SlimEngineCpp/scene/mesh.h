@@ -15,11 +15,7 @@ union TriangleVertexIndices {
 };
 
 struct Mesh {
-    u32 triangle_count{0};
-    u32 vertex_count{0};
-    u32 normals_count{0};
-    u32 uvs_count{0};
-    u32 edge_count{0};
+    AABB aabb;
 
     vec3 *vertex_positions{nullptr};
     vec3 *vertex_normals{nullptr};
@@ -30,7 +26,12 @@ struct Mesh {
     TriangleVertexIndices *vertex_uvs_indices{nullptr};
 
     EdgeVertexIndices *edge_vertex_indices{nullptr};
-    AABB aabb;
+
+    u32 triangle_count{0};
+    u32 vertex_count{0};
+    u32 edge_count{0};
+    u32 normals_count{0};
+    u32 uvs_count{0};
 
     Mesh() = default;
 
@@ -69,81 +70,87 @@ struct Mesh {
             aabb{aabb}
          {}
 
-    static u32 getMemorySize(char *file_path, Mesh &mesh) {
-        void *file = os::openFileForReading(file_path);
 
-        os::readFromFile(&mesh.aabb,           sizeof(AABB), file);
-        os::readFromFile(&mesh.vertex_count,   sizeof(u32),  file);
-        os::readFromFile(&mesh.triangle_count, sizeof(u32),  file);
-        os::readFromFile(&mesh.edge_count,     sizeof(u32),  file);
-        os::readFromFile(&mesh.uvs_count,      sizeof(u32),  file);
-        os::readFromFile(&mesh.normals_count,  sizeof(u32),  file);
+    u32 getSizeInBytes() const {
+        u32 memory_size = sizeof(vec3) * vertex_count;
+        memory_size += sizeof(TriangleVertexIndices) * triangle_count;
+        memory_size += sizeof(EdgeVertexIndices) * edge_count;
 
-        u32 memory_size = sizeof(vec3) * mesh.vertex_count;
-        memory_size += sizeof(TriangleVertexIndices) * mesh.triangle_count;
-        memory_size += sizeof(EdgeVertexIndices) * mesh.edge_count;
-
-        if (mesh.uvs_count) {
-            memory_size += sizeof(vec2) * mesh.uvs_count;
-            memory_size += sizeof(TriangleVertexIndices) * mesh.triangle_count;
+        if (uvs_count) {
+            memory_size += sizeof(vec2) * uvs_count;
+            memory_size += sizeof(TriangleVertexIndices) * triangle_count;
         }
-        if (mesh.normals_count) {
-            memory_size += sizeof(vec3) * mesh.normals_count;
-            memory_size += sizeof(TriangleVertexIndices) * mesh.triangle_count;
+        if (normals_count) {
+            memory_size += sizeof(vec3) * normals_count;
+            memory_size += sizeof(TriangleVertexIndices) * triangle_count;
         }
-
-        os::closeFile(file);
 
         return memory_size;
     }
 
-    void load(char *file_path, memory::MonotonicAllocator *memory_allocator) {
-        void *file = os::openFileForReading(file_path);
-
-        vertex_normals          = null;
-        vertex_normal_indices   = null;
-        vertex_uvs              = null;
-        vertex_uvs_indices      = null;
-
-        os::readFromFile(&aabb,           sizeof(AABB), file);
-        os::readFromFile(&vertex_count,   sizeof(u32),  file);
-        os::readFromFile(&triangle_count, sizeof(u32),  file);
-        os::readFromFile(&edge_count,     sizeof(u32),  file);
-        os::readFromFile(&uvs_count,      sizeof(u32),  file);
-        os::readFromFile(&normals_count,  sizeof(u32),  file);
-
+    bool allocateMemory(memory::MonotonicAllocator *memory_allocator) {
+        if (getSizeInBytes() > (memory_allocator->capacity - memory_allocator->occupied)) return false;
         vertex_positions        = (vec3*                 )memory_allocator->allocate(sizeof(vec3)                  * vertex_count);
         vertex_position_indices = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * triangle_count);
         edge_vertex_indices     = (EdgeVertexIndices*    )memory_allocator->allocate(sizeof(EdgeVertexIndices)     * edge_count);
-
-        os::readFromFile(vertex_positions,             sizeof(vec3)                  * vertex_count,   file);
-        os::readFromFile(vertex_position_indices,      sizeof(TriangleVertexIndices) * triangle_count, file);
-        os::readFromFile(edge_vertex_indices,          sizeof(EdgeVertexIndices)     * edge_count,     file);
         if (uvs_count) {
             vertex_uvs         = (vec2*                 )memory_allocator->allocate(sizeof(vec2)                  * uvs_count);
             vertex_uvs_indices = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * triangle_count);
-            os::readFromFile(vertex_uvs,               sizeof(vec2)                  * uvs_count,      file);
-            os::readFromFile(vertex_uvs_indices,       sizeof(TriangleVertexIndices) * triangle_count, file);
         }
         if (normals_count) {
             vertex_normals          = (vec3*                 )memory_allocator->allocate(sizeof(vec3)                  * normals_count);
             vertex_normal_indices   = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * triangle_count);
-            os::readFromFile(vertex_normals,                sizeof(vec3)                  * normals_count,  file);
-            os::readFromFile(vertex_normal_indices,         sizeof(TriangleVertexIndices) * triangle_count, file);
         }
-
-        os::closeFile(file);
+        return true;
     }
 
-    void save(char* file_path) const {
-        void *file = os::openFileForWriting(file_path);
-
-        os::writeToFile((void*)&aabb,           sizeof(AABB), file);
+    void writeHeader(void *file) const {
         os::writeToFile((void*)&vertex_count,   sizeof(u32),  file);
         os::writeToFile((void*)&triangle_count, sizeof(u32),  file);
         os::writeToFile((void*)&edge_count,     sizeof(u32),  file);
         os::writeToFile((void*)&uvs_count,      sizeof(u32),  file);
         os::writeToFile((void*)&normals_count,  sizeof(u32),  file);
+    }
+    void readHeader(void *file) {
+        os::readFromFile(&vertex_count,   sizeof(u32),  file);
+        os::readFromFile(&triangle_count, sizeof(u32),  file);
+        os::readFromFile(&edge_count,     sizeof(u32),  file);
+        os::readFromFile(&uvs_count,      sizeof(u32),  file);
+        os::readFromFile(&normals_count,  sizeof(u32),  file);
+    }
+    bool saveHeader(char *file_path) {
+        void *file = os::openFileForWriting(file_path);
+        if (!file) return false;
+        writeHeader(file);
+        os::closeFile(file);
+        return true;
+    }
+    bool loadHeader(char *file_path) {
+        void *file = os::openFileForReading(file_path);
+        if (!file) return false;
+        readHeader(file);
+        os::closeFile(file);
+        return true;
+    }
+
+    void readContent(void *file) {
+        os::readFromFile(&aabb.min,       sizeof(vec3), file);
+        os::readFromFile(&aabb.max,       sizeof(vec3), file);
+        os::readFromFile(vertex_positions,             sizeof(vec3)                  * vertex_count,   file);
+        os::readFromFile(vertex_position_indices,      sizeof(TriangleVertexIndices) * triangle_count, file);
+        os::readFromFile(edge_vertex_indices,          sizeof(EdgeVertexIndices)     * edge_count,     file);
+        if (uvs_count) {
+            os::readFromFile(vertex_uvs,               sizeof(vec2)                  * uvs_count,      file);
+            os::readFromFile(vertex_uvs_indices,       sizeof(TriangleVertexIndices) * triangle_count, file);
+        }
+        if (normals_count) {
+            os::readFromFile(vertex_normals,                sizeof(vec3)                  * normals_count,  file);
+            os::readFromFile(vertex_normal_indices,         sizeof(TriangleVertexIndices) * triangle_count, file);
+        }
+    }
+    void writeContent(void *file) const {
+        os::writeToFile((void*)&aabb.min,       sizeof(vec3), file);
+        os::writeToFile((void*)&aabb.max,       sizeof(vec3), file);
         os::writeToFile((void*)vertex_positions,        sizeof(vec3)                  * vertex_count,   file);
         os::writeToFile((void*)vertex_position_indices, sizeof(TriangleVertexIndices) * triangle_count, file);
         os::writeToFile((void*)edge_vertex_indices,     sizeof(EdgeVertexIndices)     * edge_count,     file);
@@ -155,14 +162,51 @@ struct Mesh {
             os::writeToFile(vertex_normals,        sizeof(vec3)                  * normals_count,  file);
             os::writeToFile(vertex_normal_indices, sizeof(TriangleVertexIndices) * triangle_count, file);
         }
-
+    }
+    bool saveContent(char *file_path) const {
+        void *file = os::openFileForWriting(file_path);
+        if (!file) return false;
+        writeContent(file);
         os::closeFile(file);
+        return true;
+    }
+    bool loadContent(char *file_path) {
+        void *file = os::openFileForReading(file_path);
+        if (!file) return false;
+        readContent(file);
+        os::closeFile(file);
+        return true;
+    }
+
+    bool save(char* file_path) const {
+        void *file = os::openFileForWriting(file_path);
+        if (!file) return false;
+        writeHeader(file);
+        writeContent(file);
+        os::closeFile(file);
+        return true;
+    }
+    bool load(char *file_path, memory::MonotonicAllocator *memory_allocator = nullptr) {
+        void *file = os::openFileForReading(file_path);
+        if (!file) return false;
+
+        if (memory_allocator) {
+            new(this) Mesh{};
+            readHeader(file);
+            if (!allocateMemory(memory_allocator)) return false;
+        } else if (!vertex_positions) return false;
+        readContent(file);
+        os::closeFile(file);
+        return true;
     }
 
     static u32 getTotalMemoryForMeshes(String *mesh_files, u32 mesh_count) {
         u32 memory_size{0};
-        Mesh mesh;
-        for (u32 i = 0; i < mesh_count; i++) memory_size += Mesh::getMemorySize(mesh_files[i].char_ptr, mesh);
+        for (u32 i = 0; i < mesh_count; i++) {
+            Mesh mesh;
+            mesh.loadHeader(mesh_files[i].char_ptr);
+            memory_size += mesh.getSizeInBytes();
+        }
         return memory_size;
     }
 };

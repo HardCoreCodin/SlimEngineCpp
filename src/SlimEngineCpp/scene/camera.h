@@ -5,15 +5,16 @@
 struct Camera : public Orientation<mat3> {
     vec3 position{0};
     vec3 current_velocity{0};
-    f32 dolly_amount{0};
-    f32 target_distance{CAMERA_DEFAULT__TARGET_DISTANCE};
     f32 focal_length{  CAMERA_DEFAULT__FOCAL_LENGTH};
     f32 zoom_amount{   CAMERA_DEFAULT__FOCAL_LENGTH};
+    f32 target_distance{CAMERA_DEFAULT__TARGET_DISTANCE};
+    f32 dolly_amount{0};
 
     Camera() : Orientation<mat3>{}, position{0.0f} {}
     explicit Camera(const vec3 &position) : Orientation<mat3>{}, position{position} {}
-    explicit Camera(const vec3 &position, const vec3 &orientation = vec3{0.0f}) :
-            Orientation{orientation.x, orientation.y, orientation.z}, position{position} {}
+    explicit Camera(const vec3 &position, const vec3 &orientation = vec3{0.0f}, f32 zoom_amount = CAMERA_DEFAULT__FOCAL_LENGTH) :
+            Orientation{orientation.x, orientation.y, orientation.z},
+            position{position}, current_velocity{vec3{0}}, focal_length{zoom_amount}, zoom_amount{zoom_amount} {}
 
     INLINE mat4 getMatrix() const {
         return {

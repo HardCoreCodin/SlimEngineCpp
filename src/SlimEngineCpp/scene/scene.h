@@ -35,7 +35,7 @@ struct Scene {
     u64 last_io_ticks{0};
     bool last_io_is_save{false};
 
-    Scene(SceneCounts Counts,
+    Scene(SceneCounts counts,
           char *file_path = nullptr,
           Camera *cameras = nullptr,
           Geometry *geometries = nullptr,
@@ -45,7 +45,7 @@ struct Scene {
           Mesh *meshes = nullptr,
           String *mesh_files = nullptr,
           memory::MonotonicAllocator *memory_allocator = nullptr
-    ) : counts{Counts},
+    ) : counts{counts},
         file_path{file_path},
         cameras{cameras},
         geometries{geometries},
@@ -54,8 +54,14 @@ struct Scene {
         curves{curves},
         meshes{meshes}
     {
-        if (meshes && mesh_files && counts.meshes && memory_allocator) {
+        if (meshes && mesh_files && counts.meshes) {
             meshes = new(meshes) Mesh[counts.meshes];
+            memory::MonotonicAllocator temp_allocator;
+            if (!memory_allocator) {
+                u32 capacity = Mesh::getTotalMemoryForMeshes(mesh_files, 2);
+                temp_allocator = memory::MonotonicAllocator{capacity};
+                memory_allocator = &temp_allocator;
+            }
             for (u32 i = 0; i < counts.meshes; i++) meshes[i].load(mesh_files[i].char_ptr, memory_allocator);
         }
 //        if (counts.lights) {
@@ -165,24 +171,8 @@ struct Scene {
         if (counts.meshes) {
             Mesh *mesh = meshes;
             for (u32 i = 0; i < counts.meshes; i++, mesh++) {
-                os::readFromFile(&mesh->aabb,           sizeof(AABB), file_handle);
-                os::readFromFile(&mesh->vertex_count,   sizeof(u32),  file_handle);
-                os::readFromFile(&mesh->triangle_count, sizeof(u32),  file_handle);
-                os::readFromFile(&mesh->edge_count,     sizeof(u32),  file_handle);
-                os::readFromFile(&mesh->uvs_count,      sizeof(u32),  file_handle);
-                os::readFromFile(&mesh->normals_count,  sizeof(u32),  file_handle);
-
-                os::readFromFile(mesh->vertex_positions,             sizeof(vec3)                  * mesh->vertex_count,   file_handle);
-                os::readFromFile(mesh->vertex_position_indices,      sizeof(TriangleVertexIndices) * mesh->triangle_count, file_handle);
-                os::readFromFile(mesh->edge_vertex_indices,          sizeof(EdgeVertexIndices)     * mesh->edge_count,     file_handle);
-                if (mesh->uvs_count) {
-                    os::readFromFile(mesh->vertex_uvs,               sizeof(vec2)                  * mesh->uvs_count,      file_handle);
-                    os::readFromFile(mesh->vertex_uvs_indices,       sizeof(TriangleVertexIndices) * mesh->triangle_count, file_handle);
-                }
-                if (mesh->normals_count) {
-                    os::readFromFile(mesh->vertex_normals,                sizeof(vec3)                  * mesh->normals_count,  file_handle);
-                    os::readFromFile(mesh->vertex_normal_indices,         sizeof(TriangleVertexIndices) * mesh->triangle_count, file_handle);
-                }
+                mesh->readHeader(file_handle);
+                mesh->readContent(file_handle);
             }
         }
 
@@ -231,24 +221,8 @@ struct Scene {
         if (counts.meshes) {
             Mesh *mesh = meshes;
             for (u32 i = 0; i < counts.meshes; i++, mesh++) {
-                os::writeToFile(&mesh->aabb,           sizeof(AABB), file_handle);
-                os::writeToFile(&mesh->vertex_count,   sizeof(u32),  file_handle);
-                os::writeToFile(&mesh->triangle_count, sizeof(u32),  file_handle);
-                os::writeToFile(&mesh->edge_count,     sizeof(u32),  file_handle);
-                os::writeToFile(&mesh->uvs_count,      sizeof(u32),  file_handle);
-                os::writeToFile(&mesh->normals_count,  sizeof(u32),  file_handle);
-
-                os::writeToFile(mesh->vertex_positions,        sizeof(vec3)                  * mesh->vertex_count,   file_handle);
-                os::writeToFile(mesh->vertex_position_indices, sizeof(TriangleVertexIndices) * mesh->triangle_count, file_handle);
-                os::writeToFile(mesh->edge_vertex_indices,     sizeof(EdgeVertexIndices)     * mesh->edge_count,     file_handle);
-                if (mesh->uvs_count) {
-                    os::writeToFile(mesh->vertex_uvs,          sizeof(vec2)                  * mesh->uvs_count,      file_handle);
-                    os::writeToFile(mesh->vertex_uvs_indices,  sizeof(TriangleVertexIndices) * mesh->triangle_count, file_handle);
-                }
-                if (mesh->normals_count) {
-                    os::writeToFile(mesh->vertex_normals,        sizeof(vec3)                  * mesh->normals_count,  file_handle);
-                    os::writeToFile(mesh->vertex_normal_indices, sizeof(TriangleVertexIndices) * mesh->triangle_count, file_handle);
-                }
+                mesh->writeHeader(file_handle);
+                mesh->writeContent(file_handle);
             }
         }
 

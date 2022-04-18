@@ -417,10 +417,10 @@ struct String {
     String(char *char_ptr) noexcept : length{getLength(char_ptr)}, char_ptr{char_ptr} {}
     String(char *char_ptr, u32 length) noexcept : length{length}, char_ptr{char_ptr} {}
 
-    static String getFilePath(char *file_name, char *buffer, char *adjacent_file_path) {
+    static String getFilePath(char *file_name, char *buffer, char *adjacent_file) {
         String str(buffer);
-        u32 offset = getDirectoryLength(adjacent_file_path);
-        str.copyFrom(adjacent_file_path, file_name, offset);
+        u32 offset = getDirectoryLength(adjacent_file);
+        str.copyFrom(adjacent_file, file_name, offset);
         return str;
     }
 
