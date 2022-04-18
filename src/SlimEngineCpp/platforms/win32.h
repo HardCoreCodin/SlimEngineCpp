@@ -235,7 +235,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 case WM_LBUTTONDBLCLK:
                     mouse_button->doubleClick(x, y);
                     mouse::double_clicked = true;
-                    CURRENT_ENGINE->OnMouseButtOnDoubleClicked(*mouse_button);
+                    CURRENT_ENGINE->OnMouseButtonDoubleClicked(*mouse_button);
                     break;
                 case WM_MBUTTONUP:
                 case WM_RBUTTONUP:
@@ -303,9 +303,6 @@ int APIENTRY WinMain(HINSTANCE hInstance,
     time::milliseconds_per_tick = 1000.0 * time::seconds_per_tick;
     time::microseconds_per_tick = 1000.0 * time::milliseconds_per_tick;
     time::nanoseconds_per_tick  = 1000.0 * time::microseconds_per_tick;
-
-    new(&time::update_timer) time::Timer;
-    new(&time::render_timer) time::Timer;
 
     CURRENT_ENGINE = createEngine();
     if (!CURRENT_ENGINE->is_running)

@@ -3,19 +3,16 @@
 #include "./navigation.h"
 #include "./frustum.h"
 #include "./canvas.h"
-#include "./hud.h"
 
 struct Viewport {
     Canvas &canvas;
-    HUD hud;
     Dimensions dimensions;
     vec2i position{0, 0};
     Navigation navigation;
     Frustum frustum;
     Camera *camera{nullptr};
 
-    Viewport(Canvas &canvas, Camera *camera, HUDSettings hud_settings = {}, HUDLine *hud_lines = nullptr) :
-            canvas{canvas}, hud{hud_settings, hud_lines} {
+    Viewport(Canvas &canvas, Camera *camera) : canvas{canvas} {
         dimensions = canvas.dimensions;
         setCamera(*camera);
     }
@@ -41,12 +38,15 @@ struct Viewport {
     }
 
     INLINE Ray getRayAt(const vec2i &coords) const {
-        vec3 start = camera->rotation.up * (dimensions.h_height - 0.5f) +
+        vec3 start = (
+                camera->rotation.up * (dimensions.h_height - 0.5f) +
                 camera->rotation.forward * (dimensions.h_height * camera->focal_length) +
-                camera->rotation.right * (0.5f - dimensions.h_width);
+                camera->rotation.right * (0.5f - dimensions.h_width)
+        );
         return {
             camera->position,
-            camera->rotation.up.scaleAdd(-((f32)coords.y),camera->rotation.right.scaleAdd((f32)coords.x, start)).normalized()
+            camera->rotation.up.scaleAdd(-((f32)coords.y),
+         camera->rotation.right.scaleAdd((f32)coords.x,start)).normalized()
         };
     }
 

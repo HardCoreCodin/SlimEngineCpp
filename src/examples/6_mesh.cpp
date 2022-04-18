@@ -8,25 +8,36 @@
 // #include "../SlimEngineCpp.h"
 
 struct MeshExample : SlimEngine {
+    // Viewport:
+    Camera camera{
+        {0, 10, -15},
+        {-25*DEG_TO_RAD,0, 0}
+    }, *cameras{&camera};
+    HUDLine Fps{(char*)"Fps    : "};
+    HUDLine Mfs{(char*)"Mic-s/f: "};
+    HUDSettings hud_settings{2,1.2f,Green};
+    HUD hud{hud_settings, &Fps};
+    Viewport viewport{window::canvas, &camera};
+
+    // Scene:
+    Mesh meshes[2];
+    Grid grid{11, 11}, *grids{&grid};
+    Transform grid_transform{{0, 0, 0},{0, 45 * DEG_TO_RAD, 0},{5, 1, 5}};
+    Geometry grid1{grid_transform,GeometryType_Grid, Green};
+    Geometry mesh1{{{+8, 5, 0} }, GeometryType_Mesh, Blue};
+    Geometry mesh2{{{-8, 5, 0} }, GeometryType_Mesh, Cyan}, *geometries{&grid1};
     char strings[2][100] = {};
     String mesh_files[2] = {
         String::getFilePath((char*)"suzanne.mesh",strings[0],(char*)__FILE__),
-        String::getFilePath((char*)"dog.mesh", strings[1],(char*)__FILE__)
+        String::getFilePath((char*)"dog.mesh"    ,strings[1],(char*)__FILE__)
     };
-    Mesh suz, dog, *meshes{&suz};
-    Grid grid{11, 11}, *grids{&grid};
-    Geometry grid1{{{0, 0, 5}, {0, 45 * DEG_TO_RAD, 0}, {5, 1, 5} }, GeometryType_Grid, Green};
-    Geometry suz1{{{+8, 5, 0} }, GeometryType_Mesh, Yellow};
-    Geometry suz2{{{-8, 5, 0} }, GeometryType_Mesh, Cyan};
-    Geometry dog1{{{0, 5, 5} }, GeometryType_Mesh, Blue, 1}, *geometries{&grid1};
-    Selection selection;
-    Camera camera{{0, 10, -15}, {-25 * DEG_TO_RAD, 0, 0}}, *cameras{&camera};
-    HUDLine Fps{(char*)"Fps    : "};
-    HUDLine Mfs{(char*)"Mic-s/f: "}, *hud_lines{&Fps};
-    HUDSettings hud_settings{2, 1.2f, Green, true};
-    Viewport viewport{window::canvas,cameras, hud_settings, hud_lines};
-    SceneCounts counts{1, 4, 1, 0, 0, 2 };
+    SceneCounts counts{1, 3, 1, 0, 0, 2 };
     Scene scene{counts,nullptr, cameras, geometries, grids,nullptr,nullptr, meshes, mesh_files};
+    Selection selection;
+
+    // Drawing:
+    f32 opacity = 0.5f;
+    u8 line_width = 0;
 
     void OnUpdate(f32 delta_time) override {
         setCountersInHUD();
@@ -35,14 +46,12 @@ struct MeshExample : SlimEngine {
     }
     void OnRender() override {
         bool draw_normals = controls::is_pressed::ctrl;
-        f32 opacity = 0.5f;
-        u8 line_width = 0;
-        draw(grid, grid1.transform, viewport, Color(grid1.color), opacity, 0);
-        draw(dog,dog1.transform, draw_normals, viewport,Color(dog1.color), opacity, line_width);
-        draw(suz,suz1.transform, draw_normals, viewport,Color(suz1.color), opacity, line_width);
-        draw(suz,suz2.transform, draw_normals, viewport,Color(suz2.color), opacity, line_width);
+        Mesh &mesh{meshes[scene.geometries[1].id]};
+        draw(grid,grid1.transform, viewport,Color(grid1.color), opacity, line_width);
+        draw(mesh,mesh1.transform, draw_normals, viewport,Color(mesh1.color), opacity, line_width);
+        draw(mesh,mesh2.transform, draw_normals, viewport,Color(mesh2.color), opacity, line_width);
         if (controls::is_pressed::alt) draw(selection, viewport, scene);
-        if (viewport.hud.settings.show) draw(viewport.hud, viewport);
+        if (hud.enabled) draw(hud, viewport);
     }
     void OnKeyChanged(u8 key, bool is_pressed) override {
         NavigationMove &move = viewport.navigation.move;
@@ -59,11 +68,11 @@ struct MeshExample : SlimEngine {
             scene.geometries[1].id = scene.geometries[2].id = (scene.geometries[1].id + 1) % 2;
 
         if (!is_pressed && key == controls::key_map::tab)
-            viewport.hud.settings.show = !viewport.hud.settings.show;
+            hud.enabled = !hud.enabled;
     }
     void OnWindowResize(u16 width, u16 height) override { viewport.updateDimensions(width, height); }
     void OnMouseButtonDown(mouse::Button &mouse_button) override { mouse::pos_raw_diff_x = mouse::pos_raw_diff_y = 0; }
-    void OnMouseButtOnDoubleClicked(mouse::Button &mouse_button) override {
+    void OnMouseButtonDoubleClicked(mouse::Button &mouse_button) override {
         if (&mouse_button == &mouse::left_button) {
             mouse::is_captured = !mouse::is_captured;
             os::setCursorVisibility(!mouse::is_captured);
@@ -72,8 +81,8 @@ struct MeshExample : SlimEngine {
         }
     }
     void setCountersInHUD() {
-        Fps.value = (i32)time::render_timer.average_frames_per_second;
-        Mfs.value = (i32)time::render_timer.average_microseconds_per_frame;
+        Fps.value = (i32)render_timer.average_frames_per_second;
+        Mfs.value = (i32)render_timer.average_microseconds_per_frame;
     }
 };
 

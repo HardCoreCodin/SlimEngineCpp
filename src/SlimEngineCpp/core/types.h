@@ -7,144 +7,18 @@
 #include "../math/mat4.h"
 #include "../math/quat.h"
 
+enum CurveType {
+    CurveType_None = 0,
+
+    CurveType_Helix,
+    CurveType_Coil,
+
+    CurveType_Count
+};
+
 struct Edge { vec3 from, to; };
 struct Rect { vec2i min, max; };
-struct Curve { f32 revolution_count{1}, thickness{0.1f}; };
-
-//struct Orientation {
-//    union {
-//        mat3 matrix;
-//        struct { vec3 right, up, forward; };
-//    };
-//    Orientation() : matrix{mat3{}} {}
-//    Orientation(f32 x_radians, f32 y_radians = 0, f32 z_radians = 0) : Orientation{} {
-//        setRotation(x_radians, y_radians, z_radians);
-//    }
-//
-//    INLINE void rotate(f32 x_radians, f32 y_radians, f32 z_radians) {
-//        setRotation(angles.x + x_radians, angles.y + y_radians, angles.x + z_radians);
-//    }
-//
-//    INLINE void rotate(f32 x_radians, f32 y_radians) {
-//        setRotation(angles.x + x_radians, angles.y + y_radians);
-//    }
-//
-//    INLINE void setRotation(f32 x_radians, f32 y_radians, f32 z_radians) {
-//        angles.x = x_radians;
-//        angles.y = y_radians;
-//        angles.z = z_radians;
-//        _update();
-//    }
-//
-//    INLINE void setRotation(f32 x_radians, f32 y_radians) {
-//        angles.x = x_radians;
-//        angles.y = y_radians;
-//        _update();
-//    }
-//
-//    INLINE void rotateAroundX(f32 radians) {
-//        setRotationAroundX(angles.x + radians);
-//    }
-//
-//    INLINE void rotateAroundY(f32 radians) {
-//        setRotationAroundY(angles.y + radians);
-//    }
-//
-//    INLINE void rotateAroundZ(f32 radians) {
-//        setRotationAroundZ(angles.z + radians);
-//    }
-//
-//    INLINE void setRotationAroundX(f32 radians) {
-//        angles.x = radians;
-//        _update();
-//    }
-//
-//    INLINE void setRotationAroundY(f32 radians) {
-//        angles.y = radians;
-//        _update();
-//    }
-//
-//    INLINE void setRotationAroundZ(f32 radians) {
-//        angles.z = radians;
-//        _update();
-//    }
-//
-//protected:
-//    vec3 angles;
-//
-//    void _update() {
-//        mat3 mat;
-//        if (angles.z != 0.0f) mat = mat3::RotationAroundZ(angles.z);
-//        if (angles.x != 0.0f) mat *= mat3::RotationAroundX(angles.x);
-//        if (angles.y != 0.0f) mat *= mat3::RotationAroundY(angles.y);
-//        matrix = mat;
-//    }
-//};
-//
-//struct Rotation {
-//    quat rotation{};
-//
-//    INLINE void rotateAroundXYZ(f32 x_radians, f32 y_radians, f32 z_radians) {
-//        setRotationAroundXYZ(angles.x + x_radians, angles.y + y_radians, angles.x + z_radians);
-//    }
-//
-//    INLINE void rotateAroundXY(f32 x_radians, f32 y_radians) {
-//        setRotationAroundXY(angles.x + x_radians, angles.y + y_radians);
-//    }
-//
-//    INLINE void setRotationAroundXYZ(f32 x_radians, f32 y_radians, f32 z_radians) {
-//        angles.x = x_radians;
-//        angles.y = y_radians;
-//        angles.z = z_radians;
-//        _updateRotation();
-//    }
-//
-//    INLINE void setRotationAroundXY(f32 x_radians, f32 y_radians) {
-//        angles.x = x_radians;
-//        angles.y = y_radians;
-//        x_rotation.setRotationAroundX(angles.x);
-//        y_rotation.setRotationAroundY(angles.y);
-//        _updateRotation();
-//    }
-//
-//    INLINE void rotateAroundX(f32 radians) {
-//        setRotationAroundX(angles.x + radians);
-//    }
-//
-//    INLINE void rotateAroundY(f32 radians) {
-//        setRotationAroundY(angles.y + radians);
-//    }
-//
-//    INLINE void rotateAroundZ(f32 radians) {
-//        setRotationAroundZ(angles.z + radians);
-//    }
-//
-//    INLINE void setRotationAroundX(f32 radians) {
-//        angles.x = radians;
-//        _updateRotation();
-//    }
-//
-//    INLINE void setRotationAroundY(f32 radians) {
-//        angles.y = radians;
-//        _updateRotation();
-//    }
-//
-//    INLINE void setRotationAroundZ(f32 radians) {
-//        angles.z = radians;
-//        _updateRotation();
-//    }
-//
-//protected:
-//    vec3 angles;
-//
-//    void _updateRotation() {
-//        x_rotation.setRotationAroundX(angles.x);
-//        y_rotation.setRotationAroundY(angles.y);
-//        z_rotation.setRotationAroundZ(angles.z);
-//
-//        rotation = ((x_rotation * y_rotation).normalized() * z_rotation).normalized();
-//    }
-//};
+struct Curve { CurveType type{CurveType_None}; f32 revolution_count{1}, thickness{0.1f}; };
 
 template <class T>
 struct Orientation {
@@ -241,56 +115,6 @@ struct Transform : public Orientation<quat> {
         };
     }
 
-//    INLINE void rotateAroundXYZ(f32 x_radians, f32 y_radians, f32 z_radians) {
-//        scratch_rot.rotateAroundXYZ(x_radians, y_radians, z_radians);
-//        rotation = scratch_rot.rotation;
-//    }
-//
-//    INLINE void rotateAroundXY(f32 x_radians, f32 y_radians) {
-//        scratch_rot.rotateAroundXY(x_radians, y_radians);
-//        rotation = scratch_rot.rotation;
-//    }
-//
-//    INLINE void setRotationAroundXYZ(f32 x_radians, f32 y_radians, f32 z_radians) {
-//        scratch_rot.setRotationAroundXYZ(x_radians, y_radians, z_radians);
-//        rotation = scratch_rot.rotation;
-//    }
-//
-//    INLINE void setRotationAroundXY(f32 x_radians, f32 y_radians) {
-//        scratch_rot.setRotationAroundXY(x_radians, y_radians);
-//        rotation = scratch_rot.rotation;
-//    }
-//
-//    INLINE void rotateAroundX(f32 radians) {
-//        scratch_rot.rotateAroundX(radians);
-//        rotation = scratch_rot.rotation;
-//    }
-//
-//    INLINE void rotateAroundY(f32 radians) {
-//        scratch_rot.rotateAroundY(radians);
-//        rotation = scratch_rot.rotation;
-//    }
-//
-//    INLINE void rotateAroundZ(f32 radians) {
-//        scratch_rot.rotateAroundZ(radians);
-//        rotation = scratch_rot.rotation;
-//    }
-//
-//    INLINE void setRotationAroundX(f32 radians) {
-//        scratch_rot.setRotationAroundX(radians);
-//        rotation = scratch_rot.rotation;
-//    }
-//
-//    INLINE void setRotationAroundY(f32 radians) {
-//        scratch_rot.setRotationAroundY(radians);
-//        rotation = scratch_rot.rotation;
-//    }
-//
-//    INLINE void setRotationAroundZ(f32 radians) {
-//        scratch_rot.setRotationAroundZ(radians);
-//        rotation = scratch_rot.rotation;
-//    }
-
     void externPosAndDir(const vec3 &pos, const vec3 &dir, vec3 &out_pos, vec3 &out_dir) const {
         out_pos = position + (rotation * (scale * position));
         out_dir = (rotation * (scale * dir)).normalized();
@@ -324,8 +148,7 @@ enum GeometryType {
     GeometryType_Mesh,
     GeometryType_Grid,
     GeometryType_Box,
-    GeometryType_Helix,
-    GeometryType_Coil,
+    GeometryType_Curve,
 
     GeometryType_Count
 };

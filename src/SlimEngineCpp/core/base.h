@@ -673,8 +673,6 @@ namespace time {
                 average();
         }
     };
-
-    Timer update_timer, render_timer;
 }
 
 namespace mouse {

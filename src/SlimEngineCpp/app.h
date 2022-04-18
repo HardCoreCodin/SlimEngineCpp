@@ -65,77 +65,15 @@ namespace window {
     }
 }
 
-
-//struct MemoryInitializer {
-//    MemoryInitializer() {
-//        u64 memory_size = settings::memory::extra;
-//        memory_size += settings::scene::geometries * sizeof(Geometry);
-//        memory_size += settings::scene::curves     * sizeof(Curve);
-//        memory_size += settings::scene::grids      * sizeof(Grid);
-//        memory_size += settings::scene::cameras    * sizeof(Camera);
-//        memory_size += settings::hud::line_count   * sizeof(HUDLine);
-//        memory_size += FRAME_BUFFER_MEMORY_SIZE;
-
-//        memory::capacity = memory_size;
-//        memory::address = (u8*)os::getMemory(memory_size);
-//        memory::initialized = bool(memory::address);
-//    }
-
-//    MemoryInitializer() {
-//        u64 memory_size = sizeof(Selection) + settings::memory::extra;
-//        memory_size += settings::scene::geometries * sizeof(Geometry);
-////        memory_size += settings::scene::textures   * sizeof(Texture);
-//        memory_size += settings::scene::meshes     * sizeof(Mesh);
-//        memory_size += settings::scene::curves     * sizeof(Curve);
-//        memory_size += settings::scene::boxes      * sizeof(Box);
-//        memory_size += settings::scene::grids      * sizeof(Grid);
-//        memory_size += settings::scene::cameras    * sizeof(Camera);
-////        memory_size += settings::scene::materials  * sizeof(Material);
-////        memory_size += settings::scene::lights     * sizeof(Light);
-//        memory_size += settings::hud::line_count   * sizeof(HUDLine);
-//
-////        if (settings::scene::textures && settings::scene::texture_files) {
-////            for (u32 i = 0; i < settings::scene::textures; i++)
-////                memory_size += Texture::getMemorySize(settings::scene::texture_files[i].char_ptr);
-////        }
-//
-//        if (settings::scene::meshes && settings::scene::mesh_files) {
-//            Mesh mesh;
-//            for (u32 i = 0; i < settings::scene::meshes; i++) {
-//                memory_size += Mesh::getMemorySize(settings::scene::mesh_files[i].char_ptr, mesh) + sizeof(AABB);
-////                if (mesh.triangle_count > settings::scene::max_triangle_count) settings::scene::max_triangle_count = mesh.triangle_count;
-////                if (mesh.vertex_count > settings::scene::max_vertex_count) settings::scene::max_vertex_count = mesh.vertex_count;
-////                if (mesh.normals_count > settings::scene::max_normal_count) settings::scene::max_normal_count = mesh.normals_count;
-//            }
-//        }
-//
-////        memory_size += settings::scene::max_vertex_count * (sizeof(vec3) + sizeof(vec4) + 1);
-////        memory_size += settings::scene::max_normal_count * sizeof(vec3);
-//        memory_size += FRAME_BUFFER_MEMORY_SIZE;
-//
-//        memory::capacity = memory_size;
-//        memory::address = (u8*)os::getMemory(memory_size);
-//        memory::initialized = bool(memory::address);
-//    }
-//};
-
-
 struct SlimEngine {
-//    memory::MonotonicAllocator memory_allocator;
-
-//    MemoryInitializer _memory_initializer;
-//    Canvas canvas;
-//    Scene scene;
-//    Viewport viewport{scene.cameras};
-//    Rasterizer rasterizer{scene};
-
+    time::Timer update_timer, render_timer;
     bool is_running{true};
 
     virtual void OnWindowResize(u16 width, u16 height) {};
     virtual void OnKeyChanged(  u8 key, bool pressed) {};
     virtual void OnMouseButtonUp(  mouse::Button &mouse_button) {};
     virtual void OnMouseButtonDown(mouse::Button &mouse_button) {};
-    virtual void OnMouseButtOnDoubleClicked(mouse::Button &mouse_button) {};
+    virtual void OnMouseButtonDoubleClicked(mouse::Button &mouse_button) {};
     virtual void OnMouseWheelScrolled(f32 amount) {};
     virtual void OnMousePositionSet(i32 x, i32 y) {};
     virtual void OnMouseMovementSet(i32 x, i32 y) {};
@@ -143,14 +81,14 @@ struct SlimEngine {
     virtual void OnRender() {};
     virtual void OnUpdate(f32 delta_time) {};
     virtual void OnWindowRedraw() {
-        time::update_timer.beginFrame();
-        OnUpdate(time::update_timer.delta_time);
-        time::update_timer.endFrame();
+        update_timer.beginFrame();
+        OnUpdate(update_timer.delta_time);
+        update_timer.endFrame();
 
         window::canvas.clear();
-        time::render_timer.beginFrame();
+        render_timer.beginFrame();
         OnRender();
-        time::render_timer.endFrame();
+        render_timer.endFrame();
         window::display();
         mouse::resetChanges();
     };

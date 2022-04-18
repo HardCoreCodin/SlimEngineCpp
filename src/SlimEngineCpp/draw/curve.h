@@ -5,16 +5,15 @@
 
 #define CURVE_STEPS 3600
 
-void draw(const Curve &curve, const Geometry &geometry, const Viewport &viewport,
+void draw(const Curve &curve, const Transform &transform, const Viewport &viewport,
           const vec3 &color = Color(White), f32 opacity = 1.0f, u8 line_width = 1, u32 step_count = CURVE_STEPS) {
-    const Transform &xform = geometry.transform;
     const Camera &cam = *viewport.camera;
 
     f32 one_over_step_count = 1.0f / (f32)step_count;
     f32 rotation_step = one_over_step_count * TAU;
     f32 rotation_step_times_rev_count = rotation_step * (f32)curve.revolution_count;
 
-    if (geometry.type == GeometryType_Helix)
+    if (curve.type == CurveType_Helix)
         rotation_step = rotation_step_times_rev_count;
 
     vec3 center_to_orbit;
@@ -33,7 +32,7 @@ void draw(const Curve &curve, const Geometry &geometry, const Viewport &viewport
     rotation.Y.y = 1;
 
     mat3 orbit_to_curve_rotation;
-    if (geometry.type == GeometryType_Coil) {
+    if (curve.type == CurveType_Coil) {
         orbit_to_curve_rotation.X.x = orbit_to_curve_rotation.Y.y = cosf(rotation_step_times_rev_count);
         orbit_to_curve_rotation.X.y = sinf(rotation_step_times_rev_count);
         orbit_to_curve_rotation.Y.x = -orbit_to_curve_rotation.X.y;
@@ -49,12 +48,12 @@ void draw(const Curve &curve, const Geometry &geometry, const Viewport &viewport
     for (u32 i = 0; i < step_count; i++) {
         center_to_orbit = rotation * center_to_orbit;
 
-        switch (geometry.type) {
-            case GeometryType_Helix:
+        switch (curve.type) {
+            case CurveType_Helix:
                 current_position = center_to_orbit;
                 current_position.y -= 1;
                 break;
-            case GeometryType_Coil:
+            case CurveType_Coil:
                 orbit_to_curve  = orbit_to_curve_rotation * orbit_to_curve;
                 current_position = accumulated_orbit_rotation * orbit_to_curve;
                 current_position += center_to_orbit;
@@ -63,7 +62,7 @@ void draw(const Curve &curve, const Geometry &geometry, const Viewport &viewport
                 break;
         }
 
-        current_position = cam.internPos(xform.externPos(current_position));
+        current_position = cam.internPos(transform.externPos(current_position));
 
         if (i) {
             edge.from = previous_position;
@@ -71,11 +70,11 @@ void draw(const Curve &curve, const Geometry &geometry, const Viewport &viewport
             draw(edge, viewport, color, opacity, line_width);
         }
 
-        switch (geometry.type) {
-            case GeometryType_Helix:
+        switch (curve.type) {
+            case CurveType_Helix:
                 center_to_orbit.y += 2 * one_over_step_count;
                 break;
-            case GeometryType_Coil:
+            case CurveType_Coil:
                 accumulated_orbit_rotation *= rotation;
                 break;
             default:

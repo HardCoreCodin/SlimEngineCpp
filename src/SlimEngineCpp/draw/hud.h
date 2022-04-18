@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./text.h"
+#include "../viewport/hud.h"
 #include "../viewport/viewport.h"
 
 void draw(const HUD &hud, const Viewport &viewport) {

@@ -61,11 +61,11 @@ Well documented example applications cover the features:<br>
   The window content is bound to the default viewport, so they resize together.<br>
   Customizing the scene/viewport can be done in callbacks that get invoked when they're ready.<br>
   The HUD is fully customizable, and can hold any number of lines set at viewport-initialization time.<br>
-  <p float="left">
-    <img src="src/examples/1_viewport_updateAndRender_c.png" alt="1_viewport_updateAndRender_code" width="360">
-    <img src="src/examples/1_viewport_initialization_c.png" alt="1_viewport_initialization_code" height="300">
-    <img src="src/examples/1_viewport_HUD_update_c.png" alt="1_viewport_HUD_update_code" width="360">
-    <img src="src/examples/1_viewport_setup_c.png" alt="1_viewport_setup_code" height="300">  
+  <p>
+    <img src="src/examples/1_viewport_initialization_c.png" width="370">
+    <img src="src/examples/1_viewport_setup_c.png" width="480">  
+    <img src="src/examples/1_viewport_HUD_update_c.png" width="470">
+    <img src="src/examples/1_viewport_updateAndRender_c.png" width="550">
   </p>
   
 * <b><u>Viewport</b>:</u> Navigation<br>
@@ -75,36 +75,37 @@ Well documented example applications cover the features:<br>
   It supports moving forward, backwards, left, right, up and down and turning left or right.<br>
   mouse navigation controls the viewport's camera and is more granular.<br>
   It can pan, zoom, dolly, orient or orbit the camera around a target.<br>
-  <p float="left">
-    <img src="src/examples/2_navigation_setup_c.png" alt="2_navigation_setup_code" width="350">
-    <img src="src/examples/2_navigation_mouse_c.png" alt="2_navigation_mouse_code" height="300">
+  <p>
+    <img src="src/examples/2_navigation_inputHandling_c.png" width="600">
+    <img src="src/examples/2_navigation_updateAndRender_c.png" width="550">
   </p>
 
 * <b><u>Cameras</b>:</u> Viewport binding<br>
   <img src="src/examples/3_cameras.gif" alt="1_scene" height="360"><br>
   The scene can have any number of cameras which can be bound to any viewport dynamically.<br>
   The camera can be drawn as part of the drawing of the scene<br>
-  <p float="left">
-    <img src="src/examples/3_cameras_update_c.png" alt="3_cameras_update_code" height="260">
-    <img src="src/examples/3_cameras_setup_c.png" alt="3_cameras_setup_code" height="260">
+  <p>
+    <img src="src/examples/3_cameras_update_c.png" width="550">
+    <img src="src/examples/3_cameras_setup_c.png" width="520">
   </p>
 
 * <b><u>Shapes</b>:</u> Setup and drawing parametric geometries (Grid, Box, Curves, etc.)<br>
   <img src="src/examples/4_shapes_rotating.gif" alt="1_scene" height="360"><br>
   SlimEngine++ allocates and initializes the scene based on quantities set at app-initialization time.<br>
   Wireframe drawing of the scene to the viewport can be set-up to occur on window-redraw.<br>  
-  <p float="left">
-    <img src="src/examples/4_shapes_initialization_c.png" alt="4_scene_initialization_and_viewport_drawing_code" width="350">
-    <img src="src/examples/4_shapes_viewport_drawing_c.png" alt="4_scene_viewport_drawing_code" height="300">
+  <p>
+    <img src="src/examples/4_shapes_update_c.png" width="620">
+    <img src="src/examples/4_shapes_setup_c.png" width="460">
+    <img src="src/examples/4_shapes_drawing_c.png" width="840">
   </p>
 
 * <b><u>Scene</b>:</u> Object selection and manipulation (Translation, Rotation and Scale)<br>
   <img src="src/examples/5_manipulation.gif" alt="5_manipulation" height="360"><br>
   Scene objects can be dragged around the screen, moving them parallel to the viewing plane.<br>
   Selecting an object displays it's bouding box, enabling for per-axis translation, rotation and scaling.<br><br>
-  <p float="left">
-    <img src="src/examples/5_manipulation_update_c.png" alt="4_manipulation_update_code" width="350">
-    <img src="src/examples/5_manipulation_scene_setup_c.png" alt="4_manipulation_scene_setup_code" width="350">
+  <p>
+    <img src="src/examples/5_manipulation_scene_setup_c.png" width="720">
+    <img src="src/examples/5_manipulation_update_c.png" width="950">
   </p>
   
 * <b><u>Scene</b>:</u> Mesh loading from file, instancing and wire-frame drawing<br>
@@ -115,17 +116,17 @@ Well documented example applications cover the features:<br>
   A mesh can have multiple instances, each with their own transformation and colors.<br>
   Simply have multiple mesh geometries all set with same mesh id.<br>
   Memory is allocated automatically for the meshes by reading their headers before loading.<br>
-  <p float="left">
-    <img src="src/examples/6_mesh_drawing_c.png" alt="6_mesh_drawing_code" width="350">
-    <img src="src/examples/6_mesh_setup_c.png" alt="6_mesh_setup_code" width="350">
+  <p>
+    <img src="src/examples/6_mesh_setup_c.png" width="990">
+    <img src="src/examples/6_mesh_drawing_c.png" width="990">
   </p>
 
 * <b><u>Scene</b>:</u> Saving to and loading from `.scene` files<br>
   <img src="src/examples/7_scene.gif" alt="7_scene" height="360"><br>
   Scenes can be saved to a file and later loaded back in-place.
-  <p float="left">
-    <img src="src/examples/7_scene_setup_c.png" alt="7_scene_io_code" width="350">
-    <img src="src/examples/7_scene_message_c.png" alt="7_scene_message_code" width="350">
+  <p>
+    <img src="src/examples/7_scene_message_c.png" width="520">
+    <img src="src/examples/7_scene_setup_c.png" width="980">
   </p>
 
 * <b><u>obj2mesh</b>:</u> Also privided is a separate CLI tool for converting `.obj` files to `.mesh` files.<br>

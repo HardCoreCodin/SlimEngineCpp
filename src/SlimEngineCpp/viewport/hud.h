@@ -32,16 +32,16 @@ struct HUDSettings {
     u32 line_count{0};
     f32 line_height{1.0f};
     enum ColorID default_color{White};
-    bool show{false};
 
-    HUDSettings(u32 line_count = 0, f32 line_height = 1.0f, ColorID default_color = White, bool show = false) :
-            line_count{line_count}, line_height{line_height}, default_color{default_color}, show{show} {}
+    HUDSettings(u32 line_count = 0, f32 line_height = 1.0f, ColorID default_color = White) :
+            line_count{line_count}, line_height{line_height}, default_color{default_color} {}
 };
 
 struct HUD {
     HUDSettings settings;
     HUDLine *lines{nullptr};
     vec2i position{10, 10};
+    bool enabled{true};
 
     HUD() = default;
     HUD(HUDSettings settings, HUDLine *lines, vec2i position = {10, 10}) : settings{settings}, lines{lines}, position{position} {

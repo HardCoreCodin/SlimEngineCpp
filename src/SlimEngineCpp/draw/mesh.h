@@ -5,14 +5,14 @@
 #include "../viewport/viewport.h"
 
 
-void draw(const Mesh &mesh, const Transform &xform, bool draw_normals, const Viewport &viewport, const vec3 &color = Color(White), f32 opacity = 1.0f, u8 line_width = 1) {
+void draw(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport, const vec3 &color = Color(White), f32 opacity = 1.0f, u8 line_width = 1) {
     const Camera &cam = *viewport.camera;
     vec3 pos;
     Edge edge;
     EdgeVertexIndices *edge_index = mesh.edge_vertex_indices;
     for (u32 i = 0; i < mesh.edge_count; i++, edge_index++) {
-        edge.from = cam.internPos(xform.externPos(mesh.vertex_positions[edge_index->from]));
-        edge.to   = cam.internPos(xform.externPos(mesh.vertex_positions[edge_index->to]));
+        edge.from = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->from]));
+        edge.to   = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->to]));
         draw(edge, viewport, color, opacity, line_width);
     }
 
@@ -23,8 +23,8 @@ void draw(const Mesh &mesh, const Transform &xform, bool draw_normals, const Vie
             for (u8 i = 0; i < 3; i++) {
                 pos = mesh.vertex_positions[position_index->ids[i]];
                 edge.to = mesh.vertex_normals[normal_index->ids[i]] * 0.1f + pos;
-                edge.from = cam.internPos(xform.externPos(pos));
-                edge.to = cam.internPos(xform.externPos(edge.to));
+                edge.from = cam.internPos(transform.externPos(pos));
+                edge.to = cam.internPos(transform.externPos(edge.to));
                 draw(edge, viewport, Color(Red), opacity * 0.5f, line_width);
             }
         }
