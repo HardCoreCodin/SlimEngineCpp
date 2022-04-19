@@ -11,6 +11,9 @@ struct ViewportExample : SlimEngine {
         {0, 7, -11},
         {-25*DEG_TO_RAD,0, 0}
     };
+    Viewport viewport{window::canvas,&camera};
+
+    // HUD:
     HUDLine Fps{   (char*)"Fps    : "};
     HUDLine Mfs{   (char*)"Mic-s/f: "};
     HUDLine Width{ (char*)"Width  : "};
@@ -23,7 +26,6 @@ struct ViewportExample : SlimEngine {
         Green
     };
     HUD hud{hud_settings, &Fps};
-    Viewport viewport{window::canvas,&camera};
 
     // Scene:
     Grid grid{11, 11};
@@ -38,22 +40,25 @@ struct ViewportExample : SlimEngine {
     u8 line_width = 0;
     vec3 color{ Color(White) };
 
-    void OnUpdate(f32 delta_time) override {
-        Fps.value = (i32)render_timer.average_frames_per_second;
-        Mfs.value = (i32)render_timer.average_microseconds_per_frame;
-    }
     void OnRender() override {
         draw(grid, transform, viewport, color, opacity, line_width);
         if (hud.enabled) draw(hud, viewport);
     }
-    void OnKeyChanged (u8 key, bool is_pressed) override {
-        if (!is_pressed && key == controls::key_map::tab)
-            hud.enabled = !hud.enabled;
-    }
+
     void OnWindowResize(u16 width, u16 height) override {
         viewport.updateDimensions(width, height);
         Width.value = (i32)width;
         Height.value = (i32)height;
+    }
+
+    void OnKeyChanged (u8 key, bool is_pressed) override {
+        if (!is_pressed && key == controls::key_map::tab)
+            hud.enabled = !hud.enabled;
+    }
+
+    void OnUpdate(f32 delta_time) override {
+        Fps.value = (i32)render_timer.average_frames_per_second;
+        Mfs.value = (i32)render_timer.average_microseconds_per_frame;
     }
     void OnMouseMovementSet(i32 x, i32 y) override {
         MouseX.value = mouse::pos_x;

@@ -5842,7 +5842,7 @@ namespace window {
         RGBA2u32() : value{0} {}
     };
 
-    void display() {
+    void renderCanvasToContent() {
         PixelQuad *src_pixel = canvas.pixels;
         u32 *trg_value = content;
         vec3 color;

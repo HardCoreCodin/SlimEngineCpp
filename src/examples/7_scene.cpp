@@ -18,12 +18,6 @@ struct SceneExample : SlimEngine {
     Viewport viewport{window::canvas, &camera};
 
     // Scene:
-    char strings[3][100] = {};
-    String scene_file = String::getFilePath((char*)"this.scene",strings[0],(char*)__FILE__);
-    String mesh_files[2] = {
-        String::getFilePath((char*)"suzanne.mesh",strings[1],(char*)__FILE__),
-        String::getFilePath((char*)"dog.mesh"    ,strings[2],(char*)__FILE__)
-    };
     Box box{}, *boxes{&box};
     Grid grid{11, 11}, *grids{&grid};
     Curve helix{CurveType_Helix, 10}, coil{CurveType_Coil, 30}, *curves{&helix};
@@ -36,6 +30,13 @@ struct SceneExample : SlimEngine {
     Geometry suz2{{{-8, 5, 0} }, GeometryType_Mesh, Cyan};
     Geometry dog1{{{0, 5, 5} }, GeometryType_Mesh, Blue, 1};
     Geometry box1{{},GeometryType_Curve,Yellow}, *geometries{&grid1};
+
+    char strings[3][100] = {};
+    String scene_file = String::getFilePath((char*)"this.scene",strings[0],(char*)__FILE__);
+    String mesh_files[2] = {
+            String::getFilePath((char*)"suzanne.mesh",strings[1],(char*)__FILE__),
+            String::getFilePath((char*)"dog.mesh"    ,strings[2],(char*)__FILE__)
+    };
     SceneCounts counts{1, 7, 1, 1, 2, 2 };
     Scene scene{counts,scene_file.char_ptr, cameras, geometries, grids, boxes, curves, meshes, mesh_files};
     Selection selection;
@@ -57,7 +58,8 @@ struct SceneExample : SlimEngine {
         draw(box,box1.transform, viewport,Color(box1.color), opacity, line_width);
         draw(coil,coil1.transform, viewport ,Color(coil1.color), opacity, line_width);
         draw(helix,helix1.transform, viewport, Color(helix1.color), opacity, line_width);
-        if (controls::is_pressed::alt) draw(selection, viewport, scene);
+        if (controls::is_pressed::alt)
+            draw(selection, viewport, scene);
         drawMessage();
     }
     void drawMessage() const {

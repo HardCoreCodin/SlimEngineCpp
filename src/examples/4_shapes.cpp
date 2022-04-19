@@ -16,27 +16,29 @@ struct ShapesExample : SlimEngine {
 
     // Scene:
     Box box{};
-    Grid grid{11, 11};
+    Grid grid{11,
+              11};
     Curve helix{CurveType_Helix, 10};
-    Curve coil{CurveType_Coil, 30};
-    Transform box_transform{};
-    Transform grid_transform{
-        {0, 0, 0},
-        {0, 45 * DEG_TO_RAD, 0},
-        {5, 1, 5}
-    };
+    Curve coil{ CurveType_Coil,  30};
+
     Transform helix_transform{{-3, 4, 2}};
     Transform coil_transform{{4, 4, 2}};
+    Transform box_transform{};
+    Transform grid_transform{
+          {0, 0, 0},
+        {0, 45 * DEG_TO_RAD, 0},
+            {5, 1, 5}
+    };
 
     // Drawing:
     f32 opacity = 0.5f;
     u8 line_width = 0;
 
     void OnRender() override {
-        draw(grid,grid_transform, viewport,Color(Green), opacity, line_width);
-        draw(box,box_transform, viewport,Color(Yellow), opacity, line_width);
-        draw(coil,coil_transform, viewport,Color(Magenta), opacity, line_width);
-        draw(helix,helix_transform, viewport,Color(Cyan), opacity, line_width);
+        draw(      grid, grid_transform,  viewport,Color(Green),   opacity, line_width);
+        draw(      box,  box_transform,   viewport,Color(Yellow),  opacity, line_width);
+        draw(coil, coil_transform,  viewport,Color(Magenta), opacity, line_width);
+        draw(helix,helix_transform, viewport,Color(Cyan),    opacity, line_width);
     }
     void OnWindowResize(u16 width, u16 height) override {
         viewport.updateDimensions(width, height);

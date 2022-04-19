@@ -11,14 +11,13 @@ namespace window {
     u32 *content{nullptr};
     Canvas canvas{nullptr};
 
-    union RGBA2u32 {
-        u32 value;
-        RGBA rgba;
+    void renderCanvasToContent() {
+        union RGBA2u32 {
+            u32 value;
+            RGBA rgba;
 
-        RGBA2u32() : value{0} {}
-    };
-
-    void display() {
+            RGBA2u32() : value{0} {}
+        };
         PixelQuad *src_pixel = canvas.pixels;
         u32 *trg_value = content;
         vec3 color;
@@ -89,7 +88,7 @@ struct SlimEngine {
         render_timer.beginFrame();
         OnRender();
         render_timer.endFrame();
-        window::display();
+        window::renderCanvasToContent();
         mouse::resetChanges();
     };
 

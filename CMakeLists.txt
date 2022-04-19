@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 
+project(SlimEngineCpp_0_barebone)
+add_executable(SlimEngineCpp_0_barebone WIN32 src/examples/0_barebone.cpp)
+
 project(SlimEngineCpp_1_viewport)
 add_executable(SlimEngineCpp_1_viewport WIN32 src/examples/1_viewport.cpp)
 

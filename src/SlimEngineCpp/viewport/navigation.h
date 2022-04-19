@@ -29,7 +29,7 @@ struct Navigation {
         f32 max_velocity{NAVIGATION_DEFAULT__MAX_VELOCITY};
         f32 acceleration{NAVIGATION_DEFAULT__ACCELERATION};
     } settings;
-    
+
     NavigationMove move{};
     NavigationTurn turn{};
 
@@ -92,11 +92,13 @@ struct Navigation {
         }
 
         // Update the current velocity and position:
-        f32 velocity_difference = settings.acceleration * delta_time;
-        camera.current_velocity = camera.current_velocity.approachTo(target_velocity, velocity_difference);
-        vec3 position_difference = camera.current_velocity * delta_time;
-        moved = position_difference.nonZero();
-        if (moved) camera.position += camera.rotation * position_difference;
+        vec3 &V = camera.current_velocity;
+        f32 V_delta = settings.acceleration * delta_time;
+        V = V.approachTo(target_velocity, V_delta);
+        vec3 movement = V * delta_time;
+        moved = movement.nonZero();
+        if (moved)
+            camera.position += camera.rotation * movement;
     }
 
     void update(Camera &camera, f32 delta_time) {

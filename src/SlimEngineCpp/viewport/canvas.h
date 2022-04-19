@@ -44,10 +44,28 @@ struct Canvas {
 
     explicit Canvas(PixelQuad *pixels) noexcept : pixels{pixels} {}
 
-    INLINE PixelQuad* row(u32 y) const { return pixels + y * (u32)dimensions.width; }
-    INLINE PixelQuad* operator[](u32 y) const { return row(y); }
-
-    INLINE void setPixel(i32 x, i32 y, const Pixel &pixel) const { setPixel(x, y, pixel.color, pixel.opacity, pixel.depth); }
+    void clear() const {
+        fill(background.color,
+             background.opacity,
+             background.depth);
+    }
+    void fill(const Pixel &pixel) const {
+        fill(pixel.color, pixel.opacity, pixel.depth);
+    }
+    void fill(const vec3 &color, f32 opacity, f64 depth) const {
+        PixelQuad fill_pixel;
+        Pixel fill_sub_pixel;
+        fill_sub_pixel.color = color;
+        fill_sub_pixel.opacity = opacity;
+        fill_sub_pixel.depth = depth;
+        fill_pixel.TL = fill_pixel.TR = fill_pixel.BL = fill_pixel.BR = fill_sub_pixel;
+        for (i32 y = 0; y < dimensions.height; y++)
+            for (i32 x = 0; x < dimensions.width; x++)
+                pixels[dimensions.stride * y + x] = fill_pixel;
+    }
+    INLINE void setPixel(i32 x, i32 y, const Pixel &pixel) const {
+        setPixel(x, y, pixel.color, pixel.opacity, pixel.depth);
+    }
     INLINE void setPixel(i32 x, i32 y, const vec3 &color, f32 opacity, f64 depth) const {
         Pixel *pixel;
         PixelQuad *pixel_quad;
@@ -91,23 +109,10 @@ struct Canvas {
 
         if (!antialias) pixel_quad->BR = pixel_quad->BL = pixel_quad->TR = pixel_quad->TL;
     }
-
-    void fill(const Pixel &pixel) const { fill(pixel.color, pixel.opacity, pixel.depth); }
-    void fill(const vec3 &color, f32 opacity, f64 depth) const {
-        PixelQuad fill_pixel;
-        Pixel fill_sub_pixel;
-        fill_sub_pixel.color = color;
-        fill_sub_pixel.opacity = opacity;
-        fill_sub_pixel.depth = depth;
-        fill_pixel.TL = fill_pixel.TR = fill_pixel.BL = fill_pixel.BR = fill_sub_pixel;
-        for (i32 y = 0; y < dimensions.height; y++)
-            for (i32 x = 0; x < dimensions.width; x++)
-                pixels[dimensions.stride * y + x] = fill_pixel;
+    INLINE PixelQuad* row(u32 y) const {
+        return pixels + y * (u32)dimensions.width;
     }
-
-    void clear() const {
-        fill(background.color,
-             background.opacity,
-             background.depth);
+    INLINE PixelQuad* operator[](u32 y) const {
+        return row(y);
     }
 };

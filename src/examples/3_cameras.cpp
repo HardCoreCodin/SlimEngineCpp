@@ -43,10 +43,20 @@ struct CamerasExample : SlimEngine {
     }
     void OnRender() override {
         draw(grid, transform, viewport, color, opacity, line_width);
-        draw(*other_camera, viewport,other_camera_color,
-             opacity, line_width);
+        draw(*other_camera, viewport,
+             other_camera_color, opacity, line_width);
     }
     void OnKeyChanged(u8 key, bool is_pressed) override {
+        if (key == '1') viewport.setCamera(camera1);
+        if (key == '2') viewport.setCamera(camera2);
+        if (viewport.camera == &camera1) {
+            other_camera = &camera2;
+            other_camera_color = camera2_color;
+        } else {
+            other_camera = &camera1;
+            other_camera_color = camera1_color;
+        }
+
         NavigationMove &move = viewport.navigation.move;
         NavigationTurn &turn = viewport.navigation.turn;
         if (key == 'Q') turn.left     = is_pressed;
@@ -57,15 +67,6 @@ struct CamerasExample : SlimEngine {
         if (key == 'S') move.backward = is_pressed;
         if (key == 'A') move.left     = is_pressed;
         if (key == 'D') move.right    = is_pressed;
-        if (key == '1') viewport.setCamera(camera1);
-        if (key == '2') viewport.setCamera(camera2);
-        if (viewport.camera == &camera1) {
-            other_camera = &camera2;
-            other_camera_color = camera2_color;
-        } else {
-            other_camera = &camera1;
-            other_camera_color = camera1_color;
-        }
     }
     void OnWindowResize(u16 width, u16 height) override {
         viewport.updateDimensions(width, height);
