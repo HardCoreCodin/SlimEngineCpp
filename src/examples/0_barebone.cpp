@@ -1,10 +1,11 @@
 #include "../SlimEngineCpp/app.h"
 // Or using the single-header file:
-// #include "../SlimEngineCpp.h"
+// #include "../SlimEngine.h"
 
-struct MySlimEngine : SlimEngine {
+struct MyEngine : SlimEngine {
     // You code goes here:
 };
 SlimEngine* createEngine() {
-    return (SlimEngine*)new MySlimEngine();
+    return (SlimEngine*)new MyEngine();
 }
+

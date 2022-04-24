@@ -4,7 +4,7 @@
 #include "../SlimEngineCpp/draw/box.h"
 #include "../SlimEngineCpp/app.h"
 // Or using the single-header file:
-// #include "../SlimEngineCpp.h"
+// #include "../SlimEngine.h"
 
 struct ShapesExample : SlimEngine {
     // Viewport:

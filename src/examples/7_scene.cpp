@@ -8,7 +8,7 @@
 #include "../SlimEngineCpp/serialization/scene.h"
 #include "../SlimEngineCpp/app.h"
 // Or using the single-header file:
-// #include "../SlimEngineCpp.h"
+// #include "../SlimEngine.h"
 
 struct SceneExample : SlimEngine {
     // Viewport:

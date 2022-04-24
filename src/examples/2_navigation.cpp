@@ -2,7 +2,7 @@
 #include "../SlimEngineCpp/draw/grid.h"
 #include "../SlimEngineCpp/app.h"
 // Or using the single-header file:
-// #include "../SlimEngineCpp.h"
+// #include "../SlimEngine.h"
 
 #include "./_common.h"
 

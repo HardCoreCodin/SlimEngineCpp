@@ -4784,15 +4784,9 @@ struct HUD {
 
 struct Frustum {
     struct Projection {
-        union {
-            struct {
-                vec3 scale;
-                f32 shear;
-            };
-            struct {
-                vec3 projected_position;
-                f32 w;
-            };
+        struct {
+            vec3 scale;
+            f32 shear;
         };
 
         Projection(f32 x, f32 y, f32 z, f32 w) : scale{x, y, z}, shear{w} {}
@@ -4815,13 +4809,13 @@ struct Frustum {
             }
         }
 
-        Projection project(const vec3 &position) const {
-            return {
+        vec3 project(const vec3 &position) const {
+            vec3 projected_position{
                     position.x * scale.x,
                     position.y * scale.y,
-                    position.z * scale.z + shear,
-                    position.z
+                    position.z * scale.z + shear
             };
+            return projected_position / position.z;
         }
     };
     Projection projection{
@@ -4921,10 +4915,8 @@ struct Frustum {
 
     void projectEdge(Edge &edge, const Dimensions &dimensions) const {
         // Project:
-        Projection Aproj{projection.project(edge.from)};
-        Projection Bproj{projection.project(edge.to)};
-        vec3 A{Aproj.projected_position / Aproj.w};
-        vec3 B{Bproj.projected_position / Bproj.w};
+        vec3 A{projection.project(edge.from)};
+        vec3 B{projection.project(edge.to)};
 
         // NDC->screen:
         A.x += 1;

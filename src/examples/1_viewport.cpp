@@ -3,7 +3,7 @@
 #include "../SlimEngineCpp/draw/hud.h"
 #include "../SlimEngineCpp/app.h"
 // Or using the single-header file:
-// #include "../SlimEngineCpp.h"
+// #include "../SlimEngine.h"
 
 struct ViewportExample : SlimEngine {
     // Viewport:

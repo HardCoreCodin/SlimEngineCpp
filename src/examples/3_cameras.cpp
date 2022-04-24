@@ -3,7 +3,7 @@
 #include "../SlimEngineCpp/draw/camera.h"
 #include "../SlimEngineCpp/app.h"
 // Or using the single-header file:
-// #include "../SlimEngineCpp.h"
+// #include "../SlimEngine.h"
 
 
 struct CamerasExample : SlimEngine {
