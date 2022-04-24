@@ -1,15 +1,13 @@
 #pragma once
 
-#include "./quat.h"
+#include "./vec3.h"
 
-union mat3 {
-    f32 components[9];
-    vec3 axis[3];
-    struct {
-        vec3 X, Y, Z;
-    };
-    struct {
-        vec3 right, up, forward;
+struct mat3 {
+    union {
+        f32 components[9];
+        vec3 axis[3];
+        struct { vec3 X, Y, Z; };
+        struct { vec3 right, up, forward; };
     };
 
     static mat3 Identity;
@@ -26,7 +24,6 @@ union mat3 {
             Z{Zx, Zy, Zz} {}
     mat3(mat3 &other) noexcept : mat3{other.X, other.Y, other.Z} {}
     mat3(const mat3 &other) noexcept : mat3{other.X, other.Y, other.Z} {}
-    explicit mat3(const quat &q) noexcept { q.setXYZ(X, Y, Z); }
 
     static INLINE mat3 RotationAroundX(f32 radians) {
         f32 c = cos(radians);
@@ -113,72 +110,6 @@ union mat3 {
         mat3 out{*this};
         out.rotateAroundZ(radians);
         return out;
-    }
-
-    INLINE quat asQuat() const {
-        f32 fourXSquaredMinus1 = X.x - Y.y - Z.z;
-        f32 fourYSquaredMinus1 = Y.y - X.x - Z.z;
-        f32 fourZSquaredMinus1 = Z.z - X.x - Y.y;
-        f32 fourWSquaredMinus1 = X.x + Y.y + Z.z;
-
-        int biggestIndex = 0;
-        f32 fourBiggestSquaredMinus1 = fourWSquaredMinus1;
-        if (fourXSquaredMinus1 > fourBiggestSquaredMinus1) {
-            fourBiggestSquaredMinus1 = fourXSquaredMinus1;
-            biggestIndex = 1;
-        }
-        if (fourYSquaredMinus1 > fourBiggestSquaredMinus1) {
-            fourBiggestSquaredMinus1 = fourYSquaredMinus1;
-            biggestIndex = 2;
-        }
-        if (fourZSquaredMinus1 > fourBiggestSquaredMinus1) {
-            fourBiggestSquaredMinus1 = fourZSquaredMinus1;
-            biggestIndex = 3;
-        }
-
-        f32 biggestVal = sqrtf(fourBiggestSquaredMinus1 + 1.0f) * 0.5f;
-        f32 mult = 0.25f / biggestVal;
-
-        switch(biggestIndex) {
-            case 0:
-                return {
-                        {
-                                (Y.z - Z.y) * mult,
-                                (Z.x - X.z) * mult,
-                                (X.y - Y.x) * mult
-                        },
-                        biggestVal
-                };
-            case 1:
-                return {
-                        {
-                                biggestVal,
-                                (X.y + Y.x) * mult,
-                                (Z.x + X.z) * mult
-                        },
-                        (Y.z - Z.y) * mult
-                };
-            case 2:
-                return {
-                        {
-                                (X.y + Y.x) * mult,
-                                biggestVal,
-                                (Y.z + Z.y) * mult
-                        },
-                        (Z.x - X.z) * mult
-                };
-            case 3:
-                return {
-                    {
-                        (Z.x + X.z) * mult,
-                        (Y.z + Z.y) * mult,
-                        biggestVal
-                    },
-                    (X.y - Y.x) * mult
-                };
-        }
-
-        return {};
     }
 
     INLINE f32 det() const {

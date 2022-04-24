@@ -564,6 +564,7 @@ namespace controls {
         u8 shift{0};
         u8 space{0};
         u8 tab{0};
+        u8 escape{0};
     }
 
     namespace is_pressed {
@@ -572,6 +573,7 @@ namespace controls {
         bool shift{false};
         bool space{false};
         bool tab{false};
+        bool escape{false};
     }
 }
 
@@ -1032,12 +1034,14 @@ struct vec2i {
 };
 
 
-union vec2 {
-    static vec2 X, Y;
+struct vec2 {
+    union {
+        struct {f32 components[2]; };
+        struct {f32 x, y; };
+        struct {f32 u, v; };
+    };
 
-    struct {f32 components[2]; };
-    struct {f32 x, y; };
-    struct {f32 u, v; };
+    static vec2 X, Y;
 
     vec2() : vec2{0} {}
     vec2(f32 x, f32 y) noexcept : x(x), y(y) {}
@@ -1360,6 +1364,13 @@ union vec2 {
         };
     }
 
+    INLINE vec2 clamped(const vec2 &lower, const vec2 &upper) const {
+        return {
+                clampedValue(x, lower.x, upper.x),
+                clampedValue(y, lower.y, upper.y)
+        };
+    }
+
     INLINE vec2 clamped(const f32 min_value, const f32 max_value) const {
         return {
                 clampedValue(x, min_value, max_value),
@@ -1542,14 +1553,15 @@ INLINE vec2 lerp(const vec2 &from, const vec2 &to, f32 by) {
 
 
 
-union vec3 {
-    static vec3 X, Y, Z;
+struct vec3 {
+    union {
+        struct {f32 components[3]; };
+        struct {f32 x, y, z; };
+        struct {f32 u, v, w; };
+        struct {f32 r, g, b; };
+    };
 
-    struct {f32 components[3]; };
-    struct {f32 x, y, z; };
-    struct {f32 u, v, w; };
-    struct {f32 r, g, b; };
-//    struct {vec2 v2; f32 _; };
+    static vec3 X, Y, Z;
 
     vec3() noexcept : vec3{0} {}
     vec3(f32 x, f32 y, f32 z) noexcept : x(x), y(y), z(z) {}
@@ -1860,6 +1872,14 @@ union vec3 {
         };
     }
 
+    INLINE vec3 clamped(const vec3 &lower, const vec3 &upper) const {
+        return {
+                clampedValue(x, lower.x, upper.x),
+                clampedValue(y, lower.y, upper.y),
+                clampedValue(z, lower.z, upper.z)
+        };
+    }
+
     INLINE vec3 clamped(const f32 min_value, const f32 max_value) const {
         return {
                 clampedValue(x, min_value, max_value),
@@ -1958,19 +1978,18 @@ vec3 Color(enum ColorID color_id) {
 }
 
 
-union vec4 {
+struct vec4 {
+    union {
+        struct {f32 components[4]; };
+        struct {f32 x, y, z, w; };
+        struct {f32 r, g, b, a; };
+    };
     static vec4 X, Y, Z, W;
-
-    struct {f32 components[4]; };
-    struct {f32 x, y, z, w; };
-    struct {f32 r, g, b, a; };
-    struct {vec3 v3; f32 _; };
 
     vec4() noexcept : vec4{0} {}
     vec4(f32 x, f32 y, f32 z, f32 w) noexcept : x(x), y(y), z(z), w(w) {}
     vec4(vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
     vec4(const vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
-    explicit vec4(const vec3 &v3, f32 w = 0) noexcept : vec4{v3.x, v3.y, v3.z, w} {}
     explicit vec4(f32 value) noexcept : vec4{value, value, value, value} {}
 
     INLINE RGBA toRGBA() const {
@@ -2287,6 +2306,15 @@ union vec4 {
         };
     }
 
+    INLINE vec4 clamped(const vec4 &lower, const vec4 &upper) const {
+        return {
+                clampedValue(x, lower.x, upper.x),
+                clampedValue(y, lower.y, upper.y),
+                clampedValue(z, lower.z, upper.z),
+                clampedValue(w, lower.w, upper.w)
+        };
+    }
+
     INLINE vec4 clamped(const f32 min_value, const f32 max_value) const {
         return {
                 clampedValue(x, min_value, max_value),
@@ -2501,10 +2529,12 @@ struct quat {
 quat quat::Identity = {};
 
 
-union mat2  {
-    vec2 axis[2];
-    struct {
-        vec2 X, Y;
+struct mat2 {
+    union {
+        f32 components[4];
+        vec2 axis[2];
+        struct { vec2 X, Y; };
+        struct { vec2 right, up; };
     };
 
     static mat2 Identity;
@@ -2705,14 +2735,12 @@ INLINE mat2 outer(const vec2 &lhs, const vec2 &rhs) {
 }
 
 
-union mat3 {
-    f32 components[9];
-    vec3 axis[3];
-    struct {
-        vec3 X, Y, Z;
-    };
-    struct {
-        vec3 right, up, forward;
+struct mat3 {
+    union {
+        f32 components[9];
+        vec3 axis[3];
+        struct { vec3 X, Y, Z; };
+        struct { vec3 right, up, forward; };
     };
 
     static mat3 Identity;
@@ -2729,7 +2757,6 @@ union mat3 {
             Z{Zx, Zy, Zz} {}
     mat3(mat3 &other) noexcept : mat3{other.X, other.Y, other.Z} {}
     mat3(const mat3 &other) noexcept : mat3{other.X, other.Y, other.Z} {}
-    explicit mat3(const quat &q) noexcept { q.setXYZ(X, Y, Z); }
 
     static INLINE mat3 RotationAroundX(f32 radians) {
         f32 c = cos(radians);
@@ -2816,72 +2843,6 @@ union mat3 {
         mat3 out{*this};
         out.rotateAroundZ(radians);
         return out;
-    }
-
-    INLINE quat asQuat() const {
-        f32 fourXSquaredMinus1 = X.x - Y.y - Z.z;
-        f32 fourYSquaredMinus1 = Y.y - X.x - Z.z;
-        f32 fourZSquaredMinus1 = Z.z - X.x - Y.y;
-        f32 fourWSquaredMinus1 = X.x + Y.y + Z.z;
-
-        int biggestIndex = 0;
-        f32 fourBiggestSquaredMinus1 = fourWSquaredMinus1;
-        if (fourXSquaredMinus1 > fourBiggestSquaredMinus1) {
-            fourBiggestSquaredMinus1 = fourXSquaredMinus1;
-            biggestIndex = 1;
-        }
-        if (fourYSquaredMinus1 > fourBiggestSquaredMinus1) {
-            fourBiggestSquaredMinus1 = fourYSquaredMinus1;
-            biggestIndex = 2;
-        }
-        if (fourZSquaredMinus1 > fourBiggestSquaredMinus1) {
-            fourBiggestSquaredMinus1 = fourZSquaredMinus1;
-            biggestIndex = 3;
-        }
-
-        f32 biggestVal = sqrtf(fourBiggestSquaredMinus1 + 1.0f) * 0.5f;
-        f32 mult = 0.25f / biggestVal;
-
-        switch(biggestIndex) {
-            case 0:
-                return {
-                        {
-                                (Y.z - Z.y) * mult,
-                                (Z.x - X.z) * mult,
-                                (X.y - Y.x) * mult
-                        },
-                        biggestVal
-                };
-            case 1:
-                return {
-                        {
-                                biggestVal,
-                                (X.y + Y.x) * mult,
-                                (Z.x + X.z) * mult
-                        },
-                        (Y.z - Z.y) * mult
-                };
-            case 2:
-                return {
-                        {
-                                (X.y + Y.x) * mult,
-                                biggestVal,
-                                (Y.z + Z.y) * mult
-                        },
-                        (Z.x - X.z) * mult
-                };
-            case 3:
-                return {
-                        {
-                                (Z.x + X.z) * mult,
-                                (Y.z + Z.y) * mult,
-                                biggestVal
-                        },
-                        (X.y - Y.x) * mult
-                };
-        }
-
-        return {};
     }
 
     INLINE f32 det() const {
@@ -3072,12 +3033,12 @@ INLINE mat3 outerVec3(const vec3 &lhs, const vec3 &rhs) {
 }
 
 
-union mat4 {
-    vec4 axis[4];
-    struct {
-        vec4 X, Y, Z, W;
+struct mat4 {
+    union {
+        f32 components[16];
+        vec4 axis[4];
+        struct { vec4 X, Y, Z, W; };
     };
-
     static mat4 Identity;
 
     mat4() noexcept :
@@ -3096,8 +3057,6 @@ union mat4 {
             W{Wx, Wy, Wz, Ww} {}
     mat4(mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
     mat4(const mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
-    explicit mat4(const mat3 &m3, const vec4 &W = {0, 0, 0, 1}) noexcept :
-            mat4{vec4{m3.X}, vec4{m3.Y}, vec4{m3.Z}, W} {}
 
     INLINE void setRotationAroundX(f32 angle) {
         Z.z = Y.y = cos(angle);
@@ -3407,18 +3366,192 @@ INLINE mat4 operator + (f32 lhs, const mat4 &rhs) {
 }
 
 
-enum CurveType {
-    CurveType_None = 0,
+INLINE vec4 Vec4(const vec3 &v3, f32 w = 0.0f) {
+    return {v3.x, v3.y, v3.z, w};
+}
 
-    CurveType_Helix,
-    CurveType_Coil,
+INLINE mat3 Mat3(const quat &q) {
+    mat3 mat;
+    q.setXYZ(mat.X, mat.Y, mat.Z);
+    return mat;
+}
 
-    CurveType_Count
+INLINE quat Quat(const mat3 &m) {
+    f32 fourXSquaredMinus1 = m.X.x - m.Y.y - m.Z.z;
+    f32 fourYSquaredMinus1 = m.Y.y - m.X.x - m.Z.z;
+    f32 fourZSquaredMinus1 = m.Z.z - m.X.x - m.Y.y;
+    f32 fourWSquaredMinus1 = m.X.x + m.Y.y + m.Z.z;
+
+    int biggestIndex = 0;
+    f32 fourBiggestSquaredMinus1 = fourWSquaredMinus1;
+    if (fourXSquaredMinus1 > fourBiggestSquaredMinus1) {
+        fourBiggestSquaredMinus1 = fourXSquaredMinus1;
+        biggestIndex = 1;
+    }
+    if (fourYSquaredMinus1 > fourBiggestSquaredMinus1) {
+        fourBiggestSquaredMinus1 = fourYSquaredMinus1;
+        biggestIndex = 2;
+    }
+    if (fourZSquaredMinus1 > fourBiggestSquaredMinus1) {
+        fourBiggestSquaredMinus1 = fourZSquaredMinus1;
+        biggestIndex = 3;
+    }
+
+    f32 biggestVal = sqrtf(fourBiggestSquaredMinus1 + 1.0f) * 0.5f;
+    f32 mult = 0.25f / biggestVal;
+
+    switch(biggestIndex) {
+        case 0:
+            return {
+                    {
+                            (m.Y.z - m.Z.y) * mult,
+                            (m.Z.x - m.X.z) * mult,
+                            (m.X.y - m.Y.x) * mult
+                    },
+                    biggestVal
+            };
+        case 1:
+            return {
+                    {
+                            biggestVal,
+                            (m.X.y + m.Y.x) * mult,
+                            (m.Z.x + m.X.z) * mult
+                    },
+                    (m.Y.z - m.Z.y) * mult
+            };
+        case 2:
+            return {
+                    {
+                            (m.X.y + m.Y.x) * mult,
+                            biggestVal,
+                            (m.Y.z + m.Z.y) * mult
+                    },
+                    (m.Z.x - m.X.z) * mult
+            };
+        case 3:
+            return {
+                    {
+                            (m.Z.x + m.X.z) * mult,
+                            (m.Y.z + m.Z.y) * mult,
+                            biggestVal
+                    },
+                    (m.X.y - m.Y.x) * mult
+            };
+    }
+
+    return {};
+}
+
+INLINE mat3 Mat3I(const quat &rotation)  {
+    return Mat3(rotation.conjugate());
+}
+
+mat4 Mat4(const quat &rotation, const vec3 &scale, const vec3 &position) {
+    mat3 rotation_matrix{Mat3(rotation)};
+    return {
+            Vec4(rotation_matrix.X * scale.x),
+            Vec4(rotation_matrix.Y * scale.y),
+            Vec4(rotation_matrix.Z * scale.z),
+            Vec4(position, 1)
+    };
+}
+
+mat4 Mat4(const mat3 &m3, const vec4 &W = {0, 0, 0, 1}) {
+    return {
+            Vec4(m3.X),
+            Vec4(m3.Y),
+            Vec4(m3.Z),
+            W
+    };
+}
+
+INLINE mat4 Mat4(const mat3 &rotation, const vec3 &position) {
+    return {
+            Vec4(rotation.X),
+            Vec4(rotation.Y),
+            Vec4(rotation.Z),
+            Vec4(position, 1.0f)
+    };
+}
+
+
+enum class CurveType {
+    None = 0,
+
+    Helix,
+    Coil,
+
+    Count
+};
+struct Curve {
+    CurveType type{CurveType::None};
+    f32 revolution_count{1}, thickness{0.1f};
 };
 
-struct Edge { vec3 from, to; };
-struct Rect { vec2i min, max; };
-struct Curve { CurveType type{CurveType_None}; f32 revolution_count{1}, thickness{0.1f}; };
+struct Edge {
+    vec3 from, to;
+};
+
+
+template<class VectorType, typename scalar_type>
+struct RectOf {
+    union {
+        struct {
+            VectorType top_left;
+            VectorType bottom_right;
+        };
+        struct {
+            scalar_type left;
+            scalar_type top;
+            scalar_type right;
+            scalar_type bottom;
+        };
+    };
+
+    RectOf() : RectOf{0, 0, 0 , 0} {}
+    RectOf(const VectorType &top_left, const VectorType &bottom_right) :
+            top_left{top_left}, bottom_right{bottom_right} {}
+    RectOf(i32 top_left_x, i32 top_left_y, i32 bottom_right_x, i32 bottom_right_y) :
+            top_left{top_left_x, top_left_y}, bottom_right{bottom_right_x, bottom_right_y} {}
+
+    INLINE bool contains(const VectorType &pos) const {
+        return pos.x >= top_left.x &&
+               pos.x <= bottom_right.x &&
+               pos.y >= top_left.y &&
+               pos.y <= bottom_right.y;
+    }
+
+    INLINE bool bounds(const VectorType &pos) const {
+        return pos.x > top_left.x &&
+               pos.x < bottom_right.x &&
+               pos.y > top_left.y &&
+               pos.y < bottom_right.y;
+    }
+
+    INLINE bool is_zero() const {
+        return top_left.x == bottom_right.x &&
+               top_left.y == bottom_right.y;
+    }
+
+    INLINE VectorType clamped(const VectorType &vec) const {
+        return vec.clamped(top_left, bottom_right);
+    }
+
+    INLINE bool operator ! () const {
+        return is_zero();
+    }
+
+    INLINE bool operator [] (const VectorType &pos) const {
+        return contains(pos);
+    }
+
+    INLINE bool operator () (const VectorType &pos) const {
+        return bounds(pos);
+    }
+};
+
+using Rect = RectOf<vec2, f32>;
+using RectI = RectOf<vec2i, i32>;
 
 template <class T>
 struct Orientation {
@@ -3496,24 +3629,6 @@ struct Transform : public Orientation<quat> {
     Transform(const vec3 &position) : Orientation<quat>{}, position{position}, scale{1.0f} {}
     Transform(const vec3 &position, const vec3 &orientation, const vec3 &scale = vec3{1.0f}) :
             Orientation{orientation.x, orientation.y, orientation.z}, position{position}, scale{scale} {}
-
-    mat3 getRotationMatrix() const {
-        return mat3{rotation};
-    }
-
-    INLINE mat3 getInverseRotationMatrix() const {
-        return mat3{rotation.conjugate()};
-    }
-
-    mat4 getMatrix() const {
-        mat3 rotation_matrix{rotation};
-        return mat4{
-                vec4{rotation_matrix.X * scale.x},
-                vec4{rotation_matrix.Y * scale.y},
-                vec4{rotation_matrix.Z * scale.z},
-                vec4{position, 1}
-        };
-    }
 
     void externPosAndDir(const vec3 &pos, const vec3 &dir, vec3 &out_pos, vec3 &out_dir) const {
         out_pos = position + (rotation * (scale * position));
@@ -3625,84 +3740,190 @@ INLINE BoxSide getBoxSide(const vec3 &octant, u8 axis) {
     }
 }
 
-struct RayHit {
-    vec3 position, normal;
-    f32 distance, distance_squared;
-    u32 geo_id{0};
+template <class VectorType>
+struct RayHitOf {
+    VectorType position{}, normal{};
+    f32 distance{}, distance_squared{};
+    u32 geo_id{};
     enum GeometryType geo_type{GeometryType_None};
     bool from_behind{false};
 };
 
-struct Ray {
-    vec3 origin, direction;
-    RayHit hit{};
+template<class VectorType>
+struct RayOf {
+    VectorType origin{}, direction{};
+    RayHitOf<VectorType> hit{};
 
-    INLINE BoxSide hitCube() {
-        vec3 octant, RD_rcp = 1.0f / direction;
-        octant.x = signbit(direction.x) ? 1.0f : -1.0f;
-        octant.y = signbit(direction.y) ? 1.0f : -1.0f;
-        octant.z = signbit(direction.z) ? 1.0f : -1.0f;
-
-        f32 t[6];
-        t[0] = (+octant.x - origin.x) * RD_rcp.x;
-        t[1] = (+octant.y - origin.y) * RD_rcp.y;
-        t[2] = (+octant.z - origin.z) * RD_rcp.z;
-        t[3] = (-octant.x - origin.x) * RD_rcp.x;
-        t[4] = (-octant.y - origin.y) * RD_rcp.y;
-        t[5] = (-octant.z - origin.z) * RD_rcp.z;
-
-        u8 max_axis = t[3] < t[4] ? 3 : 4; if (t[5] < t[max_axis]) max_axis = 5;
-        f32 max_t = t[max_axis];
-        if (max_t < 0) // Further-away hit is behind the ray - intersection can not occur.
-            return NoSide;
-
-        u8 min_axis = t[0] > t[1] ? 0 : 1; if (t[2] > t[min_axis]) min_axis = 2;
-        f32 min_t = t[min_axis];
-        if (max_t < (min_t > 0 ? min_t : 0))
-            return NoSide;
-
-        hit.from_behind = min_t < 0; // Further-away hit is in front of the ray, closer one is behind it.
-        if (hit.from_behind) {
-            min_t = max_t;
-            min_axis = max_axis;
-        }
-
-        BoxSide side = getBoxSide(octant, min_axis);
-        hit.position = direction.scaleAdd(min_t, origin);
-        hit.normal = 0.0f;
-        switch (side) {
-            case Left:   hit.normal.x = hit.from_behind ? +1.0f : -1.0f; break;
-            case Right:  hit.normal.x = hit.from_behind ? -1.0f : +1.0f; break;
-            case Bottom: hit.normal.y = hit.from_behind ? +1.0f : -1.0f; break;
-            case Top:    hit.normal.y = hit.from_behind ? -1.0f : +1.0f; break;
-            case Back:   hit.normal.z = hit.from_behind ? +1.0f : -1.0f; break;
-            case Front:  hit.normal.z = hit.from_behind ? -1.0f : +1.0f; break;
-            default: return NoSide;
-        }
-
-        return side;
-    }
-
-    INLINE bool hitPlane(const vec3 &P, const vec3 &N) {
-        f32 NdotRd = N | direction;
-        if (NdotRd == 0) // The ray is parallel to the plane
-            return false;
-
-        f32 NdotRoP = N | (P - origin);
-        if (NdotRoP == 0) return false; // The ray originated within the plane
-
-        bool ray_is_facing_the_plane = NdotRd < 0;
-        hit.from_behind = NdotRoP > 0;
-        if (hit.from_behind == ray_is_facing_the_plane) // The ray can't hit the plane
-            return false;
-
-        hit.distance = NdotRoP / NdotRd;
-        hit.position = origin + direction*hit.distance;
-        hit.normal = N;
-
-        return true;
-    }
+    INLINE VectorType at(f32 t) const { return origin + t*direction; }
+    INLINE VectorType operator [](f32 t) const { return at(t); }
 };
+
+using Ray = RayOf<vec3>;
+using Ray2D = RayOf<vec2>;
+
+
+INLINE BoxSide rayHitsCube(Ray &ray) {
+    vec3 octant, RD_rcp = 1.0f / ray.direction;
+    octant.x = signbit(ray.direction.x) ? 1.0f : -1.0f;
+    octant.y = signbit(ray.direction.y) ? 1.0f : -1.0f;
+    octant.z = signbit(ray.direction.z) ? 1.0f : -1.0f;
+
+    f32 t[6];
+    t[0] = (+octant.x - ray.origin.x) * RD_rcp.x;
+    t[1] = (+octant.y - ray.origin.y) * RD_rcp.y;
+    t[2] = (+octant.z - ray.origin.z) * RD_rcp.z;
+    t[3] = (-octant.x - ray.origin.x) * RD_rcp.x;
+    t[4] = (-octant.y - ray.origin.y) * RD_rcp.y;
+    t[5] = (-octant.z - ray.origin.z) * RD_rcp.z;
+
+    u8 max_axis = t[3] < t[4] ? 3 : 4; if (t[5] < t[max_axis]) max_axis = 5;
+    f32 max_t = t[max_axis];
+    if (max_t < 0) // Further-away hit is behind the ray - intersection can not occur.
+        return NoSide;
+
+    u8 min_axis = t[0] > t[1] ? 0 : 1; if (t[2] > t[min_axis]) min_axis = 2;
+    f32 min_t = t[min_axis];
+    if (max_t < (min_t > 0 ? min_t : 0))
+        return NoSide;
+
+    ray.hit.from_behind = min_t < 0; // Further-away hit is in front of the ray, closer one is behind it.
+    if (ray.hit.from_behind) {
+        min_t = max_t;
+        min_axis = max_axis;
+    }
+
+    BoxSide side = getBoxSide(octant, min_axis);
+    ray.hit.position = ray.direction.scaleAdd(min_t, ray.origin);
+    ray.hit.normal = 0.0f;
+    switch (side) {
+        case Left:   ray.hit.normal.x = ray.hit.from_behind ? +1.0f : -1.0f; break;
+        case Right:  ray.hit.normal.x = ray.hit.from_behind ? -1.0f : +1.0f; break;
+        case Bottom: ray.hit.normal.y = ray.hit.from_behind ? +1.0f : -1.0f; break;
+        case Top:    ray.hit.normal.y = ray.hit.from_behind ? -1.0f : +1.0f; break;
+        case Back:   ray.hit.normal.z = ray.hit.from_behind ? +1.0f : -1.0f; break;
+        case Front:  ray.hit.normal.z = ray.hit.from_behind ? -1.0f : +1.0f; break;
+        default: return NoSide;
+    }
+
+    return side;
+}
+
+INLINE bool rayHitsPlane(Ray &ray, const vec3 &P, const vec3 &N) {
+    f32 NdotRd = N | ray.direction;
+    if (NdotRd == 0) // The ray is parallel to the plane
+        return false;
+
+    f32 NdotRoP = N | (P - ray.origin);
+    if (NdotRoP == 0) return false; // The ray originated within the plane
+
+    bool ray_is_facing_the_plane = NdotRd < 0;
+    ray.hit.from_behind = NdotRoP > 0;
+    if (ray.hit.from_behind == ray_is_facing_the_plane) // The ray can't hit the plane
+        return false;
+
+    ray.hit.distance = NdotRoP / NdotRd;
+    ray.hit.position = ray.origin + ray.direction*ray.hit.distance;
+    ray.hit.normal = N;
+
+    return true;
+}
+
+INLINE bool rightwardRayHitsBound(Ray2D &ray, const float x_bound) {
+    f32 distance = x_bound - ray.origin.x;
+    if (distance < 0 || // Rect is behind the ray
+        distance > ray.direction.x) // Rect is too far in front of the ray
+        return false;
+
+    ray.hit.distance = distance;
+    ray.hit.position = ray[distance / ray.direction.x];
+    ray.hit.normal = {-1.0f, 0.0f};
+    ray.hit.from_behind = false;
+
+    return true;
+}
+
+INLINE bool leftwardRayHitsBound(Ray2D &ray, const float x_bound) {
+    f32 distance = ray.origin.x - x_bound;
+    if (distance < 0 || // Rect is behind the ray
+        distance > -ray.direction.x) // Rect is too far in front of the ray
+        return false;
+
+    ray.hit.position = ray[distance / -ray.direction.x];
+    ray.hit.normal = {1.0f, 0.0f};
+    ray.hit.distance = distance;
+    ray.hit.from_behind = false;
+
+    return true;
+}
+
+INLINE bool horizontalRayHitsRect(Ray2D &ray, const Rect &rect) {
+    if (ray.direction.x == 0) return false;
+    return signbit(ray.direction.x) ?
+           leftwardRayHitsBound(ray, rect.left) :
+           rightwardRayHitsBound(ray, rect.right);
+}
+
+INLINE bool upwardRayHitsBound(Ray2D &ray, const float y_bound) {
+    f32 distance = y_bound - ray.origin.y;
+    if (distance < 0 || // Rect is behind the ray
+        distance > ray.direction.y) // Rect is too far in front of the ray
+        return false;
+
+    ray.hit.distance = distance;
+    ray.hit.position = ray[distance / ray.direction.y];
+    ray.hit.normal = {0.0f, -1.0f};
+    ray.hit.from_behind = false;
+
+    return true;
+}
+
+INLINE bool downwardRayHitsBound(Ray2D &ray, const float y_bound) {
+    f32 distance = ray.origin.y - y_bound;
+    if (distance < 0 || // Rect is behind the ray
+        distance > -ray.direction.y) // Rect is too far in front of the ray
+        return false;
+
+    ray.hit.position = ray[distance / -ray.direction.y];
+    ray.hit.normal = {0.0f, 1.0f};
+    ray.hit.distance = distance;
+    ray.hit.from_behind = false;
+
+    return true;
+}
+
+INLINE bool verticalRayHitsRect(Ray2D &ray, const Rect &rect) {
+    if (ray.direction.y == 0) return false;
+    return signbit(ray.direction.y) ?
+           downwardRayHitsBound(ray, rect.bottom) :
+           upwardRayHitsBound(ray, rect.top);
+}
+
+INLINE bool rayHitRect(Ray2D &ray, const Rect &rect) {
+    if (ray.direction.x == 0) return verticalRayHitsRect(ray, rect);
+    if (ray.direction.y == 0) return horizontalRayHitsRect(ray, rect);
+    bool aiming_left{signbit(ray.direction.x)};
+    bool aiming_down{signbit(ray.direction.y)};
+    vec2 RD_rcp = 1.0f / ray.direction;
+    vec2 near{aiming_left ? rect.right : rect.left, aiming_down ? rect.top : rect.bottom};
+    vec2 far{ aiming_left ? rect.left : rect.right, aiming_down ? rect.bottom : rect.top};
+    near -= ray.origin;
+    near *= RD_rcp;
+    far -= ray.origin;
+    far *= RD_rcp;
+    if (near.x > far.y || near.y > far.x) return false; // Early rejection
+
+    f32 near_t = near.x > near.y ? near.x : near.y;
+    f32 far_t  = far.x  < far.y  ? far.x  : far.y;
+    if (far_t < 0) return false; // Reject if ray direction is pointing away from object
+
+    // Contact point of collision from parametric line equation
+    ray.hit.position = ray[near_t];
+    ray.hit.normal = 0.0f;
+    if (     near.x > near.y) ray.hit.normal.x = aiming_left ? 1.0f : -1.0f;
+    else if (near.x < near.y) ray.hit.normal.y = aiming_down ? 1.0f : -1.0f;
+
+    return true;
+}
 
 
 struct BoxCorners {
@@ -3936,15 +4157,6 @@ struct Camera : public Orientation<mat3> {
             Orientation{orientation.x, orientation.y, orientation.z},
             position{position}, current_velocity{vec3{0}}, focal_length{zoom_amount}, zoom_amount{zoom_amount} {}
 
-    INLINE mat4 getMatrix() const {
-        return {
-                vec4{rotation.X},
-                vec4{rotation.Y},
-                vec4{rotation.Z},
-                vec4{position, 1.0f}
-        };
-    }
-
     void zoom(f32 amount) {
         f32 new_amount = zoom_amount + amount;
         focal_length = new_amount > 1 ? new_amount : (new_amount < -1.0f ? (-1.0f / new_amount) : 1.0f);
@@ -3958,18 +4170,18 @@ struct Camera : public Orientation<mat3> {
         dolly_amount += amount;
         target_distance = powf(2.0f, dolly_amount / -200.0f) * CAMERA_DEFAULT__TARGET_DISTANCE;
 
-        // Back-track from target position to new current position:
+        // Back-track from target position_x to new current position_x:
         position = target_position - (rotation.forward * target_distance);
     }
 
     void orbit(f32 azimuth, f32 altitude) {
-        // Move the camera forward to the position of its target:
+        // Move the camera forward to the position_x of its target:
         position += rotation.forward * target_distance;
 
-        // Reorient the camera while it is at the position of its target:
+        // Reorient the camera while it is at the position_x of its target:
         rotate(altitude, azimuth);
 
-        // Back the camera away from its target position using the updated forward direction:
+        // Back the camera away from its target position_x using the updated forward direction:
         position -= rotation.forward * target_distance;
     }
 
@@ -4056,146 +4268,6 @@ struct Mesh {
             edge_vertex_indices{edge_vertex_indices},
             aabb{aabb}
     {}
-
-
-    u32 getSizeInBytes() const {
-        u32 memory_size = sizeof(vec3) * vertex_count;
-        memory_size += sizeof(TriangleVertexIndices) * triangle_count;
-        memory_size += sizeof(EdgeVertexIndices) * edge_count;
-
-        if (uvs_count) {
-            memory_size += sizeof(vec2) * uvs_count;
-            memory_size += sizeof(TriangleVertexIndices) * triangle_count;
-        }
-        if (normals_count) {
-            memory_size += sizeof(vec3) * normals_count;
-            memory_size += sizeof(TriangleVertexIndices) * triangle_count;
-        }
-
-        return memory_size;
-    }
-
-    bool allocateMemory(memory::MonotonicAllocator *memory_allocator) {
-        if (getSizeInBytes() > (memory_allocator->capacity - memory_allocator->occupied)) return false;
-        vertex_positions        = (vec3*                 )memory_allocator->allocate(sizeof(vec3)                  * vertex_count);
-        vertex_position_indices = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * triangle_count);
-        edge_vertex_indices     = (EdgeVertexIndices*    )memory_allocator->allocate(sizeof(EdgeVertexIndices)     * edge_count);
-        if (uvs_count) {
-            vertex_uvs         = (vec2*                 )memory_allocator->allocate(sizeof(vec2)                  * uvs_count);
-            vertex_uvs_indices = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * triangle_count);
-        }
-        if (normals_count) {
-            vertex_normals          = (vec3*                 )memory_allocator->allocate(sizeof(vec3)                  * normals_count);
-            vertex_normal_indices   = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * triangle_count);
-        }
-        return true;
-    }
-
-    void writeHeader(void *file) const {
-        os::writeToFile((void*)&vertex_count,   sizeof(u32),  file);
-        os::writeToFile((void*)&triangle_count, sizeof(u32),  file);
-        os::writeToFile((void*)&edge_count,     sizeof(u32),  file);
-        os::writeToFile((void*)&uvs_count,      sizeof(u32),  file);
-        os::writeToFile((void*)&normals_count,  sizeof(u32),  file);
-    }
-    void readHeader(void *file) {
-        os::readFromFile(&vertex_count,   sizeof(u32),  file);
-        os::readFromFile(&triangle_count, sizeof(u32),  file);
-        os::readFromFile(&edge_count,     sizeof(u32),  file);
-        os::readFromFile(&uvs_count,      sizeof(u32),  file);
-        os::readFromFile(&normals_count,  sizeof(u32),  file);
-    }
-    bool saveHeader(char *file_path) {
-        void *file = os::openFileForWriting(file_path);
-        if (!file) return false;
-        writeHeader(file);
-        os::closeFile(file);
-        return true;
-    }
-    bool loadHeader(char *file_path) {
-        void *file = os::openFileForReading(file_path);
-        if (!file) return false;
-        readHeader(file);
-        os::closeFile(file);
-        return true;
-    }
-
-    void readContent(void *file) {
-        os::readFromFile(&aabb.min,       sizeof(vec3), file);
-        os::readFromFile(&aabb.max,       sizeof(vec3), file);
-        os::readFromFile(vertex_positions,             sizeof(vec3)                  * vertex_count,   file);
-        os::readFromFile(vertex_position_indices,      sizeof(TriangleVertexIndices) * triangle_count, file);
-        os::readFromFile(edge_vertex_indices,          sizeof(EdgeVertexIndices)     * edge_count,     file);
-        if (uvs_count) {
-            os::readFromFile(vertex_uvs,               sizeof(vec2)                  * uvs_count,      file);
-            os::readFromFile(vertex_uvs_indices,       sizeof(TriangleVertexIndices) * triangle_count, file);
-        }
-        if (normals_count) {
-            os::readFromFile(vertex_normals,                sizeof(vec3)                  * normals_count,  file);
-            os::readFromFile(vertex_normal_indices,         sizeof(TriangleVertexIndices) * triangle_count, file);
-        }
-    }
-    void writeContent(void *file) const {
-        os::writeToFile((void*)&aabb.min,       sizeof(vec3), file);
-        os::writeToFile((void*)&aabb.max,       sizeof(vec3), file);
-        os::writeToFile((void*)vertex_positions,        sizeof(vec3)                  * vertex_count,   file);
-        os::writeToFile((void*)vertex_position_indices, sizeof(TriangleVertexIndices) * triangle_count, file);
-        os::writeToFile((void*)edge_vertex_indices,     sizeof(EdgeVertexIndices)     * edge_count,     file);
-        if (uvs_count) {
-            os::writeToFile(vertex_uvs,          sizeof(vec2)                  * uvs_count,      file);
-            os::writeToFile(vertex_uvs_indices,  sizeof(TriangleVertexIndices) * triangle_count, file);
-        }
-        if (normals_count) {
-            os::writeToFile(vertex_normals,        sizeof(vec3)                  * normals_count,  file);
-            os::writeToFile(vertex_normal_indices, sizeof(TriangleVertexIndices) * triangle_count, file);
-        }
-    }
-    bool saveContent(char *file_path) const {
-        void *file = os::openFileForWriting(file_path);
-        if (!file) return false;
-        writeContent(file);
-        os::closeFile(file);
-        return true;
-    }
-    bool loadContent(char *file_path) {
-        void *file = os::openFileForReading(file_path);
-        if (!file) return false;
-        readContent(file);
-        os::closeFile(file);
-        return true;
-    }
-
-    bool save(char* file_path) const {
-        void *file = os::openFileForWriting(file_path);
-        if (!file) return false;
-        writeHeader(file);
-        writeContent(file);
-        os::closeFile(file);
-        return true;
-    }
-    bool load(char *file_path, memory::MonotonicAllocator *memory_allocator = nullptr) {
-        void *file = os::openFileForReading(file_path);
-        if (!file) return false;
-
-        if (memory_allocator) {
-            new(this) Mesh{};
-            readHeader(file);
-            if (!allocateMemory(memory_allocator)) return false;
-        } else if (!vertex_positions) return false;
-        readContent(file);
-        os::closeFile(file);
-        return true;
-    }
-
-    static u32 getTotalMemoryForMeshes(String *mesh_files, u32 mesh_count) {
-        u32 memory_size{0};
-        for (u32 i = 0; i < mesh_count; i++) {
-            Mesh mesh;
-            mesh.loadHeader(mesh_files[i].char_ptr);
-            memory_size += mesh.getSizeInBytes();
-        }
-        return memory_size;
-    }
 };
 
 struct CubeMesh : Mesh {
@@ -4292,6 +4364,150 @@ struct CubeMesh : Mesh {
 };
 
 
+u32 getSizeInBytes(const Mesh &mesh) {
+    u32 memory_size = sizeof(vec3) * mesh.vertex_count;
+    memory_size += sizeof(TriangleVertexIndices) * mesh.triangle_count;
+    memory_size += sizeof(EdgeVertexIndices) * mesh.edge_count;
+
+    if (mesh.uvs_count) {
+        memory_size += sizeof(vec2) * mesh.uvs_count;
+        memory_size += sizeof(TriangleVertexIndices) * mesh.triangle_count;
+    }
+    if (mesh.normals_count) {
+        memory_size += sizeof(vec3) * mesh.normals_count;
+        memory_size += sizeof(TriangleVertexIndices) * mesh.triangle_count;
+    }
+
+    return memory_size;
+}
+
+bool allocateMemory(Mesh &mesh, memory::MonotonicAllocator *memory_allocator) {
+    if (getSizeInBytes(mesh) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
+    mesh.vertex_positions        = (vec3*                 )memory_allocator->allocate(sizeof(vec3)                  * mesh.vertex_count);
+    mesh.vertex_position_indices = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * mesh.triangle_count);
+    mesh.edge_vertex_indices     = (EdgeVertexIndices*    )memory_allocator->allocate(sizeof(EdgeVertexIndices)     * mesh.edge_count);
+    if (mesh.uvs_count) {
+        mesh.vertex_uvs         = (vec2*                 )memory_allocator->allocate(sizeof(vec2)                  * mesh.uvs_count);
+        mesh.vertex_uvs_indices = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * mesh.triangle_count);
+    }
+    if (mesh.normals_count) {
+        mesh.vertex_normals          = (vec3*                 )memory_allocator->allocate(sizeof(vec3)                  * mesh.normals_count);
+        mesh.vertex_normal_indices   = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * mesh.triangle_count);
+    }
+    return true;
+}
+
+void writeHeader(const Mesh &mesh, void *file) {
+    os::writeToFile((void*)&mesh.vertex_count,   sizeof(u32),  file);
+    os::writeToFile((void*)&mesh.triangle_count, sizeof(u32),  file);
+    os::writeToFile((void*)&mesh.edge_count,     sizeof(u32),  file);
+    os::writeToFile((void*)&mesh.uvs_count,      sizeof(u32),  file);
+    os::writeToFile((void*)&mesh.normals_count,  sizeof(u32),  file);
+}
+void readHeader(Mesh &mesh, void *file) {
+    os::readFromFile(&mesh.vertex_count,   sizeof(u32),  file);
+    os::readFromFile(&mesh.triangle_count, sizeof(u32),  file);
+    os::readFromFile(&mesh.edge_count,     sizeof(u32),  file);
+    os::readFromFile(&mesh.uvs_count,      sizeof(u32),  file);
+    os::readFromFile(&mesh.normals_count,  sizeof(u32),  file);
+}
+
+bool saveHeader(const Mesh &mesh, char *file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeHeader(mesh, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool loadHeader(Mesh &mesh, char *file_path) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+    readHeader(mesh, file);
+    os::closeFile(file);
+    return true;
+}
+
+void readContent(Mesh &mesh, void *file) {
+    os::readFromFile(&mesh.aabb.min,       sizeof(vec3), file);
+    os::readFromFile(&mesh.aabb.max,       sizeof(vec3), file);
+    os::readFromFile(mesh.vertex_positions,             sizeof(vec3)                  * mesh.vertex_count,   file);
+    os::readFromFile(mesh.vertex_position_indices,      sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
+    os::readFromFile(mesh.edge_vertex_indices,          sizeof(EdgeVertexIndices)     * mesh.edge_count,     file);
+    if (mesh.uvs_count) {
+        os::readFromFile(mesh.vertex_uvs,               sizeof(vec2)                  * mesh.uvs_count,      file);
+        os::readFromFile(mesh.vertex_uvs_indices,       sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
+    }
+    if (mesh.normals_count) {
+        os::readFromFile(mesh.vertex_normals,                sizeof(vec3)                  * mesh.normals_count,  file);
+        os::readFromFile(mesh.vertex_normal_indices,         sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
+    }
+}
+void writeContent(const Mesh &mesh, void *file) {
+    os::writeToFile((void*)&mesh.aabb.min,       sizeof(vec3), file);
+    os::writeToFile((void*)&mesh.aabb.max,       sizeof(vec3), file);
+    os::writeToFile((void*)mesh.vertex_positions,        sizeof(vec3)                  * mesh.vertex_count,   file);
+    os::writeToFile((void*)mesh.vertex_position_indices, sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
+    os::writeToFile((void*)mesh.edge_vertex_indices,     sizeof(EdgeVertexIndices)     * mesh.edge_count,     file);
+    if (mesh.uvs_count) {
+        os::writeToFile(mesh.vertex_uvs,          sizeof(vec2)                  * mesh.uvs_count,      file);
+        os::writeToFile(mesh.vertex_uvs_indices,  sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
+    }
+    if (mesh.normals_count) {
+        os::writeToFile(mesh.vertex_normals,        sizeof(vec3)                  * mesh.normals_count,  file);
+        os::writeToFile(mesh.vertex_normal_indices, sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
+    }
+}
+
+bool saveContent(const Mesh &mesh, char *file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeContent(mesh, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool loadContent(Mesh &mesh, char *file_path) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+    readContent(mesh, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool save(const Mesh &mesh, char* file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeHeader(mesh, file);
+    writeContent(mesh, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool load(Mesh &mesh, char *file_path, memory::MonotonicAllocator *memory_allocator = nullptr) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+
+    if (memory_allocator) {
+        new(&mesh) Mesh{};
+        readHeader(mesh, file);
+        if (!allocateMemory(mesh, memory_allocator)) return false;
+    } else if (!mesh.vertex_positions) return false;
+    readContent(mesh, file);
+    os::closeFile(file);
+    return true;
+}
+
+u32 getTotalMemoryForMeshes(String *mesh_files, u32 mesh_count) {
+    u32 memory_size{0};
+    for (u32 i = 0; i < mesh_count; i++) {
+        Mesh mesh;
+        loadHeader(mesh, mesh_files[i].char_ptr);
+        memory_size += getSizeInBytes(mesh);
+    }
+    return memory_size;
+}
+
 struct SceneCounts {
     u32 cameras{1};
     u32 geometries{0};
@@ -4344,11 +4560,11 @@ struct Scene {
             meshes = new(meshes) Mesh[counts.meshes];
             memory::MonotonicAllocator temp_allocator;
             if (!memory_allocator) {
-                u32 capacity = Mesh::getTotalMemoryForMeshes(mesh_files, 2);
+                u32 capacity = getTotalMemoryForMeshes(mesh_files, 2);
                 temp_allocator = memory::MonotonicAllocator{capacity};
                 memory_allocator = &temp_allocator;
             }
-            for (u32 i = 0; i < counts.meshes; i++) meshes[i].load(mesh_files[i].char_ptr, memory_allocator);
+            for (u32 i = 0; i < counts.meshes; i++) load(meshes[i], mesh_files[i].char_ptr, memory_allocator);
         }
 //        if (counts.lights) {
 //            Light *light = lights = (Light*)memory::allocate(sizeof(Light) * counts.lights);
@@ -4394,7 +4610,7 @@ struct Scene {
 
             xform.internPosAndDir(ray.origin, ray.direction, local_ray.origin, local_ray.direction);
 
-            current_found = local_ray.hitCube();
+            current_found = rayHitsCube(local_ray);
             if (current_found) {
                 local_ray.hit.position         = xform.externPos(local_ray.hit.position);
                 local_ray.hit.distance_squared = (local_ray.hit.position - ray.origin).squaredLength();
@@ -4414,108 +4630,107 @@ struct Scene {
 
         return found;
     }
-
-    void load(char* scene_file_path = nullptr) {
-        if (scene_file_path)
-            file_path = scene_file_path;
-        else
-            scene_file_path = file_path.char_ptr;
-
-        void *file_handle = os::openFileForReading(scene_file_path);
-
-        os::readFromFile(&counts, sizeof(SceneCounts), file_handle);
-
-        if (counts.cameras) {
-            Camera *camera = cameras;
-            for (u32 i = 0; i < counts.cameras; i++, camera++) {
-                os::readFromFile(&camera->focal_length, sizeof(f32), file_handle);
-                os::readFromFile(&camera->zoom_amount, sizeof(f32), file_handle);
-                os::readFromFile(&camera->dolly_amount, sizeof(f32), file_handle);
-                os::readFromFile(&camera->target_distance, sizeof(f32), file_handle);
-                os::readFromFile(&camera->current_velocity, sizeof(vec3), file_handle);
-                os::readFromFile(&camera->position, sizeof(vec3), file_handle);
-                os::readFromFile(&camera->rotation, sizeof(Orientation<mat3>), file_handle);
-            }
-        }
-
-        if (counts.geometries)
-            for (u32 i = 0; i < counts.geometries; i++)
-                os::readFromFile(geometries + i, sizeof(Geometry), file_handle);
-
-        if (counts.grids)
-            for (u32 i = 0; i < counts.grids; i++)
-                os::readFromFile(grids + i, sizeof(Grid), file_handle);
-
-        if (counts.boxes)
-            for (u32 i = 0; i < counts.boxes; i++)
-                os::readFromFile(boxes + i, sizeof(Box), file_handle);
-
-        if (counts.curves)
-            for (u32 i = 0; i < counts.curves; i++)
-                os::readFromFile(curves + i, sizeof(Curve), file_handle);
-
-        if (counts.meshes) {
-            Mesh *mesh = meshes;
-            for (u32 i = 0; i < counts.meshes; i++, mesh++) {
-                mesh->readHeader(file_handle);
-                mesh->readContent(file_handle);
-            }
-        }
-
-        os::closeFile(file_handle);
-    }
-
-    void save(char* scene_file_path = nullptr) {
-        if (scene_file_path)
-            file_path = scene_file_path;
-        else
-            scene_file_path = file_path.char_ptr;
-
-        void *file_handle = os::openFileForWriting(scene_file_path);
-
-        os::writeToFile(&counts, sizeof(SceneCounts), file_handle);
-
-        if (counts.cameras) {
-            Camera *camera = cameras;
-            for (u32 i = 0; i < counts.cameras; i++, camera++) {
-                os::writeToFile(&camera->focal_length, sizeof(f32), file_handle);
-                os::writeToFile(&camera->zoom_amount, sizeof(f32), file_handle);
-                os::writeToFile(&camera->dolly_amount, sizeof(f32), file_handle);
-                os::writeToFile(&camera->target_distance, sizeof(f32), file_handle);
-                os::writeToFile(&camera->current_velocity, sizeof(vec3), file_handle);
-                os::writeToFile(&camera->position, sizeof(vec3), file_handle);
-                os::writeToFile(&camera->rotation, sizeof(Orientation<mat3>), file_handle);
-            }
-        }
-
-        if (counts.geometries)
-            for (u32 i = 0; i < counts.geometries; i++)
-                os::writeToFile(geometries + i, sizeof(Geometry), file_handle);
-
-        if (counts.grids)
-            for (u32 i = 0; i < counts.grids; i++)
-                os::writeToFile(grids + i, sizeof(Grid), file_handle);
-
-        if (counts.boxes)
-            for (u32 i = 0; i < counts.boxes; i++)
-                os::writeToFile(boxes + i, sizeof(Box), file_handle);
-
-        if (counts.curves)
-            for (u32 i = 0; i < counts.curves; i++)
-                os::writeToFile(curves + i, sizeof(Curve), file_handle);
-
-        if (counts.meshes) {
-            Mesh *mesh = meshes;
-            for (u32 i = 0; i < counts.meshes; i++, mesh++) {
-                mesh->writeHeader(file_handle);
-                mesh->writeContent(file_handle);
-            }
-        }
-
-        os::closeFile(file_handle);
-    }
 };
 
+void load(Scene &scene, char* scene_file_path = nullptr) {
+    if (scene_file_path)
+        scene.file_path = scene_file_path;
+    else
+        scene_file_path = scene.file_path.char_ptr;
+
+    void *file_handle = os::openFileForReading(scene_file_path);
+
+    os::readFromFile(&scene.counts, sizeof(SceneCounts), file_handle);
+
+    if (scene.counts.cameras) {
+        Camera *camera = scene.cameras;
+        for (u32 i = 0; i < scene.counts.cameras; i++, camera++) {
+            os::readFromFile(&camera->focal_length, sizeof(f32), file_handle);
+            os::readFromFile(&camera->zoom_amount, sizeof(f32), file_handle);
+            os::readFromFile(&camera->dolly_amount, sizeof(f32), file_handle);
+            os::readFromFile(&camera->target_distance, sizeof(f32), file_handle);
+            os::readFromFile(&camera->current_velocity, sizeof(vec3), file_handle);
+            os::readFromFile(&camera->position, sizeof(vec3), file_handle);
+            os::readFromFile(&camera->rotation, sizeof(Orientation<mat3>), file_handle);
+        }
+    }
+
+    if (scene.counts.geometries)
+        for (u32 i = 0; i < scene.counts.geometries; i++)
+            os::readFromFile(scene.geometries + i, sizeof(Geometry), file_handle);
+
+    if (scene.counts.grids)
+        for (u32 i = 0; i < scene.counts.grids; i++)
+            os::readFromFile(scene.grids + i, sizeof(Grid), file_handle);
+
+    if (scene.counts.boxes)
+        for (u32 i = 0; i < scene.counts.boxes; i++)
+            os::readFromFile(scene.boxes + i, sizeof(Box), file_handle);
+
+    if (scene.counts.curves)
+        for (u32 i = 0; i < scene.counts.curves; i++)
+            os::readFromFile(scene.curves + i, sizeof(Curve), file_handle);
+
+    if (scene.counts.meshes) {
+        Mesh *mesh = scene.meshes;
+        for (u32 i = 0; i < scene.counts.meshes; i++, mesh++) {
+            readHeader(*mesh, file_handle);
+            readContent(*mesh, file_handle);
+        }
+    }
+
+    os::closeFile(file_handle);
+}
+
+void save(Scene &scene, char* scene_file_path = nullptr) {
+    if (scene_file_path)
+        scene.file_path = scene_file_path;
+    else
+        scene_file_path = scene.file_path.char_ptr;
+
+    void *file_handle = os::openFileForWriting(scene_file_path);
+
+    os::writeToFile(&scene.counts, sizeof(SceneCounts), file_handle);
+
+    if (scene.counts.cameras) {
+        Camera *camera = scene.cameras;
+        for (u32 i = 0; i < scene.counts.cameras; i++, camera++) {
+            os::writeToFile(&camera->focal_length, sizeof(f32), file_handle);
+            os::writeToFile(&camera->zoom_amount, sizeof(f32), file_handle);
+            os::writeToFile(&camera->dolly_amount, sizeof(f32), file_handle);
+            os::writeToFile(&camera->target_distance, sizeof(f32), file_handle);
+            os::writeToFile(&camera->current_velocity, sizeof(vec3), file_handle);
+            os::writeToFile(&camera->position, sizeof(vec3), file_handle);
+            os::writeToFile(&camera->rotation, sizeof(Orientation<mat3>), file_handle);
+        }
+    }
+
+    if (scene.counts.geometries)
+        for (u32 i = 0; i < scene.counts.geometries; i++)
+            os::writeToFile(scene.geometries + i, sizeof(Geometry), file_handle);
+
+    if (scene.counts.grids)
+        for (u32 i = 0; i < scene.counts.grids; i++)
+            os::writeToFile(scene.grids + i, sizeof(Grid), file_handle);
+
+    if (scene.counts.boxes)
+        for (u32 i = 0; i < scene.counts.boxes; i++)
+            os::writeToFile(scene.boxes + i, sizeof(Box), file_handle);
+
+    if (scene.counts.curves)
+        for (u32 i = 0; i < scene.counts.curves; i++)
+            os::writeToFile(scene.curves + i, sizeof(Curve), file_handle);
+
+    if (scene.counts.meshes) {
+        Mesh *mesh = scene.meshes;
+        for (u32 i = 0; i < scene.counts.meshes; i++, mesh++) {
+            writeHeader(*mesh, file_handle);
+            writeContent(*mesh, file_handle);
+        }
+    }
+
+    os::closeFile(file_handle);
+}
 
 struct HUDLine {
     enum ColorID title_color{White}, value_color{White}, alternate_value_color{White};
@@ -4568,23 +4783,65 @@ struct HUD {
 
 
 struct Frustum {
-    mat4 projection_matrix{};
+    struct Projection {
+        union {
+            struct {
+                vec3 scale;
+                f32 shear;
+            };
+            struct {
+                vec3 projected_position;
+                f32 w;
+            };
+        };
+
+        Projection(f32 x, f32 y, f32 z, f32 w) : scale{x, y, z}, shear{w} {}
+        Projection(f32 focal_length, f32 height_over_width, f32 n, f32 f, bool cube_NDC) : scale{0}, shear{0} {
+            update(focal_length, height_over_width, n, f, cube_NDC);
+        }
+        Projection(const Projection &other) : scale{other.scale}, shear{other.shear} {}
+
+
+        void update(f32 focal_length, f32 height_over_width, f32 n, f32 f, bool cube_NDC) {
+            scale.x = focal_length * height_over_width;
+            scale.y = focal_length;
+            scale.z = shear = 1.0f / (f - n);
+            if (cube_NDC) {
+                scale.z *= f + n;
+                shear *= f * n * -2;
+            } else {
+                scale.z *= f;
+                shear *= f * -n;
+            }
+        }
+
+        Projection project(const vec3 &position) const {
+            return {
+                    position.x * scale.x,
+                    position.y * scale.y,
+                    position.z * scale.z + shear,
+                    position.z
+            };
+        }
+    };
+    Projection projection{
+            CAMERA_DEFAULT__FOCAL_LENGTH,
+            (f32)DEFAULT_HEIGHT / (f32)DEFAULT_WIDTH,
+            VIEWPORT_DEFAULT__NEAR_CLIPPING_PLANE_DISTANCE,
+            VIEWPORT_DEFAULT__FAR_CLIPPING_PLANE_DISTANCE,
+            false
+    };
+
     f32 near_clipping_plane_distance{VIEWPORT_DEFAULT__NEAR_CLIPPING_PLANE_DISTANCE};
     f32 far_clipping_plane_distance{ VIEWPORT_DEFAULT__FAR_CLIPPING_PLANE_DISTANCE};
     bool use_cube_NDC{false}, flip_z{false}, cull_back_faces{true};
 
-    Frustum() {
-        updateProjectionMatrix(CAMERA_DEFAULT__FOCAL_LENGTH, (f32)DEFAULT_HEIGHT / (f32)DEFAULT_WIDTH);
-    }
-
-    void updateProjectionMatrix(f32 focal_length, f32 height_over_width) {
-        const f32 n = near_clipping_plane_distance;
-        const f32 f = far_clipping_plane_distance;
-        const f32 d = 1.0f / (f - n);
-        projection_matrix.X = { focal_length * height_over_width, 0, 0, 0};
-        projection_matrix.Y = {0, focal_length, 0, 0};
-        projection_matrix.Z = {0, 0, (use_cube_NDC ? (f + n) : f) * d, 1.0f};
-        projection_matrix.W = {0, 0, (use_cube_NDC ? (-2 * f * n) : (-n * f)) * d, 0};
+    void updateProjection(f32 focal_length, f32 height_over_width) {
+        projection.update(focal_length,
+                          height_over_width,
+                          near_clipping_plane_distance,
+                          far_clipping_plane_distance,
+                          use_cube_NDC);
     }
 
     bool cullAndClipEdge(Edge &edge, f32 focal_length, f32 aspect_ratio) const {
@@ -4663,18 +4920,11 @@ struct Frustum {
     }
 
     void projectEdge(Edge &edge, const Dimensions &dimensions) const {
-        vec4 A4{edge.from, 1.0f};
-        vec4 B4{edge.to  , 1.0f};
-
-        A4 = projection_matrix * A4;
-        B4 = projection_matrix * B4;
-
-        vec3 A{A4.x, A4.y, A4.z};
-        vec3 B{B4.x, B4.y, B4.z};
-
         // Project:
-        A /= A4.w;
-        B /= B4.w;
+        Projection Aproj{projection.project(edge.from)};
+        Projection Bproj{projection.project(edge.to)};
+        vec3 A{Aproj.projected_position / Aproj.w};
+        vec3 B{Bproj.projected_position / Bproj.w};
 
         // NDC->screen:
         A.x += 1;
@@ -4694,7 +4944,6 @@ struct Frustum {
         edge.to   = B;
     }
 };
-
 
 struct NavigationTurn {
     bool right{false};
@@ -4935,22 +5184,22 @@ struct Viewport {
 
     void setCamera(Camera &cam) {
         camera = &cam;
-        updateProjectionMatrix();
+        updateProjection();
     }
 
     void updateDimensions(u16 width, u16 height) {
         dimensions.update(width, height);
         dimensions.stride += (u16)position.x;
-        updateProjectionMatrix();
+        updateProjection();
     }
 
-    void updateProjectionMatrix() {
-        frustum.updateProjectionMatrix(camera->focal_length, dimensions.height_over_width);
+    void updateProjection() {
+        frustum.updateProjection(camera->focal_length, dimensions.height_over_width);
     }
 
     void updateNavigation(f32 delta_time) {
         navigation.update(*camera, delta_time);
-        updateProjectionMatrix();
+        updateProjection();
     }
 
     INLINE Ray getRayAt(const vec2i &coords) const {
@@ -5051,7 +5300,7 @@ struct Selection {
 
                     xform.internPosAndDir(ray.origin, ray.direction, local_ray.origin, local_ray.direction);
 
-                    box_side = local_ray.hitCube();
+                    box_side = rayHitsCube(local_ray);
                     if (box_side) {
                         transformation_plane_center = xform.externPos(local_ray.hit.normal);
                         transformation_plane_origin = xform.externPos(local_ray.hit.position);
@@ -5067,7 +5316,7 @@ struct Selection {
                     if (geometry) {
                         if (any_mouse_button_is_pressed) {
                             ray = viewport.getRayAt(mouse_pos);
-                            if (ray.hitPlane(transformation_plane_origin, transformation_plane_normal)) {
+                            if (rayHitsPlane(ray, transformation_plane_origin, transformation_plane_normal)) {
                                 xform = geometry->transform;
                                 if (geometry->type == GeometryType_Mesh)
                                     xform.scale *= scene.meshes[geometry->id].aabb.max;
@@ -5382,25 +5631,27 @@ void drawLine(f32 x1, f32 y1, f64 z1,
 }
 
 
-void draw(const Rect &rect, const Viewport &viewport, const vec3 &color = Color(White), f32 opacity = 1.0f) {
-    if (rect.max.x < 0 || rect.min.x >= viewport.dimensions.width ||
-        rect.max.y < 0 || rect.min.y >= viewport.dimensions.height)
+template<class VectorType = vec2i, typename ValueType = i32>
+void draw(const RectOf<VectorType, ValueType> &rect, const Viewport &viewport, const vec3 &color = Color(White), f32 opacity = 1.0f) {
+    if (rect.bottom_right.x < 0 || rect.top_left.x >= viewport.dimensions.width ||
+        rect.bottom_right.y < 0 || rect.top_left.y >= viewport.dimensions.height)
         return;
 
-    drawHLine(rect.min.x, rect.max.x, rect.min.y, viewport, color, opacity);
-    drawHLine(rect.min.x, rect.max.x, rect.max.y, viewport, color, opacity);
-    drawVLine(rect.min.y, rect.max.y, rect.min.x, viewport, color, opacity);
-    drawVLine(rect.min.y, rect.max.y, rect.max.x, viewport, color, opacity);
+    drawHLine(rect.top_left.x, rect.bottom_right.x, rect.top_left.y, viewport, color, opacity);
+    drawHLine(rect.top_left.x, rect.bottom_right.x, rect.bottom_right.y, viewport, color, opacity);
+    drawVLine(rect.top_left.y, rect.bottom_right.y, rect.top_left.x, viewport, color, opacity);
+    drawVLine(rect.top_left.y, rect.bottom_right.y, rect.bottom_right.x, viewport, color, opacity);
 }
 
-void fill(const Rect &rect, const Viewport &viewport, const vec3 &color = Color(White), f32 opacity = 1.0f) {
-    if (rect.max.x < 0 || rect.min.x >= viewport.dimensions.width ||
-        rect.max.y < 0 || rect.min.y >= viewport.dimensions.height)
+template<class VectorType = vec2i, typename ValueType = i32>
+void fill(const RectOf<VectorType, ValueType> &rect, const Viewport &viewport, const vec3 &color = Color(White), f32 opacity = 1.0f) {
+    if (rect.bottom_right.x < 0 || rect.top_left.x >= viewport.dimensions.width ||
+        rect.bottom_right.y < 0 || rect.top_left.y >= viewport.dimensions.height)
         return;
 
     i32 min_x, min_y, max_x, max_y;
-    subRange(rect.min.x, rect.max.x, viewport.dimensions.width,  0, &min_x, &max_x);
-    subRange(rect.min.y, rect.max.y, viewport.dimensions.height, 0, &min_y, &max_y);
+    subRange(rect.top_left.x, rect.bottom_right.x, viewport.dimensions.width, 0, &min_x, &max_x);
+    subRange(rect.top_left.y, rect.bottom_right.y, viewport.dimensions.height, 0, &min_y, &max_y);
     for (i32 y = min_y; y <= max_y; y++) drawHLine(min_x, max_x, y, viewport, color, opacity);
 }
 
@@ -5452,7 +5703,7 @@ void draw(const Camera &camera, const Viewport &viewport, const vec3 &color = Co
     static Transform transform;
     static Box box;
 
-    transform.rotation = camera.rotation.asQuat();
+    transform.rotation = Quat(camera.rotation);
     transform.position = camera.position;
     transform.scale = 1.0f;
 
@@ -5474,7 +5725,7 @@ void draw(const Camera &camera, const Viewport &viewport, const vec3 &color = Co
     draw(box, transform, viewport, color, opacity, line_width, BOX__ALL_SIDES);
 }
 
-#define CURVE_STEPS 3600
+#define CURVE_STEPS 360
 
 void draw(const Curve &curve, const Transform &transform, const Viewport &viewport,
           const vec3 &color = Color(White), f32 opacity = 1.0f, u8 line_width = 1, u32 step_count = CURVE_STEPS) {
@@ -5484,7 +5735,7 @@ void draw(const Curve &curve, const Transform &transform, const Viewport &viewpo
     f32 rotation_step = one_over_step_count * TAU;
     f32 rotation_step_times_rev_count = rotation_step * (f32)curve.revolution_count;
 
-    if (curve.type == CurveType_Helix)
+    if (curve.type == CurveType::Helix)
         rotation_step = rotation_step_times_rev_count;
 
     vec3 center_to_orbit;
@@ -5503,7 +5754,7 @@ void draw(const Curve &curve, const Transform &transform, const Viewport &viewpo
     rotation.Y.y = 1;
 
     mat3 orbit_to_curve_rotation;
-    if (curve.type == CurveType_Coil) {
+    if (curve.type == CurveType::Coil) {
         orbit_to_curve_rotation.X.x = orbit_to_curve_rotation.Y.y = cosf(rotation_step_times_rev_count);
         orbit_to_curve_rotation.X.y = sinf(rotation_step_times_rev_count);
         orbit_to_curve_rotation.Y.x = -orbit_to_curve_rotation.X.y;
@@ -5520,11 +5771,11 @@ void draw(const Curve &curve, const Transform &transform, const Viewport &viewpo
         center_to_orbit = rotation * center_to_orbit;
 
         switch (curve.type) {
-            case CurveType_Helix:
+            case CurveType::Helix:
                 current_position = center_to_orbit;
                 current_position.y -= 1;
                 break;
-            case CurveType_Coil:
+            case CurveType::Coil:
                 orbit_to_curve  = orbit_to_curve_rotation * orbit_to_curve;
                 current_position = accumulated_orbit_rotation * orbit_to_curve;
                 current_position += center_to_orbit;
@@ -5542,10 +5793,10 @@ void draw(const Curve &curve, const Transform &transform, const Viewport &viewpo
         }
 
         switch (curve.type) {
-            case CurveType_Helix:
+            case CurveType::Helix:
                 center_to_orbit.y += 2 * one_over_step_count;
                 break;
-            case CurveType_Coil:
+            case CurveType::Coil:
                 accumulated_orbit_rotation *= rotation;
                 break;
             default:
@@ -5913,7 +6164,7 @@ struct SlimEngine {
         render_timer.beginFrame();
         OnRender();
         render_timer.endFrame();
-        window::display();
+        window::renderCanvasToContent();
         mouse::resetChanges();
     };
 
@@ -6126,11 +6377,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         case WM_KEYDOWN:
         case WM_KEYUP:
             switch (key) {
-                case VK_CONTROL: controls::is_pressed::ctrl  = pressed; break;
-                case VK_MENU   : controls::is_pressed::alt   = pressed; break;
-                case VK_SHIFT  : controls::is_pressed::shift = pressed; break;
-                case VK_SPACE  : controls::is_pressed::space = pressed; break;
-                case VK_TAB    : controls::is_pressed::tab   = pressed; break;
+                case VK_CONTROL: controls::is_pressed::ctrl   = pressed; break;
+                case VK_MENU   : controls::is_pressed::alt    = pressed; break;
+                case VK_SHIFT  : controls::is_pressed::shift  = pressed; break;
+                case VK_SPACE  : controls::is_pressed::space  = pressed; break;
+                case VK_TAB    : controls::is_pressed::tab    = pressed; break;
+                case VK_ESCAPE : controls::is_pressed::escape = pressed; break;
                 default: break;
             }
             CURRENT_ENGINE->OnKeyChanged(key, pressed);
@@ -6229,6 +6481,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
     controls::key_map::shift = VK_SHIFT;
     controls::key_map::space = VK_SPACE;
     controls::key_map::tab = VK_TAB;
+    controls::key_map::escape = VK_ESCAPE;
 
     LARGE_INTEGER performance_frequency;
     QueryPerformanceFrequency(&performance_frequency);

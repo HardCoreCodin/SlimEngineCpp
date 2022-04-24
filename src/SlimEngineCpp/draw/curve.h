@@ -1,9 +1,10 @@
 #pragma once
 
-
+#include "../draw/edge.h"
+#include "../core/transform.h"
 #include "../viewport/viewport.h"
 
-#define CURVE_STEPS 3600
+#define CURVE_STEPS 360
 
 void draw(const Curve &curve, const Transform &transform, const Viewport &viewport,
           const vec3 &color = Color(White), f32 opacity = 1.0f, u8 line_width = 1, u32 step_count = CURVE_STEPS) {
@@ -13,7 +14,7 @@ void draw(const Curve &curve, const Transform &transform, const Viewport &viewpo
     f32 rotation_step = one_over_step_count * TAU;
     f32 rotation_step_times_rev_count = rotation_step * (f32)curve.revolution_count;
 
-    if (curve.type == CurveType_Helix)
+    if (curve.type == CurveType::Helix)
         rotation_step = rotation_step_times_rev_count;
 
     vec3 center_to_orbit;
@@ -32,7 +33,7 @@ void draw(const Curve &curve, const Transform &transform, const Viewport &viewpo
     rotation.Y.y = 1;
 
     mat3 orbit_to_curve_rotation;
-    if (curve.type == CurveType_Coil) {
+    if (curve.type == CurveType::Coil) {
         orbit_to_curve_rotation.X.x = orbit_to_curve_rotation.Y.y = cosf(rotation_step_times_rev_count);
         orbit_to_curve_rotation.X.y = sinf(rotation_step_times_rev_count);
         orbit_to_curve_rotation.Y.x = -orbit_to_curve_rotation.X.y;
@@ -49,11 +50,11 @@ void draw(const Curve &curve, const Transform &transform, const Viewport &viewpo
         center_to_orbit = rotation * center_to_orbit;
 
         switch (curve.type) {
-            case CurveType_Helix:
+            case CurveType::Helix:
                 current_position = center_to_orbit;
                 current_position.y -= 1;
                 break;
-            case CurveType_Coil:
+            case CurveType::Coil:
                 orbit_to_curve  = orbit_to_curve_rotation * orbit_to_curve;
                 current_position = accumulated_orbit_rotation * orbit_to_curve;
                 current_position += center_to_orbit;
@@ -71,10 +72,10 @@ void draw(const Curve &curve, const Transform &transform, const Viewport &viewpo
         }
 
         switch (curve.type) {
-            case CurveType_Helix:
+            case CurveType::Helix:
                 center_to_orbit.y += 2 * one_over_step_count;
                 break;
-            case CurveType_Coil:
+            case CurveType::Coil:
                 accumulated_orbit_rotation *= rotation;
                 break;
             default:

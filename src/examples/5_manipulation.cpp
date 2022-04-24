@@ -21,8 +21,8 @@ struct ManipulationExample : SlimEngine {
     Box box{}, *boxes{&box};
     Grid grid{11,
               11}, *grids{&grid};
-    Curve helix{CurveType_Helix, 10};
-    Curve coil{ CurveType_Coil,  30}, *curves{&helix};
+    Curve helix{CurveType::Helix, 10};
+    Curve coil{ CurveType::Coil,  30}, *curves{&helix};
     Transform grid_transform{
           {0, 0, 0},
         {0, 45 * DEG_TO_RAD, 0},

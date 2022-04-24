@@ -18,8 +18,8 @@ struct ShapesExample : SlimEngine {
     Box box{};
     Grid grid{11,
               11};
-    Curve helix{CurveType_Helix, 10};
-    Curve coil{ CurveType_Coil,  30};
+    Curve helix{CurveType::Helix, 10};
+    Curve coil{ CurveType::Coil,  30};
 
     Transform helix_transform{{-3, 4, 2}};
     Transform coil_transform{{4, 4, 2}};

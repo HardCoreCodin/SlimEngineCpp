@@ -1,8 +1,10 @@
 #pragma once
 
+#include "../math/vec2.h"
 #include "./navigation.h"
 #include "./frustum.h"
 #include "./canvas.h"
+#include "../core/ray.h"
 
 struct Viewport {
     Canvas &canvas;
@@ -19,22 +21,22 @@ struct Viewport {
 
     void setCamera(Camera &cam) {
         camera = &cam;
-        updateProjectionMatrix();
+        updateProjection();
     }
 
-    void updateProjectionMatrix() {
-        frustum.updateProjectionMatrix(camera->focal_length, dimensions.height_over_width);
+    void updateProjection() {
+        frustum.updateProjection(camera->focal_length, dimensions.height_over_width);
     }
 
     void updateDimensions(u16 width, u16 height) {
         dimensions.update(width, height);
         dimensions.stride += (u16)position.x;
-        updateProjectionMatrix();
+        updateProjection();
     }
 
     void updateNavigation(f32 delta_time) {
         navigation.update(*camera, delta_time);
-        updateProjectionMatrix();
+        updateProjection();
     }
 
     INLINE void projectEdge(Edge &edge) const {

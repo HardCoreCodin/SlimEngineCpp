@@ -4,6 +4,9 @@
 #include "./grid.h"
 #include "./box.h"
 #include "./camera.h"
+#include "../core/ray.h"
+#include "../core/transform.h"
+#include "../serialization/mesh.h"
 //#include "./texture.h"
 
 struct SceneCounts {
@@ -58,11 +61,11 @@ struct Scene {
             meshes = new(meshes) Mesh[counts.meshes];
             memory::MonotonicAllocator temp_allocator;
             if (!memory_allocator) {
-                u32 capacity = Mesh::getTotalMemoryForMeshes(mesh_files, 2);
+                u32 capacity = getTotalMemoryForMeshes(mesh_files, 2);
                 temp_allocator = memory::MonotonicAllocator{capacity};
                 memory_allocator = &temp_allocator;
             }
-            for (u32 i = 0; i < counts.meshes; i++) meshes[i].load(mesh_files[i].char_ptr, memory_allocator);
+            for (u32 i = 0; i < counts.meshes; i++) load(meshes[i], mesh_files[i].char_ptr, memory_allocator);
         }
 //        if (counts.lights) {
 //            Light *light = lights = (Light*)memory::allocate(sizeof(Light) * counts.lights);
@@ -108,7 +111,7 @@ struct Scene {
 
             xform.internPosAndDir(ray.origin, ray.direction, local_ray.origin, local_ray.direction);
 
-            current_found = local_ray.hitCube();
+            current_found = rayHitsCube(local_ray);
             if (current_found) {
                 local_ray.hit.position         = xform.externPos(local_ray.hit.position);
                 local_ray.hit.distance_squared = (local_ray.hit.position - ray.origin).squaredLength();
@@ -127,105 +130,5 @@ struct Scene {
         }
 
         return found;
-    }
-
-    void load(char* scene_file_path = nullptr) {
-        if (scene_file_path)
-            file_path = scene_file_path;
-        else
-            scene_file_path = file_path.char_ptr;
-
-        void *file_handle = os::openFileForReading(scene_file_path);
-
-        os::readFromFile(&counts, sizeof(SceneCounts), file_handle);
-
-        if (counts.cameras) {
-            Camera *camera = cameras;
-            for (u32 i = 0; i < counts.cameras; i++, camera++) {
-                os::readFromFile(&camera->focal_length, sizeof(f32), file_handle);
-                os::readFromFile(&camera->zoom_amount, sizeof(f32), file_handle);
-                os::readFromFile(&camera->dolly_amount, sizeof(f32), file_handle);
-                os::readFromFile(&camera->target_distance, sizeof(f32), file_handle);
-                os::readFromFile(&camera->current_velocity, sizeof(vec3), file_handle);
-                os::readFromFile(&camera->position, sizeof(vec3), file_handle);
-                os::readFromFile(&camera->rotation, sizeof(Orientation<mat3>), file_handle);
-            }
-        }
-
-        if (counts.geometries)
-            for (u32 i = 0; i < counts.geometries; i++)
-                os::readFromFile(geometries + i, sizeof(Geometry), file_handle);
-
-        if (counts.grids)
-            for (u32 i = 0; i < counts.grids; i++)
-                os::readFromFile(grids + i, sizeof(Grid), file_handle);
-
-        if (counts.boxes)
-            for (u32 i = 0; i < counts.boxes; i++)
-                os::readFromFile(boxes + i, sizeof(Box), file_handle);
-
-        if (counts.curves)
-            for (u32 i = 0; i < counts.curves; i++)
-                os::readFromFile(curves + i, sizeof(Curve), file_handle);
-
-        if (counts.meshes) {
-            Mesh *mesh = meshes;
-            for (u32 i = 0; i < counts.meshes; i++, mesh++) {
-                mesh->readHeader(file_handle);
-                mesh->readContent(file_handle);
-            }
-        }
-
-        os::closeFile(file_handle);
-    }
-
-    void save(char* scene_file_path = nullptr) {
-        if (scene_file_path)
-            file_path = scene_file_path;
-        else
-            scene_file_path = file_path.char_ptr;
-
-        void *file_handle = os::openFileForWriting(scene_file_path);
-
-        os::writeToFile(&counts, sizeof(SceneCounts), file_handle);
-
-        if (counts.cameras) {
-            Camera *camera = cameras;
-            for (u32 i = 0; i < counts.cameras; i++, camera++) {
-                os::writeToFile(&camera->focal_length, sizeof(f32), file_handle);
-                os::writeToFile(&camera->zoom_amount, sizeof(f32), file_handle);
-                os::writeToFile(&camera->dolly_amount, sizeof(f32), file_handle);
-                os::writeToFile(&camera->target_distance, sizeof(f32), file_handle);
-                os::writeToFile(&camera->current_velocity, sizeof(vec3), file_handle);
-                os::writeToFile(&camera->position, sizeof(vec3), file_handle);
-                os::writeToFile(&camera->rotation, sizeof(Orientation<mat3>), file_handle);
-            }
-        }
-
-        if (counts.geometries)
-            for (u32 i = 0; i < counts.geometries; i++)
-                os::writeToFile(geometries + i, sizeof(Geometry), file_handle);
-
-        if (counts.grids)
-            for (u32 i = 0; i < counts.grids; i++)
-                os::writeToFile(grids + i, sizeof(Grid), file_handle);
-
-        if (counts.boxes)
-            for (u32 i = 0; i < counts.boxes; i++)
-                os::writeToFile(boxes + i, sizeof(Box), file_handle);
-
-        if (counts.curves)
-            for (u32 i = 0; i < counts.curves; i++)
-                os::writeToFile(curves + i, sizeof(Curve), file_handle);
-
-        if (counts.meshes) {
-            Mesh *mesh = meshes;
-            for (u32 i = 0; i < counts.meshes; i++, mesh++) {
-                mesh->writeHeader(file_handle);
-                mesh->writeContent(file_handle);
-            }
-        }
-
-        os::closeFile(file_handle);
     }
 };

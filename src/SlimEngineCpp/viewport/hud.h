@@ -1,6 +1,7 @@
 #pragma once
 
-#include "../core/types.h"
+#include "../core/string.h"
+#include "../math/vec2.h"
 
 struct HUDLine {
     String title{}, alternate_value{};

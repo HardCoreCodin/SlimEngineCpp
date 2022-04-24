@@ -1,25 +1,67 @@
 #pragma once
 
-#include "../core/types.h"
+#include "../math/vec3.h"
 
 struct Frustum {
-    mat4 projection_matrix{};
+    struct Projection {
+        union {
+            struct {
+                vec3 scale;
+                f32 shear;
+            };
+            struct {
+                vec3 projected_position;
+                f32 w;
+            };
+        };
+
+        Projection(f32 x, f32 y, f32 z, f32 w) : scale{x, y, z}, shear{w} {}
+        Projection(f32 focal_length, f32 height_over_width, f32 n, f32 f, bool cube_NDC) : scale{0}, shear{0} {
+            update(focal_length, height_over_width, n, f, cube_NDC);
+        }
+        Projection(const Projection &other) : scale{other.scale}, shear{other.shear} {}
+
+
+        void update(f32 focal_length, f32 height_over_width, f32 n, f32 f, bool cube_NDC) {
+            scale.x = focal_length * height_over_width;
+            scale.y = focal_length;
+            scale.z = shear = 1.0f / (f - n);
+            if (cube_NDC) {
+                scale.z *= f + n;
+                shear *= f * n * -2;
+            } else {
+                scale.z *= f;
+                shear *= f * -n;
+            }
+        }
+
+        Projection project(const vec3 &position) const {
+            return {
+                position.x * scale.x,
+                position.y * scale.y,
+                position.z * scale.z + shear,
+                position.z
+            };
+        }
+    };
+    Projection projection{
+            CAMERA_DEFAULT__FOCAL_LENGTH,
+            (f32)DEFAULT_HEIGHT / (f32)DEFAULT_WIDTH,
+            VIEWPORT_DEFAULT__NEAR_CLIPPING_PLANE_DISTANCE,
+            VIEWPORT_DEFAULT__FAR_CLIPPING_PLANE_DISTANCE,
+            false
+    };
+
     f32 near_clipping_plane_distance{VIEWPORT_DEFAULT__NEAR_CLIPPING_PLANE_DISTANCE};
     f32 far_clipping_plane_distance{ VIEWPORT_DEFAULT__FAR_CLIPPING_PLANE_DISTANCE};
     bool use_cube_NDC{false}, flip_z{false}, cull_back_faces{true};
 
-    Frustum() {
-        updateProjectionMatrix(CAMERA_DEFAULT__FOCAL_LENGTH, (f32)DEFAULT_HEIGHT / (f32)DEFAULT_WIDTH);
-    }
-
-    void updateProjectionMatrix(f32 focal_length, f32 height_over_width) {
-        const f32 n = near_clipping_plane_distance;
-        const f32 f = far_clipping_plane_distance;
-        const f32 d = 1.0f / (f - n);
-        projection_matrix.X = { focal_length * height_over_width, 0, 0, 0};
-        projection_matrix.Y = {0, focal_length, 0, 0};
-        projection_matrix.Z = {0, 0, (use_cube_NDC ? (f + n) : f) * d, 1.0f};
-        projection_matrix.W = {0, 0, (use_cube_NDC ? (-2 * f * n) : (-n * f)) * d, 0};
+    void updateProjection(f32 focal_length, f32 height_over_width) {
+        projection.update(focal_length,
+                          height_over_width,
+                          near_clipping_plane_distance,
+                          far_clipping_plane_distance,
+                          use_cube_NDC);
     }
 
     bool cullAndClipEdge(Edge &edge, f32 focal_length, f32 aspect_ratio) const {
@@ -98,18 +140,11 @@ struct Frustum {
     }
 
     void projectEdge(Edge &edge, const Dimensions &dimensions) const {
-        vec4 A4{edge.from, 1.0f};
-        vec4 B4{edge.to  , 1.0f};
-
-        A4 = projection_matrix * A4;
-        B4 = projection_matrix * B4;
-
-        vec3 A{A4.x, A4.y, A4.z};
-        vec3 B{B4.x, B4.y, B4.z};
-
         // Project:
-        A /= A4.w;
-        B /= B4.w;
+        Projection Aproj{projection.project(edge.from)};
+        Projection Bproj{projection.project(edge.to)};
+        vec3 A{Aproj.projected_position / Aproj.w};
+        vec3 B{Bproj.projected_position / Bproj.w};
 
         // NDC->screen:
         A.x += 1;

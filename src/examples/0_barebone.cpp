@@ -8,5 +8,3 @@ struct MySlimEngine : SlimEngine {
 SlimEngine* createEngine() {
     return (SlimEngine*)new MySlimEngine();
 }
-
-

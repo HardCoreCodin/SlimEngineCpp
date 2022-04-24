@@ -11,7 +11,10 @@
 #include <malloc.h>
 
 
+#include "./SlimEngineCpp/math/mat3.h"
 #include "./SlimEngineCpp/scene/mesh.h"
+// Or using the single-header file:
+// #include "../SlimEngineCpp.h"
 
 void os::setWindowTitle(char* str) {}
 void os::setCursorVisibility(bool on) {}
@@ -258,7 +261,7 @@ int main(int argc, char *argv[]) {
         printf((char*)("Exactly 2 file paths need to be provided: "
                        "An '.obj' file (input) then a '.mesh' file (output), "
                        "an optional flag '-invert_winding_order' for inverting winding order"
-                       "an optional flag 'scale:<float>' for scaling the mesh,"
+                       "an optional flag 'scale_x:<float>' for scaling the mesh,"
                        "an optional flag 'rotY:<float> for rotating the mesh around Y"
                        ));
         return 0;
@@ -278,7 +281,7 @@ int main(int argc, char *argv[]) {
             if (strcmp(arg, (char *) "-invert_winding_order") == 0)
                 invert_winding_order = true;
             else {
-                char *scale_arg_prefix = (char *) "scale:";
+                char *scale_arg_prefix = (char *) "scale_x:";
                 bool is_scale_arg = true;
                 for (u32 c = 0; c < 6; c++)
                     if (arg[c] != scale_arg_prefix[c]) {

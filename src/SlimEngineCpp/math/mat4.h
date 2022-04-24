@@ -1,14 +1,13 @@
 #pragma once
 
 #include "./vec4.h"
-#include "./mat3.h"
 
-union mat4 {
-    vec4 axis[4];
-    struct {
-        vec4 X, Y, Z, W;
+struct mat4 {
+    union {
+        f32 components[16];
+        vec4 axis[4];
+        struct { vec4 X, Y, Z, W; };
     };
-
     static mat4 Identity;
 
     mat4() noexcept :
@@ -27,8 +26,6 @@ union mat4 {
             W{Wx, Wy, Wz, Ww} {}
     mat4(mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
     mat4(const mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
-    explicit mat4(const mat3 &m3, const vec4 &W = {0, 0, 0, 1}) noexcept :
-        mat4{vec4{m3.X}, vec4{m3.Y}, vec4{m3.Z}, W} {}
 
     INLINE void setRotationAroundX(f32 angle) {
         Z.z = Y.y = cos(angle);

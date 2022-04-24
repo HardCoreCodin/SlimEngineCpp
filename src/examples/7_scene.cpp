@@ -5,6 +5,7 @@
 #include "../SlimEngineCpp/draw/curve.h"
 #include "../SlimEngineCpp/draw/box.h"
 #include "../SlimEngineCpp/draw/selection.h"
+#include "../SlimEngineCpp/serialization/scene.h"
 #include "../SlimEngineCpp/app.h"
 // Or using the single-header file:
 // #include "../SlimEngineCpp.h"
@@ -20,7 +21,7 @@ struct SceneExample : SlimEngine {
     // Scene:
     Box box{}, *boxes{&box};
     Grid grid{11, 11}, *grids{&grid};
-    Curve helix{CurveType_Helix, 10}, coil{CurveType_Coil, 30}, *curves{&helix};
+    Curve helix{CurveType::Helix, 10}, coil{CurveType::Coil, 30}, *curves{&helix};
     Mesh suz, dog, *meshes{&suz};
     Transform grid_transform{{0, 0, 0},{0, 45 * DEG_TO_RAD, 0},{5, 1, 5}};
     Geometry grid1{grid_transform,GeometryType_Grid, Green};
@@ -85,9 +86,9 @@ struct SceneExample : SlimEngine {
             !is_pressed && key == 'S' || key == 'Z') {
             scene.last_io_is_save = key == 'S';
             if (scene.last_io_is_save)
-                scene.save(scene_file.char_ptr);
+                save(scene, scene_file.char_ptr);
             else
-                scene.load(scene_file.char_ptr);
+                load(scene, scene_file.char_ptr);
             scene.last_io_ticks = time::getTicks();
         }
         NavigationMove &move = viewport.navigation.move;

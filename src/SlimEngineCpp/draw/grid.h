@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./edge.h"
+#include "../core/transform.h"
 #include "../scene/grid.h"
 #include "../viewport/viewport.h"
 

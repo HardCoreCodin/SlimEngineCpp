@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../core/types.h"
+#include "../math/vec3.h"
 
 struct GridAxisVertices {
     vec3 from[GRID__MAX_SEGMENTS];

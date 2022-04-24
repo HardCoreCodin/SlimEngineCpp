@@ -2,8 +2,8 @@
 
 Minimalist base-project for interactive graphical applications (2D/3D)<br>
 Written in plain C++. For the original C variant, see [SlimEngine](https://github.com/HardCoreCodin/SlimEngine)<br>
-Pure-software (no hardware acceleration of any kind)<br>
-Focuses on simplicity, ease of use and brain-dead setup (single header file, no dependencies)<br>
+Pure-software (no hardware acceleration)<br>
+Focuses on simplicity, ease of use and setup with no dependencies and an optional single header file variant<br>
 <br>
 Built on: [SlimApp](https://github.com/HardCoreCodin/SlimApp) <br>
 Used in: [SlimTracin](https://github.com/HardCoreCodin/SlimTracin) <br>
@@ -20,12 +20,12 @@ More details on this architecture [here](https://youtu.be/Ev_TeQmus68).
 Usage:
 -
 The single header file variant includes everything.<br>
-Otherwise, specific headers can be included from the directory of headers.<br>
+Alternatively, specific headers can be included from the directory of headers.<br>
 <br>
 All features are opt-in, only the entry point needs to be defined.<br>
 It just needs to return a pointer to an instance of a SlimEngine derived class:<br><br>
 <img src="src/examples/0_barebone.png"><br><br>
-On it's own that would just yield a valid application with a well-behaved blank window.<br>
+On its own that yield a valid application with a well-behaved blank window.<br>
 <br>
 SlimEngine++ comes with pre-configured CMake targets for all examples.<br>
 For manual builds on Windows, the typical system libraries need to be linked<br>
@@ -38,14 +38,14 @@ CPU Arch: x86, x64<br>
 
 Features:
 -
-SlimEngine++ extends SlimApp and so inherits all it's features<br>
+SlimEngine++ extends SlimApp++ and so inherits all it's features<br>
 Additional features include facilities for interactive 3D applications:<br><br>
 * Scene with cameras, geometries, meshes and parametric curves<br>
 * Scene selection with interactive transformations (moving, rotating and scaling)<br>
 * Customizable Heads Up Display (HUD)<br>
 * 3D Viewport with rich mouse/keyboard navigation<br>
 * 3D Line drawing for wireframe rendering (optionally multi-sampled for very clean lines)<br>
-* <br>
+<br>
 <img src="src/examples/MSAA.gif" alt="MSAA"><br><br>
 
 Well documented example applications cover the features:<br><br>
@@ -84,7 +84,7 @@ Well documented example applications cover the features:<br><br>
   <img src="src/examples/2_navigation.gif"><br><br>
   Actions available for panning, zooming, dollying, orienting and orbiting the camera:<br><br>
   <img src="src/examples/2_navigation.png"><br><br>
-  They compose to provide 1st person shooter or DCC orbiting style navigationss:<br><br>
+  They compose to provide 1st person shooter or DCC orbiting style navigations:<br><br>
   <img src="src/examples/2_navigation_composed.png"><br><br>
   Navigation modes can be toggled through mouse capture tracking:<br><br>
   <img src="src/examples/2_navigation_mouse.png"><br><br>
@@ -134,7 +134,7 @@ Well documented example applications cover the features:<br><br>
   Triangular meshes can be loaded from `.mesh` files containing vertex positions, normals and uvs.<br><br>
   <img src="src/examples/6_mesh_setup.png"><br><br>
   Meshes bind to Geometry objects with Transforms and are part of a Scene like any other geometry type.<br>
-  Geometry objects can be rbound to different meshes at runtime:<br><br>
+  Geometry objects can be rebound to different meshes at runtime:<br><br>
   <img src="src/examples/6_mesh_binding.png"><br><br>
   Meshes are instanced by having different Geometry objects bound to the same Mesh.<br><br>
   <img src="src/examples/6_mesh_instancing.gif"><br><br>
@@ -153,16 +153,16 @@ Well documented example applications cover the features:<br><br>
   <br>
 
 * <b><u>obj2mesh</b>:</u> Also privided is a separate CLI tool for converting `.obj` files to `.mesh` files.<br>
-  Usage: `./obj2mesh src.obj trg.mesh [-invert_winding_order] [scale:<float>] [rotY:<float>]`<br>
+  Usage: `./obj2mesh src.obj trg.mesh [-invert_winding_order] [scale_x:<float>] [rotY:<float>]`<br>
   - invert_winding_order : Reverses the vertex ordering (for objs exported with clockwise order)<br>
-  - scale:\<float\>: Apply an embedded scaling<br>
+  - scale_x:\<float\>: Apply an embedded scaling<br>
   - rotY:\<float\>: Apply an embedded rotation around the Y axis<br>
   
 <b>SlimEngine++</b> does not come with any GUI functionality at this point.<br>
-Some example apps have an optional HUD (heads up renderCanvasToContent) that shows additional information.<br>
+Some example apps have an optional HUD that shows additional information.<br>
 It can be toggled on or off using the`tab` key.<br>
 
-All examples are interactive using <b>SlimEngine++</b>'s facilities having 2 interaction modes:
+All examples are interactive, having 2 interaction modes:
 1. FPS navigation (WASD + mouse look + zooming)<br>
 2. DCC application (default)<br>
 
@@ -173,12 +173,12 @@ Navigation is then as in a typical first-person game (plus lateral movement and 
 
 Move the `mouse` to freely look around (even if the cursor would leave the window border)<br>
 Scroll the `mouse wheel` to zoom in and out (changes the field of view of the perspective)<br>
-Hold `W` to move forward<br>
-Hold `S` to move backward<br>
-Hold `A` to move left<br>
-Hold `D` to move right<br>
-Hold `R` to move up<br>
-Hold `F` to move down<br>
+Hold `W` to OnKeyChange forward<br>
+Hold `S` to OnKeyChange backward<br>
+Hold `A` to OnKeyChange left<br>
+Hold `D` to OnKeyChange right<br>
+Hold `R` to OnKeyChange up<br>
+Hold `F` to OnKeyChange down<br>
 
 Exit this mode by double clicking the `left mouse button`.
 

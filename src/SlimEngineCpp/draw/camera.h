@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./box.h"
+#include "../math/utils.h"
 #include "../scene/box.h"
 #include "../viewport/viewport.h"
 
@@ -8,7 +9,7 @@ void draw(const Camera &camera, const Viewport &viewport, const vec3 &color = Co
     static Transform transform;
     static Box box;
 
-    transform.rotation = camera.rotation.asQuat();
+    transform.rotation = Quat(camera.rotation);
     transform.position = camera.position;
     transform.scale = 1.0f;
 

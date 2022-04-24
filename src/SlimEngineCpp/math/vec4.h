@@ -1,20 +1,19 @@
 #pragma once
 
-#include "./vec3.h"
+#include "../core/base.h"
 
-union vec4 {
+struct vec4 {
+    union {
+        struct {f32 components[4]; };
+        struct {f32 x, y, z, w; };
+        struct {f32 r, g, b, a; };
+    };
     static vec4 X, Y, Z, W;
-
-    struct {f32 components[4]; };
-    struct {f32 x, y, z, w; };
-    struct {f32 r, g, b, a; };
-    struct {vec3 v3; f32 _; };
 
     vec4() noexcept : vec4{0} {}
     vec4(f32 x, f32 y, f32 z, f32 w) noexcept : x(x), y(y), z(z), w(w) {}
     vec4(vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
     vec4(const vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
-    explicit vec4(const vec3 &v3, f32 w = 0) noexcept : vec4{v3.x, v3.y, v3.z, w} {}
     explicit vec4(f32 value) noexcept : vec4{value, value, value, value} {}
 
     INLINE RGBA toRGBA() const {
@@ -328,6 +327,15 @@ union vec4 {
                 clampedValue(y, upper.y),
                 clampedValue(z, upper.z),
                 clampedValue(w, upper.w)
+        };
+    }
+
+    INLINE vec4 clamped(const vec4 &lower, const vec4 &upper) const {
+        return {
+                clampedValue(x, lower.x, upper.x),
+                clampedValue(y, lower.y, upper.y),
+                clampedValue(z, lower.z, upper.z),
+                clampedValue(w, lower.w, upper.w)
         };
     }
 

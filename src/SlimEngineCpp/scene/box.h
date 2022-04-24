@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../core/types.h"
+#include "../math/vec3.h"
 
 struct BoxCorners {
     vec3 front_top_left;

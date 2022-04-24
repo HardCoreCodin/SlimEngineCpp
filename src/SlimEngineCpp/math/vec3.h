@@ -1,15 +1,16 @@
 #pragma once
 
-#include "./vec2.h"
+#include "../core/base.h"
 
-union vec3 {
+struct vec3 {
+    union {
+        struct {f32 components[3]; };
+        struct {f32 x, y, z; };
+        struct {f32 u, v, w; };
+        struct {f32 r, g, b; };
+    };
+
     static vec3 X, Y, Z;
-
-    struct {f32 components[3]; };
-    struct {f32 x, y, z; };
-    struct {f32 u, v, w; };
-    struct {f32 r, g, b; };
-//    struct {vec2 v2; f32 _; };
 
     vec3() noexcept : vec3{0} {}
     vec3(f32 x, f32 y, f32 z) noexcept : x(x), y(y), z(z) {}
@@ -320,6 +321,14 @@ union vec3 {
         };
     }
 
+    INLINE vec3 clamped(const vec3 &lower, const vec3 &upper) const {
+        return {
+                clampedValue(x, lower.x, upper.x),
+                clampedValue(y, lower.y, upper.y),
+                clampedValue(z, lower.z, upper.z)
+        };
+    }
+
     INLINE vec3 clamped(const f32 min_value, const f32 max_value) const {
         return {
                 clampedValue(x, min_value, max_value),
@@ -416,3 +425,20 @@ INLINE vec3 lerp(const vec3 &from, const vec3 &to, f32 by) {
 vec3 Color(enum ColorID color_id) {
     return vec3{color_id};
 }
+
+struct Edge {
+    vec3 from, to;
+};
+
+struct AABB {
+    vec3 min{-1}, max{1};
+
+    AABB(f32 min_x, f32 min_y, f32 min_z,
+         f32 max_x, f32 max_y, f32 max_z) : AABB{
+            vec3{min_x, min_y, min_z},
+            vec3{max_x, max_y, max_z}
+    } {}
+    AABB(f32 min_value, f32 max_value) : AABB{vec3{min_value}, vec3{max_value}} {}
+    AABB(const vec3 &min, const vec3 &max) : min{min}, max{max} {}
+    AABB() : AABB{0, 0} {}
+};

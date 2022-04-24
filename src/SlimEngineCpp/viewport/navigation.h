@@ -91,7 +91,7 @@ struct Navigation {
             turned = true;
         }
 
-        // Update the current velocity and position:
+        // Update the current speed_x and position_x:
         vec3 &V = camera.current_velocity;
         f32 V_delta = settings.acceleration * delta_time;
         V = V.approachTo(target_velocity, V_delta);

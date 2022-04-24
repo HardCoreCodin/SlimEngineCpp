@@ -250,12 +250,14 @@ struct vec2i {
 };
 
 
-union vec2 {
-    static vec2 X, Y;
+struct vec2 {
+    union {
+        struct {f32 components[2]; };
+        struct {f32 x, y; };
+        struct {f32 u, v; };
+    };
 
-    struct {f32 components[2]; };
-    struct {f32 x, y; };
-    struct {f32 u, v; };
+    static vec2 X, Y;
 
     vec2() : vec2{0} {}
     vec2(f32 x, f32 y) noexcept : x(x), y(y) {}
@@ -575,6 +577,13 @@ union vec2 {
         return {
                 clampedValue(x, upper.x),
                 clampedValue(y, upper.y)
+        };
+    }
+
+    INLINE vec2 clamped(const vec2 &lower, const vec2 &upper) const {
+        return {
+                clampedValue(x, lower.x, upper.x),
+                clampedValue(y, lower.y, upper.y)
         };
     }
 
