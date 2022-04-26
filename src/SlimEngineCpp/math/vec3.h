@@ -442,3 +442,19 @@ struct AABB {
     AABB(const vec3 &min, const vec3 &max) : min{min}, max{max} {}
     AABB() : AABB{0, 0} {}
 };
+
+struct RayHit {
+    vec3 position{}, normal{};
+    f32 distance{}, distance_squared{};
+    u32 geo_id{};
+    enum GeometryType geo_type{GeometryType_None};
+    bool from_behind{false};
+};
+
+struct Ray {
+    vec3 origin{}, direction{};
+    RayHit hit{};
+
+    INLINE vec3 at(f32 t) const { return origin + t*direction; }
+    INLINE vec3 operator [](f32 t) const { return at(t); }
+};

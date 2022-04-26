@@ -173,12 +173,12 @@ Navigation is then as in a typical first-person game (plus lateral movement and 
 
 Move the `mouse` to freely look around (even if the cursor would leave the window border)<br>
 Scroll the `mouse wheel` to zoom in and out (changes the field of view of the perspective)<br>
-Hold `W` to OnKeyChange forward<br>
-Hold `S` to OnKeyChange backward<br>
-Hold `A` to OnKeyChange left<br>
-Hold `D` to OnKeyChange right<br>
-Hold `R` to OnKeyChange up<br>
-Hold `F` to OnKeyChange down<br>
+Hold `W` to move forward<br>
+Hold `S` to move backward<br>
+Hold `A` to move left<br>
+Hold `D` to move right<br>
+Hold `R` to move up<br>
+Hold `F` to move down<br>
 
 Exit this mode by double clicking the `left mouse button`.
 

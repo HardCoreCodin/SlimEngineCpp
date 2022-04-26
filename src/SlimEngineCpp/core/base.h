@@ -250,24 +250,6 @@ enum GeometryType {
     GeometryType_Count
 };
 
-template <class VectorType>
-struct RayHitOf {
-    VectorType position{}, normal{};
-    f32 distance{}, distance_squared{};
-    u32 geo_id{};
-    enum GeometryType geo_type{GeometryType_None};
-    bool from_behind{false};
-};
-
-template<class VectorType>
-struct RayOf {
-    VectorType origin{}, direction{};
-    RayHitOf<VectorType> hit{};
-
-    INLINE VectorType at(f32 t) const { return origin + t*direction; }
-    INLINE VectorType operator [](f32 t) const { return at(t); }
-};
-
 enum BoxSide {
     NoSide = 0,
     Top    = 1,
@@ -346,15 +328,6 @@ protected:
         if (y != 0.0f) rotation *= T::RotationAroundY(y);
     }
 };
-
-//INLINE BoxSide getRectSide(const vec2 &octant, u8 axis) {
-//    switch (axis) {
-//        case 0 : return octant.x > 0 ? Right : Left;
-//        case 3 : return octant.x > 0 ? Left : Right;
-//        case 1 : return octant.y > 0 ? Top : Bottom;
-//        case 4 : return octant.y > 0 ? Bottom : Top;
-//    }
-//}
 
 enum ColorID {
     Black,
@@ -547,6 +520,10 @@ namespace controls {
         u8 space{0};
         u8 tab{0};
         u8 escape{0};
+        u8 left{0};
+        u8 right{0};
+        u8 up{0};
+        u8 down{0};
     }
 
     namespace is_pressed {
@@ -556,6 +533,10 @@ namespace controls {
         bool space{false};
         bool tab{false};
         bool escape{false};
+        bool left{false};
+        bool right{false};
+        bool up{false};
+        bool down{false};
     }
 }
 

@@ -197,6 +197,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 case VK_SPACE  : controls::is_pressed::space  = pressed; break;
                 case VK_TAB    : controls::is_pressed::tab    = pressed; break;
                 case VK_ESCAPE : controls::is_pressed::escape = pressed; break;
+                case VK_LEFT   : controls::is_pressed::left   = pressed; break;
+                case VK_RIGHT  : controls::is_pressed::right  = pressed; break;
+                case VK_UP     : controls::is_pressed::up     = pressed; break;
+                case VK_DOWN   : controls::is_pressed::down   = pressed; break;
                 default: break;
             }
             CURRENT_ENGINE->OnKeyChanged(key, pressed);
@@ -296,6 +300,10 @@ int APIENTRY WinMain(HINSTANCE hInstance,
     controls::key_map::space = VK_SPACE;
     controls::key_map::tab = VK_TAB;
     controls::key_map::escape = VK_ESCAPE;
+    controls::key_map::left = VK_LEFT;
+    controls::key_map::right = VK_RIGHT;
+    controls::key_map::up = VK_UP;
+    controls::key_map::down = VK_DOWN;
 
     LARGE_INTEGER performance_frequency;
     QueryPerformanceFrequency(&performance_frequency);

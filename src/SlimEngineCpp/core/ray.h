@@ -2,8 +2,6 @@
 
 #include "../math/vec3.h"
 
-using Ray = RayOf<vec3>;
-
 INLINE BoxSide getBoxSide(const vec3 &octant, u8 axis) {
     switch (axis) {
         case 0 : return octant.x > 0 ? Right : Left;

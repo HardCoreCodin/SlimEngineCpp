@@ -5,7 +5,7 @@
 #include "../SlimEngineCpp/draw/rectangle.h"
 #endif
 // Or using the single-header file:
-// #include "../SlimEngineCpp.h"
+// #include "../SlimEngine.h"
 
 #define MOUSE_WHEEL__MAX 2000
 
@@ -55,9 +55,6 @@ void drawKeyboard(Viewport &viewport) {
     rect.top -= 22;
     rect.bottom -= 22;
 
-//    fillRect(viewport, Color(turn.left ? White : Grey), &rect);
-//    drawText(viewport, viewport, Color(turn.left ? Grey : White), "Q", rect.left + 5, rect.top + 5);
-
     // Draw the 'W' key:
     rect.left += 22;
     rect.right += 22;
@@ -67,8 +64,6 @@ void drawKeyboard(Viewport &viewport) {
     // Draw the 'E' key:
     rect.left += 22;
     rect.right += 22;
-//    fillRect(viewport, Color(turn.right ? White : Grey), &rect);
-//    drawText(viewport, viewport, Color(turn.right ? Grey : White), "E", rect.left + 5, rect.top + 5);
 
     // Draw the 'R' key:
     rect.left += 22;

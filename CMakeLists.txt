@@ -26,3 +26,4 @@ add_executable(SlimEngineCpp_7_scene WIN32 src/examples/7_scene.cpp)
 
 project(obj2mesh)
 add_executable(obj2mesh src/obj2mesh.cpp)
+
