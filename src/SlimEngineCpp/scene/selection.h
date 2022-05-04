@@ -49,14 +49,14 @@ struct Selection {
                 geo_id   = ray.hit.geo_id;
                 geometry = nullptr;
 
-                // Capture a pointer to the selected object's position_x for later use in transformations:
+                // Capture a pointer to the selected object's position for later use in transformations:
                 geometry = scene.geometries + geo_id;
                 world_position = &geometry->transform.position;
                 transformation_plane_origin = ray.hit.position;
 
                 world_offset = ray.hit.position - *world_position;
 
-                // Track how far away the hit position_x is from the camera along the depth axis:
+                // Track how far away the hit position is from the camera along the depth axis:
                 object_distance = (camera.rotation.transposed() * (ray.hit.position - ray.origin)).z;
             } else {
                 if (geo_type) changed = true;
@@ -109,7 +109,7 @@ struct Selection {
                                 } else if (mouse::right_button.is_pressed) {
                                     vec3 v1{ ray.hit.position - transformation_plane_center };
                                     vec3 v2{ transformation_plane_origin - transformation_plane_center };
-                                    quat rotation = quat{v2 ^ v1, v1 | v2 + sqrtf(v1.squaredLength() * v2.squaredLength())};
+                                    quat rotation = quat{v2 ^ v1, (v1 | v2) + sqrtf(v1.squaredLength() * v2.squaredLength())};
                                     geometry->transform.rotation = (rotation.normalized() * object_rotation).normalized();
                                 }
                             }
@@ -119,7 +119,7 @@ struct Selection {
             } else {
                 box_side = NoSide;
                 if (mouse::left_button.is_pressed && mouse::moved) {
-                    // Back-project the new mouse position_x onto a quad at a distance of the selected-object away from the camera
+                    // Back-project the new mouse position onto a quad at a distance of the selected-object away from the camera
 
                     // Screen -> NDC:
                     f32 x = ((f32)mouse_pos.x + 0.5f) / dimensions.h_width  - 1;
@@ -129,7 +129,7 @@ struct Selection {
                     x *= object_distance / (camera.focal_length * dimensions.height_over_width);
                     y *= object_distance / camera.focal_length;
 
-                    // View -> World (Back-track by the world offset from the hit position_x back to the selected-object's center):
+                    // View -> World (Back-track by the world offset from the hit position back to the selected-object's center):
                     *world_position = camera.rotation * vec3{x, -y, object_distance} + camera.position - world_offset;
                 }
             }

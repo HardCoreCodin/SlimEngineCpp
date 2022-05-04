@@ -91,9 +91,9 @@ struct quat {
 
     INLINE void setXYZ(vec3 &X, vec3 &Y, vec3 &Z) const {
         f32 q0 = amount;
-        f32 q1 = axis.x;
-        f32 q2 = axis.y;
-        f32 q3 = axis.z;
+        f32 q1 = -axis.x;
+        f32 q2 = -axis.y;
+        f32 q3 = -axis.z;
 
         X.x = 2 * (q0 * q0 + q1 * q1) - 1;
         X.y = 2 * (q1 * q2 - q0 * q3);
