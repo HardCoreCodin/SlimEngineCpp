@@ -6,7 +6,7 @@ Pure-software (no hardware acceleration)<br>
 Focuses on simplicity, ease of use and setup with no dependencies and an optional single header file variant<br>
 <br>
 Built on: [SlimApp](https://github.com/HardCoreCodin/SlimApp) <br>
-Used in: [SlimTracin](https://github.com/HardCoreCodin/SlimTracin) and [SlimRaster++](https://github.com/HardCoreCodin/SlimRaster++) <br>
+Used in: [SlimTracin](https://github.com/HardCoreCodin/SlimTracin) and [SlimRaster++](https://github.com/HardCoreCodin/SlimRasterCpp) <br>
 
 For related projects, see [my portfolio](https://hardcorecodin.com/portfolio)
 
