@@ -8,13 +8,51 @@ struct HUDLine {
     NumberString value{};
     enum ColorID title_color{White};
     enum ColorID value_color{White};
-    enum ColorID alternate_value_color{White};
+    enum ColorID alternate_value_color{Grey};
     bool *use_alternate{nullptr};
     bool invert_alternate_use{false};
 
-    HUDLine(enum ColorID default_color = White) : title_color{default_color}, value_color{default_color}, alternate_value_color{default_color} {}
+    HUDLine(enum ColorID default_color = White) :
+            title{},
+            alternate_value{},
+            value{},
+            title_color{default_color},
+            value_color{default_color},
+            alternate_value_color{default_color} {}
     HUDLine(char* title_char_ptr,
-            enum ColorID default_color = White) : title_color{default_color}, value_color{default_color}, alternate_value_color{default_color}, title{title_char_ptr}{}
+            enum ColorID default_color = White) :
+            title{title_char_ptr},
+            alternate_value{},
+            value{},
+            title_color{default_color},
+            value_color{default_color},
+            alternate_value_color{default_color} {}
+    HUDLine(char* title_char_ptr, char* value_char_ptr,
+            enum ColorID default_color = White) :
+                    title{title_char_ptr},
+                    alternate_value{},
+                    value{value_char_ptr},
+                    title_color{default_color},
+                    value_color{default_color},
+                    alternate_value_color{default_color}
+                    {}
+    HUDLine(char* title_char_ptr,
+            char* value_char_ptr,
+            char* alternate_value_char_ptr,
+            bool *use_alternate = nullptr,
+            enum ColorID value_color = White,
+            enum ColorID alternate_value_color = White,
+            enum ColorID title_color = White,
+            bool invert_alternate_use = false) :
+            title{title_char_ptr},
+            alternate_value{alternate_value_char_ptr},
+            value{value_char_ptr},
+            title_color{title_color},
+            value_color{value_color},
+            alternate_value_color{alternate_value_color},
+            use_alternate{use_alternate},
+            invert_alternate_use{invert_alternate_use}
+    {}
 };
 
 struct HUDSettings {

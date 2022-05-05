@@ -72,10 +72,15 @@ struct NumberString {
         char *char_ptr = (char*)str;
         string.length = (u8)String::getLength(char_ptr);
         if (string.length > 12) string.length = 12;
-        char_ptr += string.length;
-        char_ptr--;
-        for (u8 i = 11; i >= 0; i--, char_ptr--)
-            _buffer[i] = (11 - i) < float_digits_count ? *char_ptr : ' ';
+        if (*str >= '0' && *str <= '9') {
+            char_ptr += string.length;
+            char_ptr--;
+            for (char i = 11; i >= 0; i--, char_ptr--)
+                _buffer[i] = (11 - i) < float_digits_count ? *char_ptr : ' ';
+        } else {
+            for (u8 i = 0; i < string.length; i++, char_ptr++) _buffer[i] = *char_ptr;
+            _buffer[string.length] = 0;
+        }
     }
 
     NumberString& operator = (i32 number) {

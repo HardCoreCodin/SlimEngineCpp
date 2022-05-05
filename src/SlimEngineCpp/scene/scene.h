@@ -7,7 +7,6 @@
 #include "../core/ray.h"
 #include "../core/transform.h"
 #include "../serialization/mesh.h"
-//#include "./texture.h"
 
 struct SceneCounts {
     u32 cameras{1};
@@ -21,12 +20,6 @@ struct SceneCounts {
 struct Scene {
     SceneCounts counts;
     String file_path;
-//    String *mesh_files{nullptr};
-//    String *texture_files{nullptr};
-//    AmbientLight ambient_light;
-//    Light *lights{nullptr};
-//    Material *materials{nullptr};
-//    Texture *textures{nullptr};
 
     Geometry *geometries{nullptr};
     Curve *curves{nullptr};
@@ -34,7 +27,6 @@ struct Scene {
     Box *boxes{nullptr};
     Camera *cameras{nullptr};
     Mesh *meshes{nullptr};
-//    AABB *mesh_aabbs{nullptr};
     u64 last_io_ticks{0};
     bool last_io_is_save{false};
 
@@ -47,6 +39,7 @@ struct Scene {
           Curve *curves = nullptr,
           Mesh *meshes = nullptr,
           String *mesh_files = nullptr,
+          String *texture_files = nullptr,
           memory::MonotonicAllocator *memory_allocator = nullptr
     ) : counts{counts},
         file_path{file_path},
@@ -67,32 +60,6 @@ struct Scene {
             }
             for (u32 i = 0; i < counts.meshes; i++) load(meshes[i], mesh_files[i].char_ptr, memory_allocator);
         }
-//        if (counts.lights) {
-//            Light *light = lights = (Light*)memory::allocate(sizeof(Light) * counts.lights);
-//            for (u32 i = 0; i < counts.lights; i++, light++) {
-//                light = new(light) Light;
-//                for (u8 c = 0; c < 3; c++) {
-//                    light->position_or_direction.components[c] = 0;
-//                    light->color.components[c]                 = 1;
-//                    light->attenuation.components[c]           = 1;
-//                }
-//                light->intensity = 1;
-//                light->is_directional = false;
-//            }
-//        }
-//
-//        if (counts.materials)   {
-//            Material *material = materials = (Material*)memory::allocate(sizeof(Material) * counts.materials);
-//            for (u32 i = 0; i < counts.materials; i++, material++) new(material) Material;
-//        }
-//
-//        if (counts.textures && counts.texture_files) {
-//            Texture *texture = textures = (Texture*)memory::allocate(sizeof(Texture) * counts.textures);
-//            if (textures) for (u32 i = 0; i < counts.textures; i++, texture++) {
-//                texture = new(texture) Texture;
-//                texture->load(counts.texture_files[i].char_ptr);
-//            }
-//        }
     }
 
     INLINE bool castRay(Ray &ray) const {

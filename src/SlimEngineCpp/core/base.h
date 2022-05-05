@@ -63,15 +63,6 @@ typedef signed   long int  i32;
 typedef float  f32;
 typedef double f64;
 
-#ifndef false
-#define false (u8)0
-#endif
-
-#ifndef true
-#define true (u8)1
-#endif
-
-
 #define FONT_WIDTH 18
 #define FONT_HEIGHT 24
 
@@ -103,8 +94,8 @@ typedef void (*CallbackWithCharPtr)(char* str);
 #define MAX_HEIGHT 2160
 #define MAX_WINDOW_SIZE (MAX_WIDTH * MAX_HEIGHT)
 
-#define DEFAULT_WIDTH 640
-#define DEFAULT_HEIGHT 480
+#define DEFAULT_WIDTH 480
+#define DEFAULT_HEIGHT 360
 
 #define PIXEL_SIZE 4
 #define WINDOW_CONTENT_SIZE (MAX_WINDOW_SIZE * PIXEL_SIZE)
@@ -140,26 +131,6 @@ typedef void (*CallbackWithCharPtr)(char* str);
 
 #define VIEWPORT_DEFAULT__NEAR_CLIPPING_PLANE_DISTANCE 0.001f
 #define VIEWPORT_DEFAULT__FAR_CLIPPING_PLANE_DISTANCE 1000.0f
-
-//// Culling flags:
-//// ======================
-//#define IS_NEAR  0b00000001
-//#define IS_FAR   0b00000010
-//#define IS_BELOW 0b00000100
-//#define IS_ABOVE 0b00001000
-//#define IS_RIGHT 0b00010000
-//#define IS_LEFT  0b00100000
-//#define IS_OUT   0b00111111
-//#define IS_NDC   0b01000000
-//
-//// Clipping flags:
-//// ===============
-//#define CULL    0b00000000
-//#define INSIDE  0b00000010
-//
-//#define LAMBERT 1
-//#define PHONG 2
-//#define BLINN 4
 
 #include <cmath>
 

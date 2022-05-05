@@ -65,15 +65,6 @@ typedef signed   long int  i32;
 typedef float  f32;
 typedef double f64;
 
-#ifndef false
-#define false (u8)0
-#endif
-
-#ifndef true
-#define true (u8)1
-#endif
-
-
 #define FONT_WIDTH 18
 #define FONT_HEIGHT 24
 
@@ -105,8 +96,8 @@ typedef void (*CallbackWithCharPtr)(char* str);
 #define MAX_HEIGHT 2160
 #define MAX_WINDOW_SIZE (MAX_WIDTH * MAX_HEIGHT)
 
-#define DEFAULT_WIDTH 640
-#define DEFAULT_HEIGHT 480
+#define DEFAULT_WIDTH 480
+#define DEFAULT_HEIGHT 360
 
 #define PIXEL_SIZE 4
 #define WINDOW_CONTENT_SIZE (MAX_WINDOW_SIZE * PIXEL_SIZE)
@@ -207,6 +198,109 @@ INLINE f32 approach(f32 src, f32 trg, f32 diff) {
 
     return trg;
 }
+
+enum class CurveType {
+    None = 0,
+
+    Helix,
+    Coil,
+
+    Count
+};
+struct Curve {
+    CurveType type{CurveType::None};
+    f32 revolution_count{1}, thickness{0.1f};
+};
+
+enum GeometryType {
+    GeometryType_None = 0,
+
+    GeometryType_Mesh,
+    GeometryType_Grid,
+    GeometryType_Box,
+    GeometryType_Curve,
+
+    GeometryType_Count
+};
+
+enum BoxSide {
+    NoSide = 0,
+    Top    = 1,
+    Bottom = 2,
+    Left   = 4,
+    Right  = 8,
+    Front  = 16,
+    Back   = 32
+};
+
+
+template <class T>
+struct Orientation {
+    T rotation{};
+
+    Orientation() : rotation{T::Identity} {}
+    explicit Orientation(f32 x_radians, f32 y_radians = 0, f32 z_radians = 0) {
+        setRotation(x_radians, y_radians, z_radians);
+    }
+
+    INLINE void rotate(f32 x_radians, f32 y_radians, f32 z_radians) {
+        setRotation(x + x_radians, y + y_radians, x + z_radians);
+    }
+
+    INLINE void rotate(f32 x_radians, f32 y_radians) {
+        setRotation(x + x_radians, y + y_radians);
+    }
+
+    INLINE void setRotation(f32 x_radians, f32 y_radians, f32 z_radians) {
+        x = x_radians;
+        y = y_radians;
+        z = z_radians;
+        _update();
+    }
+
+    INLINE void setRotation(f32 x_radians, f32 y_radians) {
+        x = x_radians;
+        y = y_radians;
+        _update();
+    }
+
+    INLINE void rotateAroundX(f32 radians) {
+        setRotationAroundX(x + radians);
+    }
+
+    INLINE void rotateAroundY(f32 radians) {
+        setRotationAroundY(y + radians);
+    }
+
+    INLINE void rotateAroundZ(f32 radians) {
+        setRotationAroundZ(z + radians);
+    }
+
+    INLINE void setRotationAroundX(f32 radians) {
+        x = radians;
+        _update();
+    }
+
+    INLINE void setRotationAroundY(f32 radians) {
+        y = radians;
+        _update();
+    }
+
+    INLINE void setRotationAroundZ(f32 radians) {
+        z = radians;
+        _update();
+    }
+
+protected:
+    f32 x, y, z;
+
+    void _update() {
+        rotation = T::Identity;
+        if (z != 0.0f) rotation = T::RotationAroundZ(z);
+        if (x != 0.0f) rotation *= T::RotationAroundX(x);
+        if (y != 0.0f) rotation *= T::RotationAroundY(y);
+    }
+};
 
 enum ColorID {
     Black,
@@ -391,172 +485,6 @@ struct Dimensions {
     }
 };
 
-struct String {
-    u32 length;
-    char *char_ptr;
-
-    String() noexcept : String{(char*)"", 0} {}
-    String(char *char_ptr) noexcept : length{getLength(char_ptr)}, char_ptr{char_ptr} {}
-    String(char *char_ptr, u32 length) noexcept : length{length}, char_ptr{char_ptr} {}
-
-    static String getFilePath(char *file_name, char *buffer, char *adjacent_file) {
-        String str(buffer);
-        u32 offset = getDirectoryLength(adjacent_file);
-        str.copyFrom(adjacent_file, file_name, offset);
-        return str;
-    }
-
-    void copyFrom(char* CharPtr, u32 offset) {
-        length = offset;
-        char *source_char = CharPtr;
-        char *string_char = char_ptr + offset;
-        while (source_char[0]) {
-            *string_char = *source_char;
-            string_char++;
-            source_char++;
-            length++;
-        }
-        *string_char = 0;
-    }
-
-    void copyFrom(char* CharPtr1, char* CharPtr2, u32 offset) {
-        copyFrom(CharPtr1, 0);
-        copyFrom(CharPtr2, offset);
-    }
-
-    String& operator = (char* CharPtr) {
-        char_ptr = CharPtr;
-        length = getLength(char_ptr);
-        return *this;
-    }
-
-    static u32 getLength(char *string) {
-        char *ptr = string;
-        u32 length = 0;
-        if (ptr) while (ptr[length]) length++;
-        return length;
-    }
-
-    static u32 getDirectoryLength(char *path) {
-        u32 path_len = getLength(path);
-        u32 dir_len = path_len;
-        while (path[dir_len] != '/' && path[dir_len] != '\\') dir_len--;
-        return dir_len + 1;
-    }
-};
-
-struct NumberString {
-    u8 float_digits_count = 3;
-    String string{_buffer, 0};
-    char _buffer[13]{};
-
-    explicit NumberString(u8 digit_count = 3) : string{_buffer, 1}, float_digits_count{digit_count} {
-        _buffer[12] = 0;
-        for (u8 i = 0; i < 12; i++)
-            _buffer[i] = ' ';
-    }
-
-    explicit NumberString(const char *str, u8 digits_count = 3) : float_digits_count{digits_count}, string{_buffer, 1} {
-        _buffer[12] = 0;
-        char *char_ptr = (char*)str;
-        string.length = (u8)String::getLength(char_ptr);
-        if (string.length > 12) string.length = 12;
-        char_ptr += string.length;
-        char_ptr--;
-        for (u8 i = 11; i >= 0; i--, char_ptr--)
-            _buffer[i] = (11 - i) < float_digits_count ? *char_ptr : ' ';
-    }
-
-    NumberString& operator = (i32 number) {
-        char *buffer = _buffer;
-        buffer[12] = 0;
-
-        bool is_negative = number < 0;
-        if (is_negative) number = -number;
-
-        if (number) {
-            u32 temp;
-            buffer += 11;
-            string.char_ptr = buffer;
-            string.length = 0;
-
-            for (u8 i = 0; i < 11; i++) {
-                temp = number;
-                number /= 10;
-                string.length++;
-                *buffer-- = (char)('0' + temp - number * 10);
-                if (!number) {
-                    if (is_negative) {
-                        *buffer = '-';
-                        string.char_ptr--;
-                        string.length++;
-                    }
-
-                    break;
-                }
-                string.char_ptr--;
-            }
-        } else {
-            buffer[11] = '0';
-            string.length = 1;
-            string.char_ptr = buffer + 11;
-        }
-
-        return *this;
-    }
-
-    NumberString& operator = (f32 number) {
-        f32 factor = 1;
-        for (u8 i = 0; i < float_digits_count; i++) factor *= 10;
-        i32 int_num = (i32)(number * factor);
-        if (int_num == 0) {
-            *this = (i32)factor;
-            string.length++;
-            string.char_ptr[0] = '.';
-            string.char_ptr--;
-            string.char_ptr[0] = '0';
-            return *this;
-        }
-
-        bool is_negative = number < 0;
-        bool is_fraction = is_negative ? number > -1 : number < 1;
-
-        *this = int_num;
-
-        if (is_fraction) {
-            u32 len = string.length;
-            string.length++;
-            string.char_ptr--;
-            if (is_negative) {
-                string.char_ptr[0] = '-';
-                string.char_ptr[1] = '0';
-            } else
-                string.char_ptr[0] = '0';
-
-            if (len < float_digits_count) {
-                for (u32 i = 0; i < (float_digits_count - len); i++) {
-                    string.length++;
-                    string.char_ptr--;
-                    string.char_ptr[0] = '0';
-                }
-            }
-        }
-
-        static char tmp[13];
-        tmp[string.length + 1] = 0;
-        for (u8 i = 0; i < (u8)string.length; i++) {
-            u8 char_count_from_right_to_left = (u8)string.length - i - 1;
-            if (char_count_from_right_to_left >= float_digits_count) tmp[i] = string.char_ptr[i];
-            else                                                     tmp[i + 1] = string.char_ptr[i];
-        }
-        tmp[string.length - float_digits_count] = '.';
-        string.copyFrom(tmp, 0);
-        if (is_negative) string.length++;
-
-        return *this;
-    }
-};
-
 namespace controls {
     namespace key_map {
         u8 ctrl{0};
@@ -565,6 +493,10 @@ namespace controls {
         u8 space{0};
         u8 tab{0};
         u8 escape{0};
+        u8 left{0};
+        u8 right{0};
+        u8 up{0};
+        u8 down{0};
     }
 
     namespace is_pressed {
@@ -574,6 +506,10 @@ namespace controls {
         bool space{false};
         bool tab{false};
         bool escape{false};
+        bool left{false};
+        bool right{false};
+        bool up{false};
+        bool down{false};
     }
 }
 
@@ -784,6 +720,176 @@ namespace memory {
     };
 }
 
+struct String {
+    u32 length;
+    char *char_ptr;
+
+    String() noexcept : String{(char*)"", 0} {}
+    String(char *char_ptr) noexcept : length{getLength(char_ptr)}, char_ptr{char_ptr} {}
+    String(char *char_ptr, u32 length) noexcept : length{length}, char_ptr{char_ptr} {}
+
+    static String getFilePath(char *file_name, char *buffer, char *adjacent_file) {
+        String str(buffer);
+        u32 offset = getDirectoryLength(adjacent_file);
+        str.copyFrom(adjacent_file, file_name, offset);
+        return str;
+    }
+
+    void copyFrom(char* CharPtr, u32 offset) {
+        length = offset;
+        char *source_char = CharPtr;
+        char *string_char = char_ptr + offset;
+        while (source_char[0]) {
+            *string_char = *source_char;
+            string_char++;
+            source_char++;
+            length++;
+        }
+        *string_char = 0;
+    }
+
+    void copyFrom(char* CharPtr1, char* CharPtr2, u32 offset) {
+        copyFrom(CharPtr1, 0);
+        copyFrom(CharPtr2, offset);
+    }
+
+    String& operator = (char* CharPtr) {
+        char_ptr = CharPtr;
+        length = getLength(char_ptr);
+        return *this;
+    }
+
+    static u32 getLength(char *string) {
+        char *ptr = string;
+        u32 length = 0;
+        if (ptr) while (ptr[length]) length++;
+        return length;
+    }
+
+    static u32 getDirectoryLength(char *path) {
+        u32 path_len = getLength(path);
+        u32 dir_len = path_len;
+        while (path[dir_len] != '/' && path[dir_len] != '\\') dir_len--;
+        return dir_len + 1;
+    }
+};
+
+struct NumberString {
+    u8 float_digits_count = 3;
+    String string{_buffer, 0};
+    char _buffer[13]{};
+
+    explicit NumberString(u8 digit_count = 3) : string{_buffer, 1}, float_digits_count{digit_count} {
+        _buffer[12] = 0;
+        for (u8 i = 0; i < 12; i++)
+            _buffer[i] = ' ';
+    }
+
+    explicit NumberString(const char *str, u8 digits_count = 3) : float_digits_count{digits_count}, string{_buffer, 1} {
+        _buffer[12] = 0;
+        char *char_ptr = (char*)str;
+        string.length = (u8)String::getLength(char_ptr);
+        if (string.length > 12) string.length = 12;
+        if (*str >= '0' && *str <= '9') {
+            char_ptr += string.length;
+            char_ptr--;
+            for (char i = 11; i >= 0; i--, char_ptr--)
+                _buffer[i] = (11 - i) < float_digits_count ? *char_ptr : ' ';
+        } else {
+            for (u8 i = 0; i < string.length; i++, char_ptr++) _buffer[i] = *char_ptr;
+            _buffer[string.length] = 0;
+        }
+    }
+
+    NumberString& operator = (i32 number) {
+        char *buffer = _buffer;
+        buffer[12] = 0;
+
+        bool is_negative = number < 0;
+        if (is_negative) number = -number;
+
+        if (number) {
+            u32 temp;
+            buffer += 11;
+            string.char_ptr = buffer;
+            string.length = 0;
+
+            for (u8 i = 0; i < 11; i++) {
+                temp = number;
+                number /= 10;
+                string.length++;
+                *buffer-- = (char)('0' + temp - number * 10);
+                if (!number) {
+                    if (is_negative) {
+                        *buffer = '-';
+                        string.char_ptr--;
+                        string.length++;
+                    }
+
+                    break;
+                }
+                string.char_ptr--;
+            }
+        } else {
+            buffer[11] = '0';
+            string.length = 1;
+            string.char_ptr = buffer + 11;
+        }
+
+        return *this;
+    }
+
+    NumberString& operator = (f32 number) {
+        f32 factor = 1;
+        for (u8 i = 0; i < float_digits_count; i++) factor *= 10;
+        i32 int_num = (i32)(number * factor);
+        if (int_num == 0) {
+            *this = (i32)factor;
+            string.length++;
+            string.char_ptr[0] = '.';
+            string.char_ptr--;
+            string.char_ptr[0] = '0';
+            return *this;
+        }
+
+        bool is_negative = number < 0;
+        bool is_fraction = is_negative ? number > -1 : number < 1;
+
+        *this = int_num;
+
+        if (is_fraction) {
+            u32 len = string.length;
+            string.length++;
+            string.char_ptr--;
+            if (is_negative) {
+                string.char_ptr[0] = '-';
+                string.char_ptr[1] = '0';
+            } else
+                string.char_ptr[0] = '0';
+
+            if (len < float_digits_count) {
+                for (u32 i = 0; i < (float_digits_count - len); i++) {
+                    string.length++;
+                    string.char_ptr--;
+                    string.char_ptr[0] = '0';
+                }
+            }
+        }
+
+        static char tmp[13];
+        tmp[string.length + 1] = 0;
+        for (u8 i = 0; i < (u8)string.length; i++) {
+            u8 char_count_from_right_to_left = (u8)string.length - i - 1;
+            if (char_count_from_right_to_left >= float_digits_count) tmp[i] = string.char_ptr[i];
+            else                                                     tmp[i + 1] = string.char_ptr[i];
+        }
+        tmp[string.length - float_digits_count] = '.';
+        string.copyFrom(tmp, 0);
+        if (is_negative) string.length++;
+
+        return *this;
+    }
+};
 
 
 struct vec2i {
@@ -3370,6 +3476,14 @@ INLINE vec4 Vec4(const vec3 &v3, f32 w = 0.0f) {
     return {v3.x, v3.y, v3.z, w};
 }
 
+INLINE vec3 Vec3(const vec4 &v4) {
+    return {v4.x, v4.y, v4.z};
+}
+
+INLINE vec2 Vec2(const vec3 &v3) {
+    return {v3.x, v3.y};
+}
+
 INLINE mat3 Mat3(const quat &q) {
     mat3 mat;
     q.setXYZ(mat.X, mat.Y, mat.Z);
@@ -3474,20 +3588,6 @@ INLINE mat4 Mat4(const mat3 &rotation, const vec3 &position) {
     };
 }
 
-
-enum class CurveType {
-    None = 0,
-
-    Helix,
-    Coil,
-
-    Count
-};
-struct Curve {
-    CurveType type{CurveType::None};
-    f32 revolution_count{1}, thickness{0.1f};
-};
-
 struct Edge {
     vec3 from, to;
 };
@@ -3553,73 +3653,6 @@ struct RectOf {
 using Rect = RectOf<vec2, f32>;
 using RectI = RectOf<vec2i, i32>;
 
-template <class T>
-struct Orientation {
-    T rotation{};
-
-    Orientation() : rotation{T::Identity} {}
-    explicit Orientation(f32 x_radians, f32 y_radians = 0, f32 z_radians = 0) {
-        setRotation(x_radians, y_radians, z_radians);
-    }
-
-    INLINE void rotate(f32 x_radians, f32 y_radians, f32 z_radians) {
-        setRotation(angles.x + x_radians, angles.y + y_radians, angles.x + z_radians);
-    }
-
-    INLINE void rotate(f32 x_radians, f32 y_radians) {
-        setRotation(angles.x + x_radians, angles.y + y_radians);
-    }
-
-    INLINE void setRotation(f32 x_radians, f32 y_radians, f32 z_radians) {
-        angles.x = x_radians;
-        angles.y = y_radians;
-        angles.z = z_radians;
-        _update();
-    }
-
-    INLINE void setRotation(f32 x_radians, f32 y_radians) {
-        angles.x = x_radians;
-        angles.y = y_radians;
-        _update();
-    }
-
-    INLINE void rotateAroundX(f32 radians) {
-        setRotationAroundX(angles.x + radians);
-    }
-
-    INLINE void rotateAroundY(f32 radians) {
-        setRotationAroundY(angles.y + radians);
-    }
-
-    INLINE void rotateAroundZ(f32 radians) {
-        setRotationAroundZ(angles.z + radians);
-    }
-
-    INLINE void setRotationAroundX(f32 radians) {
-        angles.x = radians;
-        _update();
-    }
-
-    INLINE void setRotationAroundY(f32 radians) {
-        angles.y = radians;
-        _update();
-    }
-
-    INLINE void setRotationAroundZ(f32 radians) {
-        angles.z = radians;
-        _update();
-    }
-
-protected:
-    vec3 angles;
-
-    void _update() {
-        rotation = T::Identity;
-        if (angles.z != 0.0f) rotation = T::RotationAroundZ(angles.z);
-        if (angles.x != 0.0f) rotation *= T::RotationAroundX(angles.x);
-        if (angles.y != 0.0f) rotation *= T::RotationAroundY(angles.y);
-    }
-};
 
 struct Transform : public Orientation<quat> {
     vec3 position{0.0f};
@@ -3655,17 +3688,6 @@ private:
     INLINE vec3 _unscale(const vec3 &pos) const { return pos / scale; }
     INLINE vec3 _unrotate(const vec3 &pos) const { return rotation.conjugate() * pos; }
     INLINE vec3 _untranslate(const vec3 &pos) const { return pos - position; }
-};
-
-enum GeometryType {
-    GeometryType_None = 0,
-
-    GeometryType_Mesh,
-    GeometryType_Grid,
-    GeometryType_Box,
-    GeometryType_Curve,
-
-    GeometryType_Count
 };
 
 struct Geometry {
@@ -3717,16 +3739,6 @@ struct AABB {
 
         return *this;
     }
-};
-
-enum BoxSide {
-    NoSide = 0,
-    Top    = 1,
-    Bottom = 2,
-    Left   = 4,
-    Right  = 8,
-    Front  = 16,
-    Back   = 32
 };
 
 INLINE BoxSide getBoxSide(const vec3 &octant, u8 axis) {
@@ -4520,12 +4532,6 @@ struct SceneCounts {
 struct Scene {
     SceneCounts counts;
     String file_path;
-//    String *mesh_files{nullptr};
-//    String *texture_files{nullptr};
-//    AmbientLight ambient_light;
-//    Light *lights{nullptr};
-//    Material *materials{nullptr};
-//    Texture *textures{nullptr};
 
     Geometry *geometries{nullptr};
     Curve *curves{nullptr};
@@ -4533,7 +4539,7 @@ struct Scene {
     Box *boxes{nullptr};
     Camera *cameras{nullptr};
     Mesh *meshes{nullptr};
-//    AABB *mesh_aabbs{nullptr};
+
     u64 last_io_ticks{0};
     bool last_io_is_save{false};
 
@@ -4566,32 +4572,6 @@ struct Scene {
             }
             for (u32 i = 0; i < counts.meshes; i++) load(meshes[i], mesh_files[i].char_ptr, memory_allocator);
         }
-//        if (counts.lights) {
-//            Light *light = lights = (Light*)memory::allocate(sizeof(Light) * counts.lights);
-//            for (u32 i = 0; i < counts.lights; i++, light++) {
-//                light = new(light) Light;
-//                for (u8 c = 0; c < 3; c++) {
-//                    light->position_or_direction.components[c] = 0;
-//                    light->color.components[c]                 = 1;
-//                    light->attenuation.components[c]           = 1;
-//                }
-//                light->intensity = 1;
-//                light->is_directional = false;
-//            }
-//        }
-//
-//        if (counts.materials)   {
-//            Material *material = materials = (Material*)memory::allocate(sizeof(Material) * counts.materials);
-//            for (u32 i = 0; i < counts.materials; i++, material++) new(material) Material;
-//        }
-//
-//        if (counts.textures && counts.texture_files) {
-//            Texture *texture = textures = (Texture*)memory::allocate(sizeof(Texture) * counts.textures);
-//            if (textures) for (u32 i = 0; i < counts.textures; i++, texture++) {
-//                texture = new(texture) Texture;
-//                texture->load(counts.texture_files[i].char_ptr);
-//            }
-//        }
     }
 
     INLINE bool castRay(Ray &ray) const {
@@ -4733,22 +4713,54 @@ void save(Scene &scene, char* scene_file_path = nullptr) {
 }
 
 struct HUDLine {
-    enum ColorID title_color{White}, value_color{White}, alternate_value_color{White};
     String title{}, alternate_value{};
     NumberString value{};
-    bool invert_alternate_use{false}, *use_alternate{nullptr};
+    enum ColorID title_color{White};
+    enum ColorID value_color{White};
+    enum ColorID alternate_value_color{Grey};
+    bool *use_alternate{nullptr};
+    bool invert_alternate_use{false};
 
     HUDLine(enum ColorID default_color = White) :
+            title{},
+            alternate_value{},
+            value{},
+            title_color{default_color},
+            value_color{default_color},
+            alternate_value_color{default_color} {}
+    HUDLine(char* title_char_ptr,
+            enum ColorID default_color = White) :
+            title{title_char_ptr},
+            alternate_value{},
+            value{},
+            title_color{default_color},
+            value_color{default_color},
+            alternate_value_color{default_color} {}
+    HUDLine(char* title_char_ptr, char* value_char_ptr,
+            enum ColorID default_color = White) :
+            title{title_char_ptr},
+            alternate_value{},
+            value{value_char_ptr},
             title_color{default_color},
             value_color{default_color},
             alternate_value_color{default_color}
     {}
-
-    HUDLine(char* title_char_ptr, enum ColorID default_color = White) :
-            title_color{default_color},
-            value_color{default_color},
-            alternate_value_color{default_color},
-            title{title_char_ptr}
+    HUDLine(char* title_char_ptr,
+            char* value_char_ptr,
+            char* alternate_value_char_ptr,
+            bool *use_alternate = nullptr,
+            enum ColorID value_color = White,
+            enum ColorID alternate_value_color = White,
+            enum ColorID title_color = White,
+            bool invert_alternate_use = false) :
+            title{title_char_ptr},
+            alternate_value{alternate_value_char_ptr},
+            value{value_char_ptr},
+            title_color{title_color},
+            value_color{value_color},
+            alternate_value_color{alternate_value_color},
+            use_alternate{use_alternate},
+            invert_alternate_use{invert_alternate_use}
     {}
 };
 

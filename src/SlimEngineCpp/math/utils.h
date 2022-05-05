@@ -9,6 +9,14 @@ INLINE vec4 Vec4(const vec3 &v3, f32 w = 0.0f) {
     return {v3.x, v3.y, v3.z, w};
 }
 
+INLINE vec3 Vec3(const vec4 &v4) {
+    return {v4.x, v4.y, v4.z};
+}
+
+INLINE vec2 Vec2(const vec3 &v3) {
+    return {v3.x, v3.y};
+}
+
 INLINE mat3 Mat3(const quat &q) {
     mat3 mat;
     q.setXYZ(mat.X, mat.Y, mat.Z);
