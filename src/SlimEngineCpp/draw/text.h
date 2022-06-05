@@ -109,9 +109,9 @@ u8 *char_addr[] = {bitmap_32,bitmap_33,bitmap_34,bitmap_35,bitmap_36,bitmap_37,b
 
 
 
-void drawText(char *str, i32 x, i32 y, const Viewport &viewport, Color color, f32 opacity) {
-    if (x < 0 || x > viewport.dimensions.width  - FONT_WIDTH ||
-        y < 0 || y > viewport.dimensions.height - FONT_HEIGHT)
+void drawText(char *str, i32 x, i32 y, const Canvas &canvas, Color color, f32 opacity = 1.0f) {
+    if (x < 0 || x > canvas.dimensions.width  - FONT_WIDTH ||
+        y < 0 || y > canvas.dimensions.height - FONT_HEIGHT)
         return;
 
     color.setIntoGammaSpace();
@@ -125,7 +125,7 @@ void drawText(char *str, i32 x, i32 y, const Viewport &viewport, Color color, f3
     char character = *str;
     while (character) {
         if (character == '\n') {
-            if (current_y + FONT_HEIGHT > viewport.dimensions.height)
+            if (current_y + FONT_HEIGHT > canvas.dimensions.height)
                 break;
 
             current_x = (u16)x;
@@ -143,15 +143,15 @@ void drawText(char *str, i32 x, i32 y, const Viewport &viewport, Color color, f3
                     for (int h = 0; h < FONT_HEIGHT/3; h++) {
                         /* skip background bits */
                         if (*byte & (0x80  >> h)) {
-                            if (viewport.canvas.SSAA) {
+                            if (canvas.antialias == SSAA) {
                                 sub_pixel_x = pixel_x << 1;
                                 sub_pixel_y = pixel_y << 1;
-                                viewport.canvas.setPixel(sub_pixel_x + 0, sub_pixel_y + 0, color, opacity);
-                                viewport.canvas.setPixel(sub_pixel_x + 1, sub_pixel_y + 0, color, opacity);
-                                viewport.canvas.setPixel(sub_pixel_x + 0, sub_pixel_y + 1, color, opacity);
-                                viewport.canvas.setPixel(sub_pixel_x + 1, sub_pixel_y + 1, color, opacity);
+                                canvas.setPixel(sub_pixel_x + 0, sub_pixel_y + 0, color, opacity);
+                                canvas.setPixel(sub_pixel_x + 1, sub_pixel_y + 0, color, opacity);
+                                canvas.setPixel(sub_pixel_x + 0, sub_pixel_y + 1, color, opacity);
+                                canvas.setPixel(sub_pixel_x + 1, sub_pixel_y + 1, color, opacity);
                             } else
-                                viewport.canvas.setPixel(pixel_x, pixel_y, color, opacity);
+                                canvas.setPixel(pixel_x, pixel_y, color, opacity);
                         }
 
                         pixel_y--;
@@ -162,7 +162,7 @@ void drawText(char *str, i32 x, i32 y, const Viewport &viewport, Color color, f3
                 }
             }
             current_x += FONT_WIDTH;
-            if (current_x + FONT_WIDTH > viewport.dimensions.width)
+            if (current_x + FONT_WIDTH > canvas.dimensions.width)
                 return;
         }
         character = *++str;

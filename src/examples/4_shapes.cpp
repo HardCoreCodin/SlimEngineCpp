@@ -35,10 +35,10 @@ struct ShapesExample : SlimEngine {
     u8 line_width = 0;
 
     void OnRender() override {
-        draw(      grid, grid_transform,  viewport,Color(Green),   opacity, line_width);
-        draw(      box,  box_transform,   viewport,Color(Yellow),  opacity, line_width);
-        draw(coil, coil_transform,  viewport,Color(Magenta), opacity, line_width);
-        draw(helix,helix_transform, viewport,Color(Cyan),    opacity, line_width);
+        draw(      grid, grid_transform,  viewport,Green,   opacity, line_width);
+        draw(      box,  box_transform,   viewport,Yellow,  opacity, line_width);
+        draw(coil, coil_transform,  viewport,Magenta, opacity, line_width);
+        draw(helix,helix_transform, viewport,Cyan,    opacity, line_width);
     }
     void OnWindowResize(u16 width, u16 height) override {
         viewport.updateDimensions(width, height);

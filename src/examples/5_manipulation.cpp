@@ -43,10 +43,10 @@ struct ManipulationExample : SlimEngine {
     u8 line_width = 0;
 
     void OnRender() override {
-        draw(      grid, grid1.transform,  viewport,Color(grid1.color),  opacity, line_width);
-        draw(      box,  box1.transform,   viewport,Color(box1.color),   opacity, line_width);
-        draw(coil, coil1.transform,  viewport,Color(coil1.color),  opacity, line_width);
-        draw(helix,helix1.transform, viewport,Color(helix1.color), opacity, line_width);
+        draw(      grid, grid1.transform,  viewport,grid1.color,  opacity, line_width);
+        draw(      box,  box1.transform,   viewport,box1.color,   opacity, line_width);
+        draw(coil, coil1.transform,  viewport,coil1.color,  opacity, line_width);
+        draw(helix,helix1.transform, viewport,helix1.color, opacity, line_width);
 
         if (controls::is_pressed::alt)
             draw(selection, viewport, scene);

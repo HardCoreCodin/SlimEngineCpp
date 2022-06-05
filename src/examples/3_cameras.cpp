@@ -18,9 +18,9 @@ struct CamerasExample : SlimEngine {
         2
     };
     Camera *other_camera = &camera2;
-    vec3 camera1_color = Color(Cyan);
-    vec3 camera2_color = Color(Yellow);
-    vec3 other_camera_color = camera2_color;
+    Color camera1_color = Cyan;
+    Color camera2_color = Yellow;
+    Color other_camera_color = camera2_color;
     Viewport viewport{window::canvas,&camera1};
 
     // Geometry:
@@ -36,7 +36,7 @@ struct CamerasExample : SlimEngine {
     // Drawing:
     f32 opacity = 0.5f;
     u8 line_width = 0;
-    vec3 color{ Color(White) };
+    Color color = White;
 
     void OnUpdate(f32 delta_time) override {
         viewport.updateNavigation(delta_time);

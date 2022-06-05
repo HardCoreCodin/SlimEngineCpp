@@ -38,11 +38,11 @@ struct ViewportExample : SlimEngine {
     // Drawing:
     f32 opacity = 0.5f;
     u8 line_width = 0;
-    vec3 color{ Color(White) };
+    Color color = White;
 
     void OnRender() override {
         draw(grid, transform, viewport, color, opacity, line_width);
-        if (hud.enabled) draw(hud, viewport);
+        if (hud.enabled) draw(hud, viewport.canvas);
     }
 
     void OnWindowResize(u16 width, u16 height) override {

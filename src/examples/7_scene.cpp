@@ -68,17 +68,17 @@ struct SceneExample : SlimEngine {
         f64 tps = (f64) time::ticks_per_second;
         if ((now - (f64) scene.last_io_ticks) / tps <= 2.0) {
             char *text;
-            vec3 color;
+            Color color;
             if (scene.last_io_is_save) {
                 text = (char *) "Scene saved to: this.scene";
-                color = Color(Yellow);
+                color = Yellow;
             } else {
                 text = (char *) "Scene loaded from: this.scene";
-                color = Color(Cyan);
+                color = Cyan;
             }
             i32 x = 50;
             i32 y = 20;
-            drawText(text, x, y, viewport, color, 1);
+            drawText(text, x, y, viewport.canvas, color, 1);
         }
     }
     void OnKeyChanged(u8 key, bool is_pressed) override {

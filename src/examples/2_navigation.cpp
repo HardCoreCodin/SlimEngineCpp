@@ -25,7 +25,7 @@ struct ViewportNavigationExample : SlimEngine {
     // Drawing:
     f32 opacity = 0.5f;
     u8 line_width = 0;
-    vec3 color{ Color(White) };
+    Color color = White;
 
     void OnWindowResize(u16 width, u16 height) override {
         viewport.updateDimensions(width, height);

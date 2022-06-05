@@ -14,5 +14,5 @@ void draw(Edge edge, const Viewport &viewport, const Color &color = White, f32 o
              edge.to.x,
              edge.to.y,
              edge.to.z,
-             viewport, color, opacity, line_width);
+             viewport.position, viewport.canvas, color, opacity, line_width);
 }

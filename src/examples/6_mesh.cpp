@@ -49,15 +49,15 @@ struct MeshExample : SlimEngine {
     u8 line_width = 0;
 
     void OnRender() override {
-        draw(grid,grid1.transform, viewport,Color(grid1.color), opacity, line_width);
+        draw(grid,grid1.transform, viewport,grid1.color, opacity, line_width);
 
         bool draw_normals = controls::is_pressed::ctrl;
         Mesh &mesh{meshes[scene.geometries[1].id]};
-        draw(mesh,mesh1.transform, draw_normals, viewport,Color(mesh1.color), opacity, line_width);
-        draw(mesh,mesh2.transform, draw_normals, viewport,Color(mesh2.color), opacity, line_width);
+        draw(mesh,mesh1.transform, draw_normals, viewport,mesh1.color, opacity, line_width);
+        draw(mesh,mesh2.transform, draw_normals, viewport,mesh2.color, opacity, line_width);
 
         if (controls::is_pressed::alt) draw(selection, viewport, scene);
-        if (hud.enabled) draw(hud, viewport);
+        if (hud.enabled) draw(hud, viewport.canvas);
     }
 
     void OnKeyChanged(u8 key, bool is_pressed) override {

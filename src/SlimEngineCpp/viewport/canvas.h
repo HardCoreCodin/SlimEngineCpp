@@ -1,13 +1,19 @@
 #pragma once
 
-#include "../math/vec3.h"
+#include "../core/base.h"
+
+enum AntiAliasing {
+    NoAA,
+    MSAA,
+    SSAA
+};
 
 struct Canvas {
     Dimensions dimensions;
     Pixel *pixels{nullptr};
     f32 *depths{nullptr};
 
-    bool SSAA{true}, MSAA{false};
+    AntiAliasing antialias{SSAA};
 
     Canvas(Pixel *pixels, f32 *depths) noexcept : pixels{pixels}, depths{depths} {}
 
@@ -17,10 +23,10 @@ struct Canvas {
         i32 depths_width  = dimensions.width;
         i32 depths_height = dimensions.height;
 
-        if (SSAA || MSAA) {
+        if (antialias != NoAA) {
             depths_width *= 2;
             depths_height *= 2;
-            if (SSAA) {
+            if (antialias == SSAA) {
                 pixels_width *= 2;
                 pixels_height *= 2;
             }
@@ -35,21 +41,21 @@ struct Canvas {
         for (i32 i = 0; i < depths_count; i++) depths[i] = depth;
     }
 
-    INLINE void setPixel(i32 x, i32 y, const Color &color, f32 opacity = 1.0f, f32 depth = 0, f32 z_top = 0, f32 z_bottom = 0, f32 z_right = 0) {
-        u32 offset = SSAA ? ((dimensions.stride * (y >> 1) + (x >> 1)) * 4 + (2 * (y & 1)) + (x & 1)) : (dimensions.stride * y + x);
+    INLINE void setPixel(i32 x, i32 y, const Color &color, f32 opacity = 1.0f, f32 depth = 0, f32 z_top = 0, f32 z_bottom = 0, f32 z_right = 0) const {
+        u32 offset = antialias == SSAA ? ((dimensions.stride * (y >> 1) + (x >> 1)) * 4 + (2 * (y & 1)) + (x & 1)) : (dimensions.stride * y + x);
         Pixel pixel{color, opacity};
         Pixel *out_pixel = pixels + offset;
-        f32 *out_depth = depths + (MSAA ? offset * 4 : offset);
+        f32 *out_depth = depths + (antialias == MSAA ? offset * 4 : offset);
         if (opacity == 1.0f && depth == 0.0f && z_top == 0.0f && z_bottom == 0.0f && z_right == 0.0f) {
             *out_pixel = pixel;
             out_depth[0] = 0;
-            if (MSAA) out_depth[1] = out_depth[2] = out_depth[3] = 0;
+            if (antialias == MSAA) out_depth[1] = out_depth[2] = out_depth[3] = 0;
 
             return;
         }
 
         Pixel *bg, *fg;
-        if (MSAA) {
+        if (antialias == MSAA) {
             Pixel accumulated_pixel{};
             for (u8 i = 0; i < 4; i++, out_depth++) {
                 if (i) depth = i == 1 ? z_top : (i == 2 ? z_bottom : z_right);
@@ -66,7 +72,7 @@ struct Canvas {
     void renderToContent(u32 *content) const {
         u32 *content_value = content;
         Pixel *pixel = pixels;
-        if (SSAA)
+        if (antialias == SSAA)
             for (u16 y = 0; y < dimensions.height; y++)
                 for (u16 x = 0; x < dimensions.width; x++, content_value++, pixel += 4)
                     *content_value = _isTransparentPixelQuad(pixel) ? 0 : _blendPixelQuad(pixel).asContent();
