@@ -5,7 +5,7 @@
 #include "../scene/box.h"
 #include "../viewport/viewport.h"
 
-void draw(const Box &box, const Transform &transform, const Viewport &viewport, const vec3 &color = Color(White), f32 opacity = 1.0f, u8 line_width = 1, u8 sides = BOX__ALL_SIDES) {
+void draw(const Box &box, const Transform &transform, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, u8 sides = BOX__ALL_SIDES) {
     static Box view_space_box;
 
     // Transform vertices positions from local-space to world-space and then to view-space:

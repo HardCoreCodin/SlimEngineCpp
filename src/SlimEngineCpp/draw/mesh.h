@@ -5,7 +5,7 @@
 #include "../viewport/viewport.h"
 
 
-void draw(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport, const vec3 &color = Color(White), f32 opacity = 1.0f, u8 line_width = 1) {
+void draw(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     const Camera &cam = *viewport.camera;
     vec3 pos;
     Edge edge;

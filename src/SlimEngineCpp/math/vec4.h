@@ -16,15 +16,6 @@ struct vec4 {
     vec4(const vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
     explicit vec4(f32 value) noexcept : vec4{value, value, value, value} {}
 
-    INLINE RGBA toRGBA() const {
-        return {
-                (u8)(255.0f * fmaxf(0, fminf(r, 1.0f))),
-                (u8)(255.0f * fmaxf(0, fminf(g, 1.0f))),
-                (u8)(255.0f * fmaxf(0, fminf(b, 1.0f))),
-                (u8)(255.0f * fmaxf(0, fminf(a, 1.0f)))
-        };
-    }
-
     INLINE bool operator == (const vec4 &other) const {
         return other.x == x &&
                other.y == y &&

@@ -109,15 +109,12 @@ u8 *char_addr[] = {bitmap_32,bitmap_33,bitmap_34,bitmap_35,bitmap_36,bitmap_37,b
 
 
 
-void drawText(char *str, i32 x, i32 y, const Viewport &viewport, const vec3 &color, f32 opacity) {
+void drawText(char *str, i32 x, i32 y, const Viewport &viewport, Color color, f32 opacity) {
     if (x < 0 || x > viewport.dimensions.width  - FONT_WIDTH ||
         y < 0 || y > viewport.dimensions.height - FONT_HEIGHT)
         return;
 
-    Pixel pixel{color, opacity, 0};
-    pixel.color.r *= pixel.color.r;
-    pixel.color.g *= pixel.color.g;
-    pixel.color.b *= pixel.color.b;
+    color.setIntoGammaSpace();
 
     u16 current_x = (u16)x;
     u16 current_y = (u16)y;
@@ -146,15 +143,15 @@ void drawText(char *str, i32 x, i32 y, const Viewport &viewport, const vec3 &col
                     for (int h = 0; h < FONT_HEIGHT/3; h++) {
                         /* skip background bits */
                         if (*byte & (0x80  >> h)) {
-                            if (viewport.canvas.antialias) {
+                            if (viewport.canvas.SSAA) {
                                 sub_pixel_x = pixel_x << 1;
                                 sub_pixel_y = pixel_y << 1;
-                                viewport.canvas.setPixel(sub_pixel_x + 0, sub_pixel_y + 0, pixel);
-                                viewport.canvas.setPixel(sub_pixel_x + 1, sub_pixel_y + 0, pixel);
-                                viewport.canvas.setPixel(sub_pixel_x + 0, sub_pixel_y + 1, pixel);
-                                viewport.canvas.setPixel(sub_pixel_x + 1, sub_pixel_y + 1, pixel);
+                                viewport.canvas.setPixel(sub_pixel_x + 0, sub_pixel_y + 0, color, opacity);
+                                viewport.canvas.setPixel(sub_pixel_x + 1, sub_pixel_y + 0, color, opacity);
+                                viewport.canvas.setPixel(sub_pixel_x + 0, sub_pixel_y + 1, color, opacity);
+                                viewport.canvas.setPixel(sub_pixel_x + 1, sub_pixel_y + 1, color, opacity);
                             } else
-                                viewport.canvas.setPixel(pixel_x, pixel_y, pixel);
+                                viewport.canvas.setPixel(pixel_x, pixel_y, color, opacity);
                         }
 
                         pixel_y--;

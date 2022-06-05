@@ -19,9 +19,8 @@ void draw(const HUD &hud, const Viewport &viewport) {
             alt = false;
 
         char *text = alt ? line->alternate_value.char_ptr : line->value.string.char_ptr;
-        vec3 color{Color(alt ? line->alternate_value_color : line->value_color)};
-        drawText(line->title.char_ptr, x, y, viewport, Color(line->title_color), 1);
-        drawText(text, x + (u16)line->title.length * FONT_WIDTH, y, viewport, color, 1);
+        drawText(line->title.char_ptr, x, y, viewport, line->title_color, 1);
+        drawText(text, x + (u16)line->title.length * FONT_WIDTH, y, viewport, alt ? line->alternate_value_color : line->value_color, 1);
         y += (u16)(hud.settings.line_height * (f32)FONT_HEIGHT);
     }
 }

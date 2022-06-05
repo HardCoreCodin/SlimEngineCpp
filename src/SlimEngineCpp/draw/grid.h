@@ -5,7 +5,7 @@
 #include "../scene/grid.h"
 #include "../viewport/viewport.h"
 
-void draw(const Grid &grid, const Transform &transform, const Viewport &viewport, const vec3 &color = Color(White), f32 opacity = 1.0f, u8 line_width = 1) {
+void draw(const Grid &grid, const Transform &transform, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     static Grid view_space_grid;
 
     // Transform vertices positions from local-space to world-space and then to view-space:

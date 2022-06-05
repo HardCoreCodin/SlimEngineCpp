@@ -7,7 +7,7 @@
 #define CURVE_STEPS 360
 
 void draw(const Curve &curve, const Transform &transform, const Viewport &viewport,
-          const vec3 &color = Color(White), f32 opacity = 1.0f, u8 line_width = 1, u32 step_count = CURVE_STEPS) {
+          const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, u32 step_count = CURVE_STEPS) {
     const Camera &cam = *viewport.camera;
 
     f32 one_over_step_count = 1.0f / (f32)step_count;

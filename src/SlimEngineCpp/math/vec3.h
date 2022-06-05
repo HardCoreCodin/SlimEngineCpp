@@ -16,12 +16,9 @@ struct vec3 {
     vec3(f32 x, f32 y, f32 z) noexcept : x(x), y(y), z(z) {}
     vec3(vec3 &other) noexcept : vec3{other.x, other.y, other.z} {}
     vec3(const vec3 &other) noexcept : vec3{other.x, other.y, other.z} {}
-    explicit vec3(enum ColorID color_id) noexcept : vec3{RGBA{color_id}} {}
-    explicit vec3(f32 value) noexcept : vec3{value, value, value} {}
-    explicit vec3(RGBA rgba) noexcept :
-        r{(f32)rgba.R * COLOR_COMPONENT_TO_FLOAT},
-        g{(f32)rgba.G * COLOR_COMPONENT_TO_FLOAT},
-        b{(f32)rgba.B * COLOR_COMPONENT_TO_FLOAT} {}
+    vec3(f32 value) noexcept : vec3{value, value, value} {}
+    vec3(enum ColorID color_id) noexcept : vec3{Color{color_id}} {}
+    vec3(const Color &color) noexcept : vec3{color.red, color.green, color.blue} {}
 
     INLINE vec3& operator = (f32 value) {
         x = y = z = value;
@@ -33,13 +30,8 @@ struct vec3 {
         return *this;
     }
 
-    INLINE RGBA toRGBA(u8 alpha = MAX_COLOR_VALUE) const {
-        return {
-                (u8)(255.0f * fmaxf(0, fminf(r, 1.0f))),
-                (u8)(255.0f * fmaxf(0, fminf(g, 1.0f))),
-                (u8)(255.0f * fmaxf(0, fminf(b, 1.0f))),
-                alpha
-        };
+    INLINE Color toColor() const {
+        return {r, g, b};
     }
 
     INLINE bool operator == (const vec3 &other) const {
@@ -420,10 +412,6 @@ INLINE vec3 operator * (f32 lhs, const vec3 &rhs) {
 
 INLINE vec3 lerp(const vec3 &from, const vec3 &to, f32 by) {
     return (to - from).scaleAdd(by, from);
-}
-
-vec3 Color(enum ColorID color_id) {
-    return vec3{color_id};
 }
 
 struct Edge {

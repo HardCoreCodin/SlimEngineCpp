@@ -1,10 +1,6 @@
 #pragma once
 
-#ifdef __cplusplus
 #include <cmath>
-#else
-#include <math.h>
-#endif
 
 #if defined(__clang__)
 #define COMPILER_CLANG 1
@@ -66,21 +62,12 @@ typedef double f64;
 #define FONT_WIDTH 18
 #define FONT_HEIGHT 24
 
-typedef void* (*CallbackWithInt)(u64 size);
-typedef void (*CallbackWithBool)(bool on);
-typedef void (*CallbackWithCharPtr)(char* str);
-
 #define TAU 6.28f
-#define SQRT2_OVER_2 0.70710678118f
-#define SQRT3 1.73205080757f
 #define COLOR_COMPONENT_TO_FLOAT 0.00392156862f
 #define FLOAT_TO_COLOR_COMPONENT 255.0f
 #define DEG_TO_RAD 0.0174533f
 
 #define MAX_COLOR_VALUE 0xFF
-#define THREE_QUARTERS_COLOR_VALUE 0xC0
-#define HALF_COLOR_VALUE 0x80
-#define QUARTER_COLOR_VALUE 0x40
 
 #define Kilobytes(value) ((value)*1024LL)
 #define Megabytes(value) (Kilobytes(value)*1024LL)
@@ -97,8 +84,8 @@ typedef void (*CallbackWithCharPtr)(char* str);
 #define DEFAULT_WIDTH 480
 #define DEFAULT_HEIGHT 360
 
-#define PIXEL_SIZE 4
-#define WINDOW_CONTENT_SIZE (MAX_WINDOW_SIZE * PIXEL_SIZE)
+#define WINDOW_CONTENT_PIXEL_SIZE 4
+#define WINDOW_CONTENT_SIZE (MAX_WINDOW_SIZE * WINDOW_CONTENT_PIXEL_SIZE)
 
 #define BOX__ALL_SIDES (Top | Bottom | Left | Right | Front | Back)
 #define BOX__VERTEX_COUNT 8
@@ -109,13 +96,6 @@ typedef void (*CallbackWithCharPtr)(char* str);
 #define CUBE_NORMAL_COUNT 6
 #define CUBE_VERTEX_COUNT 8
 #define CUBE_TRIANGLE_COUNT 12
-
-#define IS_VISIBLE ((u8)1)
-#define IS_TRANSLATED ((u8)2)
-#define IS_ROTATED ((u8)4)
-#define IS_SCALED ((u8)8)
-#define IS_SCALED_NON_UNIFORMLY ((u8)16)
-#define ALL_FLAGS (IS_VISIBLE | IS_TRANSLATED | IS_ROTATED | IS_SCALED | IS_SCALED_NON_UNIFORMLY)
 
 #define CAMERA_DEFAULT__FOCAL_LENGTH 2.0f
 #define CAMERA_DEFAULT__TARGET_DISTANCE 10
@@ -131,8 +111,6 @@ typedef void (*CallbackWithCharPtr)(char* str);
 
 #define VIEWPORT_DEFAULT__NEAR_CLIPPING_PLANE_DISTANCE 0.001f
 #define VIEWPORT_DEFAULT__FAR_CLIPPING_PLANE_DISTANCE 1000.0f
-
-#include <cmath>
 
 #define fractionOf(x) ((x) - floorf(x))
 #define oneMinusFractionOf(x) (1 - fractionOf(x))
@@ -332,116 +310,195 @@ enum ColorID {
     DarkYellow
 };
 
-union RGBA {
-    u32 value;
-    struct {
-        u8 B, G, R, A;
+struct Color {
+    union {
+        struct { f32 red, green, blue; };
+        struct { f32 r  , g    , b   ; };
     };
 
-    RGBA() : RGBA{0, 0, 0, MAX_COLOR_VALUE} {}
-    RGBA(u8 r, u8 g, u8 b, u8 a) : B{b}, G{g}, R{r}, A{a} {}
-
-    RGBA(enum ColorID color_id) : RGBA{0, 0, 0, MAX_COLOR_VALUE} {
+    Color(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f) : red{red}, green{green}, blue{blue} {}
+    Color(enum ColorID color_id) : Color{} {
         switch (color_id) {
             case Black: break;
             case White:
-                R = MAX_COLOR_VALUE;
-                G = MAX_COLOR_VALUE;
-                B = MAX_COLOR_VALUE;
+                red = 1.0f;
+                green = 1.0f;
+                blue = 1.0f;
                 break;
             case Grey:
-                R = HALF_COLOR_VALUE;
-                G = HALF_COLOR_VALUE;
-                B = HALF_COLOR_VALUE;
+                red = 0.5f;
+                green = 0.5f;
+                blue = 0.5f;
                 break;
             case DarkGrey:
-                R = QUARTER_COLOR_VALUE;
-                G = QUARTER_COLOR_VALUE;
-                B = QUARTER_COLOR_VALUE;
+                red = 0.25f;
+                green = 0.25f;
+                blue = 0.25f;
                 break;
             case BrightGrey:
-                R = THREE_QUARTERS_COLOR_VALUE;
-                G = THREE_QUARTERS_COLOR_VALUE;
-                B = THREE_QUARTERS_COLOR_VALUE;
+                red = 0.75f;
+                green = 0.75f;
+                blue = 0.75f;
                 break;
 
             case Red:
-                R = MAX_COLOR_VALUE;
+                red = 1.0f;
                 break;
             case Green:
-                G = MAX_COLOR_VALUE;
+                green = 1.0f;
                 break;
             case Blue:
-                B = MAX_COLOR_VALUE;
+                blue = 1.0f;
                 break;
 
             case DarkRed:
-                R = HALF_COLOR_VALUE;
+                red = 0.5f;
                 break;
             case DarkGreen:
-                G = HALF_COLOR_VALUE;
+                green = 0.5f;
                 break;
             case DarkBlue:
-                B = HALF_COLOR_VALUE;
+                blue = 0.5f;
                 break;
 
             case DarkCyan:
-                G = HALF_COLOR_VALUE;
-                B = HALF_COLOR_VALUE;
+                green = 0.5f;
+                blue = 0.5f;
                 break;
             case DarkMagenta:
-                R = HALF_COLOR_VALUE;
-                B = HALF_COLOR_VALUE;
+                red = 0.5f;
+                blue = 0.5f;
                 break;
             case DarkYellow:
-                R = HALF_COLOR_VALUE;
-                G = HALF_COLOR_VALUE;
+                red = 0.5f;
+                green = 0.5f;
                 break;
 
             case BrightRed:
-                R = MAX_COLOR_VALUE;
-                G = HALF_COLOR_VALUE;
-                B = HALF_COLOR_VALUE;
+                red = 1.0f;
+                green = 0.5f;
+                blue = 0.5f;
                 break;
             case BrightGreen:
-                R = HALF_COLOR_VALUE;
-                G = MAX_COLOR_VALUE;
-                B = HALF_COLOR_VALUE;
+                red = 0.5f;
+                green = 1.0f;
+                blue = 0.5f;
                 break;
             case BrightBlue:
-                R = HALF_COLOR_VALUE;
-                G = HALF_COLOR_VALUE;
-                B = MAX_COLOR_VALUE;
+                red = 0.5f;
+                green = 0.5f;
+                blue = 1.0f;
                 break;
 
             case Cyan:
-                B = MAX_COLOR_VALUE;
-                G = MAX_COLOR_VALUE;
+                blue = 1.0f;
+                green = 1.0f;
                 break;
             case Magenta:
-                R = MAX_COLOR_VALUE;
-                B = MAX_COLOR_VALUE;
+                red = 1.0f;
+                blue = 1.0f;
                 break;
             case Yellow:
-                R = MAX_COLOR_VALUE;
-                G = MAX_COLOR_VALUE;
+                red = 1.0f;
+                green = 1.0f;
                 break;
 
             case BrightCyan:
-                G = THREE_QUARTERS_COLOR_VALUE;
-                B = THREE_QUARTERS_COLOR_VALUE;
+                green = 0.75f;
+                blue = 0.75f;
                 break;
             case BrightMagenta:
-                R = THREE_QUARTERS_COLOR_VALUE;
-                B = THREE_QUARTERS_COLOR_VALUE;
+                red = 0.75f;
+                blue = 0.75f;
                 break;
             case BrightYellow:
-                R = THREE_QUARTERS_COLOR_VALUE;
-                G = THREE_QUARTERS_COLOR_VALUE;
+                red = 0.75f;
+                green = 0.75f;
                 break;
         }
     }
+
+    INLINE void setIntoGammaSpace() {
+        r *= r;
+        g *= g;
+        b *= b;
+    }
+
+    INLINE Color& operator += (const Color &rhs) {
+        r += rhs.r;
+        g += rhs.g;
+        b += rhs.b;
+        return *this;
+    }
+
+    INLINE Color operator * (f32 factor) const {
+        return {
+            r * factor,
+            g * factor,
+            b * factor
+        };
+    }
+
+    INLINE Color blendWith(const Color &other_color, f32 factor, f32 other_factor) {
+        return {
+            fast_mul_add(r, factor, other_color.r * other_factor),
+            fast_mul_add(g, factor, other_color.g * other_factor),
+            fast_mul_add(b, factor, other_color.b * other_factor)
+        };
+    }
 };
+
+struct Pixel {
+    Color color;
+    f32 opacity;
+
+    Pixel(Color color, f32 opacity = 1.0f) : color{color}, opacity{opacity} {}
+    Pixel(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f, f32 opacity = 0.0f) : color{red, green, blue}, opacity{opacity} {}
+    Pixel(enum ColorID color_id, f32 opacity = 1.0f) : Pixel{Color(color_id), opacity} {}
+
+    INLINE Pixel operator * (f32 factor) const {
+        return {
+            color * factor,
+            opacity * factor
+        };
+    }
+
+    INLINE Pixel& operator += (const Pixel &rhs) {
+        color += rhs.color;
+        opacity += rhs.opacity;
+        return *this;
+    }
+
+    INLINE Pixel alphaBlendOver(const Pixel &background) {
+        const f32 one_minus_opacity = 1.0f - opacity;
+        const f32 remaining_opacity = one_minus_opacity * background.opacity;
+        const f32 resulting_opacity = opacity + remaining_opacity;
+
+        f32 one_over_resulting_opacity = resulting_opacity == 0 ? 1.0f : 1.0f / resulting_opacity;
+        return {
+                color.blendWith(
+                    background.color,
+                    one_over_resulting_opacity * opacity,
+                    one_over_resulting_opacity * remaining_opacity
+                ),
+                resulting_opacity
+        };
+    }
+
+    INLINE u32 asContent() const {
+        u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.r)));
+        u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.g)));
+        u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.b)));
+        u8 A = (u8)(clampedValue(opacity) * FLOAT_TO_COLOR_COMPONENT);
+        return A << 24 | R << 16 | G << 8 | B;
+    }
+
+};
+
+#define PIXEL_SIZE (sizeof(Pixel))
+#define CANVAS_PIXELS_SIZE (MAX_WINDOW_SIZE * PIXEL_SIZE * 4)
+#define CANVAS_DEPTHS_SIZE (MAX_WINDOW_SIZE * sizeof(f32) * 4)
+#define CANVAS_SIZE (CANVAS_PIXELS_SIZE + CANVAS_DEPTHS_SIZE)
 
 struct Dimensions {
     u32 width_times_height{(u32)DEFAULT_WIDTH * (u32)DEFAULT_HEIGHT};

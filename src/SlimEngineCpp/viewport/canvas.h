@@ -2,117 +2,109 @@
 
 #include "../math/vec3.h"
 
-struct Pixel {
-    f64 depth;
-    f32 opacity;
-    vec3 color;
-
-    Pixel() : Pixel{vec3{0.0f}} {}
-    explicit Pixel(const vec3 &color, f32 opacity = 1.0f, f64 depth = 0.0) : depth(depth), opacity(opacity), color{color} {}
-    explicit Pixel(enum ColorID color_id, f32 opacity = 1.0f, f64 depth = 0.0) : Pixel{Color(color_id), opacity, depth} {}
-};
-
-union PixelQuad {
-    Pixel quad[2][2];
-    struct {
-        Pixel TL, TR, BL, BR;
-    };
-
-    PixelQuad() noexcept : PixelQuad{
-            Pixel{vec3{0}},
-            Pixel{vec3{0}},
-            Pixel{vec3{0}},
-            Pixel{vec3{0}}
-    } {}
-
-    PixelQuad(const Pixel &top_left, const Pixel &top_right, const Pixel &bottom_left, const Pixel &bottom_right) :
-            TL{top_left},
-            TR{top_right},
-            BL{bottom_left},
-            BR{bottom_right}
-            {}
-};
-
-#define PIXEL_QUAD_SIZE (sizeof(PixelQuad))
-#define CANVAS_SIZE (MAX_WINDOW_SIZE * PIXEL_QUAD_SIZE)
-
 struct Canvas {
     Dimensions dimensions;
-    PixelQuad *pixels{nullptr};
-    Pixel background{Black, 0, INFINITY};
-    bool antialias{true};
+    Pixel *pixels{nullptr};
+    f32 *depths{nullptr};
 
-    explicit Canvas(PixelQuad *pixels) noexcept : pixels{pixels} {}
+    bool SSAA{true}, MSAA{false};
 
-    void clear() const {
-        fill(background.color,
-             background.opacity,
-             background.depth);
-    }
-    void fill(const Pixel &pixel) const {
-        fill(pixel.color, pixel.opacity, pixel.depth);
-    }
-    void fill(const vec3 &color, f32 opacity, f64 depth) const {
-        PixelQuad fill_pixel;
-        Pixel fill_sub_pixel;
-        fill_sub_pixel.color = color;
-        fill_sub_pixel.opacity = opacity;
-        fill_sub_pixel.depth = depth;
-        fill_pixel.TL = fill_pixel.TR = fill_pixel.BL = fill_pixel.BR = fill_sub_pixel;
-        for (i32 y = 0; y < dimensions.height; y++)
-            for (i32 x = 0; x < dimensions.width; x++)
-                pixels[dimensions.stride * y + x] = fill_pixel;
-    }
-    INLINE void setPixel(i32 x, i32 y, const Pixel &pixel) const {
-        setPixel(x, y, pixel.color, pixel.opacity, pixel.depth);
-    }
-    INLINE void setPixel(i32 x, i32 y, const vec3 &color, f32 opacity, f64 depth) const {
-        Pixel *pixel;
-        PixelQuad *pixel_quad;
-        if (antialias) {
-            pixel_quad = pixels + (dimensions.stride * (y >> 1)) + (x >> 1);
-            pixel = &pixel_quad->quad[y & 1][x & 1];
-        } else {
-            pixel_quad = pixels + (dimensions.stride * y) + x;
-            pixel = &pixel_quad->TL;
+    Canvas(Pixel *pixels, f32 *depths) noexcept : pixels{pixels}, depths{depths} {}
+
+    void clear(f32 red = 0, f32 green = 0, f32 blue = 0, f32 opacity = 0, f32 depth = INFINITY) const {
+        i32 pixels_width  = dimensions.width;
+        i32 pixels_height = dimensions.height;
+        i32 depths_width  = dimensions.width;
+        i32 depths_height = dimensions.height;
+
+        if (SSAA || MSAA) {
+            depths_width *= 2;
+            depths_height *= 2;
+            if (SSAA) {
+                pixels_width *= 2;
+                pixels_height *= 2;
+            }
         }
 
-        Pixel new_pixel;
-        new_pixel.opacity = opacity;
-        new_pixel.color = color;
-        new_pixel.depth = depth;
+        i32 pixels_count = pixels_width * pixels_height;
+        i32 depths_count = depths_width * depths_height;
 
-        if (!(opacity == 1 && depth == 0)) {
-            Pixel background_pixel, foreground_pixel, old_pixel = *pixel;
+        Pixel pixel{red, green, blue, opacity};
 
-            if (old_pixel.depth < new_pixel.depth) {
-                background_pixel = new_pixel;
-                foreground_pixel = old_pixel;
-            } else {
-                background_pixel = old_pixel;
-                foreground_pixel = new_pixel;
+        for (i32 i = 0; i < pixels_count; i++) pixels[i] = pixel;
+        for (i32 i = 0; i < depths_count; i++) depths[i] = depth;
+    }
+
+    INLINE void setPixel(i32 x, i32 y, const Color &color, f32 opacity = 1.0f, f32 depth = 0, f32 z_top = 0, f32 z_bottom = 0, f32 z_right = 0) {
+        u32 offset = SSAA ? ((dimensions.stride * (y >> 1) + (x >> 1)) * 4 + (2 * (y & 1)) + (x & 1)) : (dimensions.stride * y + x);
+        Pixel pixel{color, opacity};
+        Pixel *out_pixel = pixels + offset;
+        f32 *out_depth = depths + (MSAA ? offset * 4 : offset);
+        if (opacity == 1.0f && depth == 0.0f && z_top == 0.0f && z_bottom == 0.0f && z_right == 0.0f) {
+            *out_pixel = pixel;
+            out_depth[0] = 0;
+            if (MSAA) out_depth[1] = out_depth[2] = out_depth[3] = 0;
+
+            return;
+        }
+
+        Pixel *bg, *fg;
+        if (MSAA) {
+            Pixel accumulated_pixel{};
+            for (u8 i = 0; i < 4; i++, out_depth++) {
+                if (i) depth = i == 1 ? z_top : (i == 2 ? z_bottom : z_right);
+                _sortPixelsByDepth(depth, &pixel, out_depth, out_pixel, &bg, &fg);
+                accumulated_pixel += fg->opacity == 1 ? *fg : fg->alphaBlendOver(*bg);
             }
-            if (foreground_pixel.opacity != 1) {
-                f32 one_minus_foreground_opacity = 1.0f - foreground_pixel.opacity;
-                opacity = foreground_pixel.opacity + background_pixel.opacity * one_minus_foreground_opacity;
-                f32 one_over_opacity = opacity == 0 ? 1.0f : 1.0f / opacity;
-                f32 background_factor = background_pixel.opacity * one_over_opacity * one_minus_foreground_opacity;
-                f32 foreground_factor = foreground_pixel.opacity * one_over_opacity;
-
-                pixel->color.r = fast_mul_add(foreground_pixel.color.r, foreground_factor, background_pixel.color.r * background_factor);
-                pixel->color.g = fast_mul_add(foreground_pixel.color.g, foreground_factor, background_pixel.color.g * background_factor);
-                pixel->color.b = fast_mul_add(foreground_pixel.color.b, foreground_factor, background_pixel.color.b * background_factor);
-                pixel->opacity = opacity;
-                pixel->depth   = foreground_pixel.depth;
-            } else *pixel = foreground_pixel;
-        } else *pixel = new_pixel;
-
-        if (!antialias) pixel_quad->BR = pixel_quad->BL = pixel_quad->TR = pixel_quad->TL;
+            *out_pixel = accumulated_pixel * 0.25f;
+        } else {
+            _sortPixelsByDepth(depth, &pixel, out_depth, out_pixel, &bg, &fg);
+            *out_pixel = fg->opacity == 1 ? *fg : fg->alphaBlendOver(*bg);
+        }
     }
-    INLINE PixelQuad* row(u32 y) const {
-        return pixels + y * (u32)dimensions.width;
+
+    void renderToContent(u32 *content) const {
+        u32 *content_value = content;
+        Pixel *pixel = pixels;
+        if (SSAA)
+            for (u16 y = 0; y < dimensions.height; y++)
+                for (u16 x = 0; x < dimensions.width; x++, content_value++, pixel += 4)
+                    *content_value = _isTransparentPixelQuad(pixel) ? 0 : _blendPixelQuad(pixel).asContent();
+        else
+            for (u16 y = 0; y < dimensions.height; y++)
+                for (u16 x = 0; x < dimensions.width; x++, content_value++, pixel++)
+                    *content_value = pixel->opacity ? pixel->asContent() : 0;
     }
-    INLINE PixelQuad* operator[](u32 y) const {
-        return row(y);
+
+private:
+    static INLINE bool _isTransparentPixelQuad(Pixel *pixel_quad) {
+        return pixel_quad->opacity == 0.0f && pixel_quad[1].opacity == 0.0f  && pixel_quad[2].opacity == 0.0f  && pixel_quad[3].opacity == 0.0f;
+    }
+
+    static INLINE Pixel _blendPixelQuad(Pixel *pixel_quad) {
+        Pixel TL{pixel_quad[0]}, TR{pixel_quad[1]}, BL{pixel_quad[2]}, BR{pixel_quad[3]};
+        TL.opacity *= 0.25f;
+        TR.opacity *= 0.25f;
+        BL.opacity *= 0.25f;
+        BR.opacity *= 0.25f;
+        return {
+            {
+                (TL.color.r * TL.opacity) + (TR.color.r * TR.opacity) + (BL.color.r * BL.opacity) + (BR.color.r * BR.opacity),
+                (TL.color.g * TL.opacity) + (TR.color.g * TR.opacity) + (BL.color.g * BL.opacity) + (BR.color.g * BR.opacity),
+                (TL.color.r * TL.opacity) + (TR.color.b * TR.opacity) + (BL.color.b * BL.opacity) + (BR.color.b * BR.opacity)
+            },
+            TL.opacity + TR.opacity + BL.opacity + BR.opacity
+        };
+    }
+
+    static INLINE void _sortPixelsByDepth(f32 depth, Pixel *pixel, f32 *out_depth, Pixel *out_pixel, Pixel **background, Pixel **foreground) {
+        if (depth == 0.0f || depth < *out_depth) {
+            *out_depth = depth;
+            *background = out_pixel;
+            *foreground = pixel;
+        } else {
+            *background = pixel;
+            *foreground = out_pixel;
+        }
     }
 };

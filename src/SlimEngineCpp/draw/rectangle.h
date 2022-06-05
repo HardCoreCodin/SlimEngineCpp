@@ -5,7 +5,7 @@
 #include "../viewport/viewport.h"
 
 
-void draw(const RectI &RectI, const Viewport &viewport, const vec3 &color = Color(White), f32 opacity = 1.0f) {
+void draw(const RectI &RectI, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f) {
     if (RectI.right < 0 || RectI.left >= viewport.dimensions.width ||
         RectI.top < 0 || RectI.bottom >= viewport.dimensions.height)
         return;
@@ -16,7 +16,7 @@ void draw(const RectI &RectI, const Viewport &viewport, const vec3 &color = Colo
     drawVLine(RectI.bottom, RectI.top, RectI.right, viewport, color, opacity);
 }
 
-void fill(const RectI &RectI, const Viewport &viewport, const vec3 &color = Color(White), f32 opacity = 1.0f) {
+void fill(const RectI &RectI, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f) {
     if (RectI.right < 0 || RectI.left >= viewport.dimensions.width ||
         RectI.top < 0 || RectI.bottom >= viewport.dimensions.height)
         return;

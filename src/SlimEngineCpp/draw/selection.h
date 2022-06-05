@@ -13,13 +13,13 @@ void draw(Selection &selection, const Viewport &viewport, const Scene &scene) {
         if (selection.geometry->type == GeometryType_Mesh)
             selection.xform.scale *= scene.meshes[selection.geometry->id].aabb.max;
 
-        draw(box, selection.xform, viewport, Color(Yellow), 0.5f, 0);
+        draw(box, selection.xform, viewport, Yellow, 0.5f, 0);
         if (selection.box_side) {
-            vec3 color = Color(White);
+            ColorID color = White;
             switch (selection.box_side) {
-                case Left:  case Right:  color = Color(Red);   break;
-                case Top:   case Bottom: color = Color(Green); break;
-                case Front: case Back:   color = Color(Blue);  break;
+                case Left:  case Right:  color = Red;   break;
+                case Top:   case Bottom: color = Green; break;
+                case Front: case Back:   color = Blue;  break;
                 case NoSide: break;
             }
 

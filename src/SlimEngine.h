@@ -1,12 +1,6 @@
 #pragma once
 
-#define SLIM_ENGINE_SHF
-
-#ifdef __cplusplus
 #include <cmath>
-#else
-#include <math.h>
-#endif
 
 #if defined(__clang__)
 #define COMPILER_CLANG 1
@@ -15,7 +9,7 @@
 #define COMPILER_GCC 1
     #define COMPILER_CLANG_OR_GCC 1
 #elif defined(_MSC_VER)
-#define COMPILER_MSVC 1
+    #define COMPILER_MSVC 1
 #endif
 
 #ifndef NDEBUG
@@ -25,7 +19,7 @@
 #elif defined(COMPILER_CLANG_OR_GCC)
 #define INLINE inline __attribute__((always_inline))
 #else
-    #define INLINE inline
+#define INLINE inline
 #endif
 
 #ifdef COMPILER_CLANG
@@ -68,21 +62,12 @@ typedef double f64;
 #define FONT_WIDTH 18
 #define FONT_HEIGHT 24
 
-typedef void* (*CallbackWithInt)(u64 size);
-typedef void (*CallbackWithBool)(bool on);
-typedef void (*CallbackWithCharPtr)(char* str);
-
 #define TAU 6.28f
-#define SQRT2_OVER_2 0.70710678118f
-#define SQRT3 1.73205080757f
 #define COLOR_COMPONENT_TO_FLOAT 0.00392156862f
 #define FLOAT_TO_COLOR_COMPONENT 255.0f
 #define DEG_TO_RAD 0.0174533f
 
 #define MAX_COLOR_VALUE 0xFF
-#define THREE_QUARTERS_COLOR_VALUE 0xC0
-#define HALF_COLOR_VALUE 0x80
-#define QUARTER_COLOR_VALUE 0x40
 
 #define Kilobytes(value) ((value)*1024LL)
 #define Megabytes(value) (Kilobytes(value)*1024LL)
@@ -99,8 +84,8 @@ typedef void (*CallbackWithCharPtr)(char* str);
 #define DEFAULT_WIDTH 480
 #define DEFAULT_HEIGHT 360
 
-#define PIXEL_SIZE 4
-#define WINDOW_CONTENT_SIZE (MAX_WINDOW_SIZE * PIXEL_SIZE)
+#define WINDOW_CONTENT_PIXEL_SIZE 4
+#define WINDOW_CONTENT_SIZE (MAX_WINDOW_SIZE * WINDOW_CONTENT_PIXEL_SIZE)
 
 #define BOX__ALL_SIDES (Top | Bottom | Left | Right | Front | Back)
 #define BOX__VERTEX_COUNT 8
@@ -111,13 +96,6 @@ typedef void (*CallbackWithCharPtr)(char* str);
 #define CUBE_NORMAL_COUNT 6
 #define CUBE_VERTEX_COUNT 8
 #define CUBE_TRIANGLE_COUNT 12
-
-#define IS_VISIBLE ((u8)1)
-#define IS_TRANSLATED ((u8)2)
-#define IS_ROTATED ((u8)4)
-#define IS_SCALED ((u8)8)
-#define IS_SCALED_NON_UNIFORMLY ((u8)16)
-#define ALL_FLAGS (IS_VISIBLE | IS_TRANSLATED | IS_ROTATED | IS_SCALED | IS_SCALED_NON_UNIFORMLY)
 
 #define CAMERA_DEFAULT__FOCAL_LENGTH 2.0f
 #define CAMERA_DEFAULT__TARGET_DISTANCE 10
@@ -133,8 +111,6 @@ typedef void (*CallbackWithCharPtr)(char* str);
 
 #define VIEWPORT_DEFAULT__NEAR_CLIPPING_PLANE_DISTANCE 0.001f
 #define VIEWPORT_DEFAULT__FAR_CLIPPING_PLANE_DISTANCE 1000.0f
-
-#include <cmath>
 
 #define fractionOf(x) ((x) - floorf(x))
 #define oneMinusFractionOf(x) (1 - fractionOf(x))
@@ -334,116 +310,125 @@ enum ColorID {
     DarkYellow
 };
 
-union RGBA {
-    u32 value;
-    struct {
-        u8 B, G, R, A;
-    };
+struct Color {
+    f32 red, green, blue;
 
-    RGBA() : RGBA{0, 0, 0, MAX_COLOR_VALUE} {}
-    RGBA(u8 r, u8 g, u8 b, u8 a) : B{b}, G{g}, R{r}, A{a} {}
-
-    RGBA(enum ColorID color_id) : RGBA{0, 0, 0, MAX_COLOR_VALUE} {
+    Color(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f) : red{red}, green{green}, blue{blue} {}
+    Color(enum ColorID color_id) : Color{} {
         switch (color_id) {
             case Black: break;
             case White:
-                R = MAX_COLOR_VALUE;
-                G = MAX_COLOR_VALUE;
-                B = MAX_COLOR_VALUE;
+                red = 1.0f;
+                green = 1.0f;
+                blue = 1.0f;
                 break;
             case Grey:
-                R = HALF_COLOR_VALUE;
-                G = HALF_COLOR_VALUE;
-                B = HALF_COLOR_VALUE;
+                red = 0.5f;
+                green = 0.5f;
+                blue = 0.5f;
                 break;
             case DarkGrey:
-                R = QUARTER_COLOR_VALUE;
-                G = QUARTER_COLOR_VALUE;
-                B = QUARTER_COLOR_VALUE;
+                red = 0.25f;
+                green = 0.25f;
+                blue = 0.25f;
                 break;
             case BrightGrey:
-                R = THREE_QUARTERS_COLOR_VALUE;
-                G = THREE_QUARTERS_COLOR_VALUE;
-                B = THREE_QUARTERS_COLOR_VALUE;
+                red = 0.75f;
+                green = 0.75f;
+                blue = 0.75f;
                 break;
 
             case Red:
-                R = MAX_COLOR_VALUE;
+                red = 1.0f;
                 break;
             case Green:
-                G = MAX_COLOR_VALUE;
+                green = 1.0f;
                 break;
             case Blue:
-                B = MAX_COLOR_VALUE;
+                blue = 1.0f;
                 break;
 
             case DarkRed:
-                R = HALF_COLOR_VALUE;
+                red = 0.5f;
                 break;
             case DarkGreen:
-                G = HALF_COLOR_VALUE;
+                green = 0.5f;
                 break;
             case DarkBlue:
-                B = HALF_COLOR_VALUE;
+                blue = 0.5f;
                 break;
 
             case DarkCyan:
-                G = HALF_COLOR_VALUE;
-                B = HALF_COLOR_VALUE;
+                green = 0.5f;
+                blue = 0.5f;
                 break;
             case DarkMagenta:
-                R = HALF_COLOR_VALUE;
-                B = HALF_COLOR_VALUE;
+                red = 0.5f;
+                blue = 0.5f;
                 break;
             case DarkYellow:
-                R = HALF_COLOR_VALUE;
-                G = HALF_COLOR_VALUE;
+                red = 0.5f;
+                green = 0.5f;
                 break;
 
             case BrightRed:
-                R = MAX_COLOR_VALUE;
-                G = HALF_COLOR_VALUE;
-                B = HALF_COLOR_VALUE;
+                red = 1.0f;
+                green = 0.5f;
+                blue = 0.5f;
                 break;
             case BrightGreen:
-                R = HALF_COLOR_VALUE;
-                G = MAX_COLOR_VALUE;
-                B = HALF_COLOR_VALUE;
+                red = 0.5f;
+                green = 1.0f;
+                blue = 0.5f;
                 break;
             case BrightBlue:
-                R = HALF_COLOR_VALUE;
-                G = HALF_COLOR_VALUE;
-                B = MAX_COLOR_VALUE;
+                red = 0.5f;
+                green = 0.5f;
+                blue = 1.0f;
                 break;
 
             case Cyan:
-                B = MAX_COLOR_VALUE;
-                G = MAX_COLOR_VALUE;
+                blue = 1.0f;
+                green = 1.0f;
                 break;
             case Magenta:
-                R = MAX_COLOR_VALUE;
-                B = MAX_COLOR_VALUE;
+                red = 1.0f;
+                blue = 1.0f;
                 break;
             case Yellow:
-                R = MAX_COLOR_VALUE;
-                G = MAX_COLOR_VALUE;
+                red = 1.0f;
+                green = 1.0f;
                 break;
 
             case BrightCyan:
-                G = THREE_QUARTERS_COLOR_VALUE;
-                B = THREE_QUARTERS_COLOR_VALUE;
+                green = 0.75f;
+                blue = 0.75f;
                 break;
             case BrightMagenta:
-                R = THREE_QUARTERS_COLOR_VALUE;
-                B = THREE_QUARTERS_COLOR_VALUE;
+                red = 0.75f;
+                blue = 0.75f;
                 break;
             case BrightYellow:
-                R = THREE_QUARTERS_COLOR_VALUE;
-                G = THREE_QUARTERS_COLOR_VALUE;
+                red = 0.75f;
+                green = 0.75f;
                 break;
         }
     }
 };
+
+struct Pixel {
+    Color color;
+    f32 opacity;
+
+    Pixel(Color color, f32 opacity = 1.0f) : color{color}, opacity{opacity} {}
+    Pixel(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f, f32 opacity = 0.0f) : color{red, green, blue}, opacity{opacity} {}
+    Pixel(enum ColorID color_id, f32 opacity = 1.0f) : Pixel{Color(color_id), opacity} {}
+};
+
+#define PIXEL_SIZE (sizeof(Pixel))
+#define CANVAS_PIXELS_SIZE (MAX_WINDOW_SIZE * PIXEL_SIZE * 4)
+#define CANVAS_DEPTHS_SIZE (MAX_WINDOW_SIZE * sizeof(f32) * 4)
+#define CANVAS_SIZE (CANVAS_PIXELS_SIZE + CANVAS_DEPTHS_SIZE)
 
 struct Dimensions {
     u32 width_times_height{(u32)DEFAULT_WIDTH * (u32)DEFAULT_HEIGHT};
@@ -1673,12 +1658,9 @@ struct vec3 {
     vec3(f32 x, f32 y, f32 z) noexcept : x(x), y(y), z(z) {}
     vec3(vec3 &other) noexcept : vec3{other.x, other.y, other.z} {}
     vec3(const vec3 &other) noexcept : vec3{other.x, other.y, other.z} {}
-    explicit vec3(enum ColorID color_id) noexcept : vec3{RGBA{color_id}} {}
-    explicit vec3(f32 value) noexcept : vec3{value, value, value} {}
-    explicit vec3(RGBA rgba) noexcept :
-            r{(f32)rgba.R * COLOR_COMPONENT_TO_FLOAT},
-            g{(f32)rgba.G * COLOR_COMPONENT_TO_FLOAT},
-            b{(f32)rgba.B * COLOR_COMPONENT_TO_FLOAT} {}
+    vec3(f32 value) noexcept : vec3{value, value, value} {}
+    vec3(enum ColorID color_id) noexcept : vec3{Color{color_id}} {}
+    vec3(const Color &color) noexcept : vec3{color.red, color.green, color.blue} {}
 
     INLINE vec3& operator = (f32 value) {
         x = y = z = value;
@@ -1690,13 +1672,8 @@ struct vec3 {
         return *this;
     }
 
-    INLINE RGBA toRGBA(u8 alpha = MAX_COLOR_VALUE) const {
-        return {
-                (u8)(255.0f * fmaxf(0, fminf(r, 1.0f))),
-                (u8)(255.0f * fmaxf(0, fminf(g, 1.0f))),
-                (u8)(255.0f * fmaxf(0, fminf(b, 1.0f))),
-                alpha
-        };
+    INLINE Color toColor() const {
+        return {r, g, b};
     }
 
     INLINE bool operator == (const vec3 &other) const {
@@ -2079,10 +2056,6 @@ INLINE vec3 lerp(const vec3 &from, const vec3 &to, f32 by) {
     return (to - from).scaleAdd(by, from);
 }
 
-vec3 Color(enum ColorID color_id) {
-    return vec3{color_id};
-}
-
 
 struct vec4 {
     union {
@@ -2097,15 +2070,6 @@ struct vec4 {
     vec4(vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
     vec4(const vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
     explicit vec4(f32 value) noexcept : vec4{value, value, value, value} {}
-
-    INLINE RGBA toRGBA() const {
-        return {
-                (u8)(255.0f * fmaxf(0, fminf(r, 1.0f))),
-                (u8)(255.0f * fmaxf(0, fminf(g, 1.0f))),
-                (u8)(255.0f * fmaxf(0, fminf(b, 1.0f))),
-                (u8)(255.0f * fmaxf(0, fminf(a, 1.0f)))
-        };
-    }
 
     INLINE bool operator == (const vec4 &other) const {
         return other.x == x &&
@@ -5067,40 +5031,6 @@ struct Navigation {
     }
 };
 
-
-struct Pixel {
-    f64 depth;
-    f32 opacity;
-    vec3 color;
-
-    Pixel() : Pixel{vec3{0.0f}} {}
-    explicit Pixel(const vec3 &color, f32 opacity = 1.0f, f64 depth = 0.0) : depth(depth), opacity(opacity), color{color} {}
-    explicit Pixel(enum ColorID color_id, f32 opacity = 1.0f, f64 depth = 0.0) : Pixel{Color(color_id), opacity, depth} {}
-};
-
-union PixelQuad {
-    Pixel quad[2][2];
-    struct {
-        Pixel TL, TR, BL, BR;
-    };
-
-    PixelQuad() noexcept : PixelQuad{
-            Pixel{vec3{0}},
-            Pixel{vec3{0}},
-            Pixel{vec3{0}},
-            Pixel{vec3{0}}
-    } {}
-
-    PixelQuad(const Pixel &top_left, const Pixel &top_right, const Pixel &bottom_left, const Pixel &bottom_right) :
-            TL{top_left},
-            TR{top_right},
-            BL{bottom_left},
-            BR{bottom_right}
-    {}
-};
-
-#define PIXEL_QUAD_SIZE (sizeof(PixelQuad))
-#define CANVAS_SIZE (MAX_WINDOW_SIZE * PIXEL_QUAD_SIZE)
 
 struct Canvas {
     Dimensions dimensions;

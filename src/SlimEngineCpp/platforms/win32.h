@@ -292,7 +292,8 @@ int APIENTRY WinMain(HINSTANCE hInstance,
         return -1;
 
     window::content = (u32*)window_content_and_canvas_memory;
-    window::canvas.pixels = (PixelQuad*)((u8*)window_content_and_canvas_memory + WINDOW_CONTENT_SIZE);
+    window::canvas.pixels = (Pixel*)((u8*)window_content_and_canvas_memory + WINDOW_CONTENT_SIZE);
+    window::canvas.depths = (f32*)((u8*)window_content_and_canvas_memory + WINDOW_CONTENT_SIZE + CANVAS_PIXELS_SIZE);
 
     controls::key_map::ctrl = VK_CONTROL;
     controls::key_map::alt = VK_MENU;

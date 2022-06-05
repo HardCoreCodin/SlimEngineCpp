@@ -5,7 +5,7 @@
 #include "../scene/box.h"
 #include "../viewport/viewport.h"
 
-void draw(const Camera &camera, const Viewport &viewport, const vec3 &color = Color(White), f32 opacity = 1.0f, u8 line_width = 1) {
+void draw(const Camera &camera, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     static Transform transform;
     static Box box;
 
