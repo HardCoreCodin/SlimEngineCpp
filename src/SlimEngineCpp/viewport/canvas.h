@@ -95,11 +95,31 @@ private:
         BR.opacity *= 0.25f;
         return {
             {
-                (TL.color.r * TL.opacity) + (TR.color.r * TR.opacity) + (BL.color.r * BL.opacity) + (BR.color.r * BR.opacity),
-                (TL.color.g * TL.opacity) + (TR.color.g * TR.opacity) + (BL.color.g * BL.opacity) + (BR.color.g * BR.opacity),
-                (TL.color.r * TL.opacity) + (TR.color.b * TR.opacity) + (BL.color.b * BL.opacity) + (BR.color.b * BR.opacity)
+                (
+                    (TL.color.r * TL.opacity) +
+                    (TR.color.r * TR.opacity) +
+                    (BL.color.r * BL.opacity) +
+                    (BR.color.r * BR.opacity)
+                ),
+                (
+                    (TL.color.g * TL.opacity) +
+                    (TR.color.g * TR.opacity) +
+                    (BL.color.g * BL.opacity) +
+                    (BR.color.g * BR.opacity)
+                ),
+                (
+                    (TL.color.b * TL.opacity) +
+                    (TR.color.b * TR.opacity) +
+                    (BL.color.b * BL.opacity) +
+                    (BR.color.b * BR.opacity)
+                )
             },
-            TL.opacity + TR.opacity + BL.opacity + BR.opacity
+            (
+                TL.opacity +
+                TR.opacity +
+                BL.opacity +
+                BR.opacity
+            )
         };
     }
 
