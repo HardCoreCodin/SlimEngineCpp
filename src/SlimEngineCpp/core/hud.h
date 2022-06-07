@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../core/string.h"
-#include "../math/vec2.h"
 
 struct HUDLine {
     String title{}, alternate_value{};
@@ -67,18 +66,18 @@ struct HUDSettings {
 struct HUD {
     HUDSettings settings;
     HUDLine *lines{nullptr};
-    vec2i position{10, 10};
+    i32 left{10}, top{10};
     bool enabled{true};
 
     HUD() = default;
     HUD(HUDSettings settings,
         HUDLine *lines,
-        vec2i position = {10, 10}) :
-        settings{settings}, lines{lines}, position{position} {
+        i32 left = 10, i32 top = 10) :
+        settings{settings}, lines{lines}, left{left}, top{top} {
         if (settings.default_color != White) for (u32 i = 0; i < settings.line_count; i++)
             lines[i].title_color = lines[i].alternate_value_color = lines[i].value_color = settings.default_color;
     }
-    HUD(HUDSettings settings, memory::AllocateMemory allocate_memory = nullptr, vec2i position = {10, 10}) : settings{settings}, position{position} {
+    HUD(HUDSettings settings, memory::AllocateMemory allocate_memory = nullptr, i32 left = 10, i32 top = 10) : settings{settings}, left{left}, top{top} {
         if (settings.line_count) {
             lines = (HUDLine*)allocate_memory(settings.line_count * sizeof(HUDLine));
             for (u32 i = 0; i < settings.line_count; i++)

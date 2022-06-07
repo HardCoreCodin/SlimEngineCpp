@@ -53,7 +53,7 @@ Additional features include facilities for interactive 3D applications:<br><br>
 Well documented example applications cover the features:<br><br>
 
 * <b><u>Window:</b></u><br><br>
-  Renders a Canvas into its content:<br><br> 
+  Contains the window-content and comes with a Canvas that draws into it:<br><br> 
   <img src="src/examples/0_window.png"><br><br>
   <br>
 

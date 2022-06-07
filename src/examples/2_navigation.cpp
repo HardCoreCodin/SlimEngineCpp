@@ -59,6 +59,8 @@ struct ViewportNavigationExample : SlimEngine {
         if (key == 'S') move.backward = is_pressed;
         if (key == 'A') move.left     = is_pressed;
         if (key == 'D') move.right    = is_pressed;
+        if (!is_pressed && key == 'K')
+            viewport.canvas.antialias = viewport.canvas.antialias == NoAA ? SSAA : NoAA;
     }
 };
 

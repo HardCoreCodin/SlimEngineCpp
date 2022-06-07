@@ -25,7 +25,7 @@ void draw(const Mesh &mesh, const Transform &transform, bool draw_normals, const
                 edge.to = mesh.vertex_normals[normal_index->ids[i]] * 0.1f + pos;
                 edge.from = cam.internPos(transform.externPos(pos));
                 edge.to = cam.internPos(transform.externPos(edge.to));
-                draw(edge, viewport, Color(Red), opacity * 0.5f, line_width);
+                draw(edge, viewport, Red, opacity * 0.5f, line_width);
             }
         }
     }

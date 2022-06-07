@@ -42,7 +42,8 @@ struct ViewportExample : SlimEngine {
 
     void OnRender() override {
         draw(grid, transform, viewport, color, opacity, line_width);
-        if (hud.enabled) draw(hud, viewport.canvas);
+        if (hud.enabled) draw(hud,
+            viewport.bounds,viewport.canvas);
     }
 
     void OnWindowResize(u16 width, u16 height) override {

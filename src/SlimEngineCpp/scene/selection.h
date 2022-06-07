@@ -26,8 +26,8 @@ struct Selection {
 
         const Dimensions &dimensions = viewport.dimensions;
         Camera &camera = *viewport.camera;
-        vec2i mouse_pos{mouse::pos_x - viewport.position.x,
-                        mouse::pos_y - viewport.position.y};
+        vec2i mouse_pos{mouse::pos_x - viewport.bounds.left,
+                        mouse::pos_y - viewport.bounds.top};
 
         if (mouse::left_button.is_pressed && !mouse::left_button.is_handled) {
             // This is the first frame after the left mouse button went down:
@@ -109,7 +109,7 @@ struct Selection {
                                 } else if (mouse::right_button.is_pressed) {
                                     vec3 v1{ ray.hit.position - transformation_plane_center };
                                     vec3 v2{ transformation_plane_origin - transformation_plane_center };
-                                    quat rotation = quat{v2 ^ v1, (v1 | v2) + sqrtf(v1.squaredLength() * v2.squaredLength())};
+                                    quat rotation = quat{v2.cross(v1), (v1.dot(v2)) + sqrtf(v1.squaredLength() * v2.squaredLength())};
                                     geometry->transform.rotation = (rotation.normalized() * object_rotation).normalized();
                                 }
                             }

@@ -1,62 +1,58 @@
 #pragma once
 
-#include "../viewport/viewport.h"
+#include "../core/canvas.h"
 
-void drawHLine(i32 x_start, i32 x_end, i32 y, const vec2i &offset, const Canvas &canvas, Color color, f32 opacity = 1.0f) {
-    x_start += offset.x;
-    x_end   += offset.x;
-    y       += offset.y;
+void drawHLine(i32 x_start, i32 x_end, i32 y, const RectI &viewport_bounds, const Canvas &canvas, Color color, f32 opacity = 1.0f) {
+    y += viewport_bounds.top;
+    if (!viewport_bounds.y_range[y]) return;
 
-    if (!inRange(y, canvas.dimensions.height + offset.y, offset.y)) return;
+    RangeI x_range{x_start, x_end};
+    x_range += viewport_bounds.left;
+    x_range = x_range.sub(viewport_bounds.x_range);
 
-    i32 first, last;
-    subRange(x_start, x_end, canvas.dimensions.width + offset.x, offset.x, &first, &last);
-
-    color.setIntoGammaSpace();
+    color.toGamma();
     if (canvas.antialias == SSAA) {
         y <<= 1;
-        first <<= 1;
-        last  <<= 1;
-        for (i32 x = first; x <= last; x += 2) {
+        x_range.first <<= 1;
+        x_range.last  <<= 1;
+        for (i32 x = x_range.first; x <= x_range.last; x += 2) {
             canvas.setPixel(x, y, color, opacity);
             canvas.setPixel(x+1, y, color, opacity);
             canvas.setPixel(x, y+1, color, opacity);
             canvas.setPixel(x+1, y+1, color, opacity);
         }
     } else
-        for (i32 x = first; x <= last; x += 1)
+        for (i32 x = x_range.first; x <= x_range.last; x += 1)
             canvas.setPixel(x, y, color, opacity);
 }
 
-void drawVLine(i32 y_start, i32 y_end, i32 x, const vec2i &offset, const Canvas &canvas, Color color, f32 opacity = 1.0f) {
-    y_start += offset.y;
-    y_end   += offset.y;
-    x       += offset.x;
+void drawVLine(i32 y_start, i32 y_end, i32 x, const RectI &viewport_bounds, const Canvas &canvas, Color color, f32 opacity = 1.0f) {
+    x += viewport_bounds.left;
+    if (!viewport_bounds.x_range[x]) return;
 
-    if (!inRange(x, canvas.dimensions.width + offset.x, offset.x)) return;
-    i32 first, last;
+    RangeI y_range{y_start, y_end};
+    y_range += viewport_bounds.top;
+    y_range = y_range.sub(viewport_bounds.y_range);
 
-    subRange(y_start, y_end, canvas.dimensions.height + offset.y, offset.y, &first, &last);
-
-    color.setIntoGammaSpace();
+    color.toGamma();
     if (canvas.antialias == SSAA) {
         x <<= 1;
-        first <<= 1;
-        last  <<= 1;
-        for (i32 y = first; y <= last; y += 2) {
+        y_range.first <<= 1;
+        y_range.last  <<= 1;
+        for (i32 y = y_range.first; y <= y_range.last; y += 2) {
             canvas.setPixel(x, y, color, opacity);
             canvas.setPixel(x+1, y, color, opacity);
             canvas.setPixel(x, y+1, color, opacity);
             canvas.setPixel(x+1, y+1, color, opacity);
         }
     } else
-        for (i32 y = first; y <= last; y += 1)
+        for (i32 y = y_range.first; y <= y_range.last; y += 1)
             canvas.setPixel(x, y, color, opacity);
 }
 
 void drawLine(f32 x1, f32 y1, f32 z1,
               f32 x2, f32 y2, f32 z2,
-              const vec2i &offset,
+              const RectI &viewport_bounds,
               const Canvas &canvas,
               Color color, f32 opacity, u8 line_width) {
     if (x1 < 0 &&
@@ -65,25 +61,24 @@ void drawLine(f32 x1, f32 y1, f32 z1,
         y2 < 0)
         return;
 
-    i32 x_left = offset.x;
-    i32 y_top  = offset.y;
-    x1 += (f32)x_left;
-    x2 += (f32)x_left;
-    y1 += (f32)y_top;
-    y2 += (f32)y_top;
+    RangeI X{viewport_bounds.x_range};
+    RangeI Y{viewport_bounds.y_range};
+    x1 += (f32)viewport_bounds.left;
+    x2 += (f32)viewport_bounds.left;
+    y1 += (f32)viewport_bounds.top;
+    y2 += (f32)viewport_bounds.top;
 
-    i32 w = canvas.dimensions.width + x_left;
-    i32 h = canvas.dimensions.height + y_top;
-
-    color.setIntoGammaSpace();
+    color.toGamma();
     i32 x, y;
     if (canvas.antialias == SSAA) {
         x1 += x1;
         x2 += x2;
         y1 += y1;
         y2 += y2;
-        w <<= 1;
-        h <<= 1;
+        X.first += X.first;
+        Y.first += Y.first;
+        X.last += X.last;
+        Y.last += Y.last;
         line_width <<= 1;
         line_width++;
     }
@@ -91,9 +86,11 @@ void drawLine(f32 x1, f32 y1, f32 z1,
     f32 dx = x2 - x1;
     f32 dy = y2 - y1;
     f32 gap, grad, first_offset, last_offset;
-    f32 z, z_curr, z_step, z_depths[4];
-    vec3 first, last;
-    vec2i start, end;
+    f32 z, z_curr, z_step;
+    f32 first_x, last_x;
+    f32 first_y, last_y;
+    i32 start_x, end_x;
+    i32 start_y, end_y;
     bool has_depth = z1 != 0.0f || z2 != 0.0f;
     if (fabsf(dx) > fabsf(dy)) { // Shallow:
         if (x2 < x1) { // Left to right:
@@ -104,49 +101,37 @@ void drawLine(f32 x1, f32 y1, f32 z1,
 
         grad = dy / dx;
 
-        first.x = roundf(x1);
-        last.x  = roundf(x2);
-        first_offset = first.x - x1;
-        last_offset  = last.x  - x2;
+        first_x = roundf(x1);
+        last_x  = roundf(x2);
+        first_offset = first_x - x1;
+        last_offset  = last_x  - x2;
 
-        first.y = y1 + grad * first_offset;
-        last.y  = y2 + grad * last_offset;
+        first_y = y1 + grad * first_offset;
+        last_y  = y2 + grad * last_offset;
 
-        start.x = (i32)first.x;
-        start.y = (i32)first.y;
-        end.x   = (i32)last.x;
-        end.y   = (i32)last.y;
+        start_x = (i32)first_x;
+        start_y = (i32)first_y;
+        end_x   = (i32)last_x;
+        end_y   = (i32)last_y;
 
-        x = start.x;
-        y = start.y;
+        x = start_x;
+        y = start_y;
         gap = oneMinusFractionOf(x1 + 0.5f);
 
-        if (inRange(x, w, x_left)) {
-            if (inRange(y, h, y_top)) canvas.setPixel(x, y, color, oneMinusFractionOf(first.y) * gap * opacity, z1);
-
-            for (u8 i = 0; i < line_width; i++) {
-                y++;
-                if (inRange(y, h, y_top)) canvas.setPixel(x, y, color, opacity, z1);
-            }
-
-            y++;
-            if (inRange(y, h, y_top)) canvas.setPixel(x, y, color, fractionOf(first.y) * gap * opacity, z1);
+        if (X[x]) {
+            if (Y[y]) canvas.setPixel(x, y, color, oneMinusFractionOf(first_y) * gap * opacity, z1);
+            for (u8 i = 0; i < line_width; i++) if (Y[++y]) canvas.setPixel(x, y, color, opacity, z1);
+            if (Y[++y]) canvas.setPixel(x, y, color, fractionOf(first_y) * gap * opacity, z1);
         }
 
-        x = end.x;
-        y = end.y;
+        x = end_x;
+        y = end_y;
         gap = fractionOf(x2 + 0.5f);
 
-        if (inRange(x, w, x_left)) {
-            if (inRange(y, h, y_top)) canvas.setPixel(x, y, color, oneMinusFractionOf(last.y) * gap * opacity, z2);
-
-            for (u8 i = 0; i < line_width; i++) {
-                y++;
-                if (inRange(y, h, y_top)) canvas.setPixel(x, y, color, opacity, z2);
-            }
-
-            y++;
-            if (inRange(y, h, y_top)) canvas.setPixel(x, y, color, fractionOf(last.y) * gap * opacity, z2);
+        if (X[x]) {
+            if (Y[y]) canvas.setPixel(x, y, color, oneMinusFractionOf(last_y) * gap * opacity, z2);
+            for (u8 i = 0; i < line_width; i++) if (Y[++y]) canvas.setPixel(x, y, color, opacity, z2);
+            if (Y[++y]) canvas.setPixel(x, y, color, fractionOf(last_y) * gap * opacity, z2);
         }
 
         if (has_depth) { // Compute one-over-depth start and step
@@ -158,24 +143,18 @@ void drawLine(f32 x1, f32 y1, f32 z1,
             z2 += range_remap * (last_offset  - 1.0f);
             z_curr = z1;
             z_range = z2 - z1;
-            z_step = z_range / (last.x - first.x - 1.0f);
+            z_step = z_range / (last_x - first_x - 1.0f);
         } else z = 0.0f;
 
-        gap = first.y + grad;
-        for (x = start.x + 1; x < end.x; x++) {
-            if (inRange(x, w, x_left)) {
+        gap = first_y + grad;
+        for (x = start_x + 1; x < end_x; x++) {
+            if (X[x]) {
                 y = (i32) gap;
 
                 if (has_depth) z = 1.0f / z_curr;
-                if (inRange(y, h, y_top)) canvas.setPixel(x, y, color, oneMinusFractionOf(gap) * opacity, z);
-
-                for (u8 i = 0; i < line_width; i++) {
-                    y++;
-                    if (inRange(y, h, y_top)) canvas.setPixel(x, y, color, opacity, z);
-                }
-
-                y++;
-                if (inRange(y, h, y_top)) canvas.setPixel(x, y, color, fractionOf(gap) * opacity, z);
+                if (Y[y]) canvas.setPixel(x, y, color, oneMinusFractionOf(gap) * opacity, z);
+                for (u8 i = 0; i < line_width; i++) if (Y[++y]) canvas.setPixel(x, y, color, opacity, z);
+                if (Y[++y]) canvas.setPixel(x, y, color, fractionOf(gap) * opacity, z);
             }
 
             gap += grad;
@@ -190,51 +169,39 @@ void drawLine(f32 x1, f32 y1, f32 z1,
 
         grad = dx / dy;
 
-        first.y = roundf(y1);
-        last.y  = roundf(y2);
+        first_y = roundf(y1);
+        last_y  = roundf(y2);
 
-        first_offset = y1 - first.y;
-        last_offset  = last.y  - y2;
+        first_offset = y1 - first_y;
+        last_offset  = last_y  - y2;
 
-        first.x = x1 + grad * first_offset;
-        last.x  = x2 + grad * last_offset;
+        first_x = x1 + grad * first_offset;
+        last_x  = x2 + grad * last_offset;
 
-        start.y = (i32)first.y;
-        start.x = (i32)first.x;
+        start_y = (i32)first_y;
+        start_x = (i32)first_x;
 
-        end.y = (i32)last.y;
-        end.x = (i32)last.x;
+        end_y = (i32)last_y;
+        end_x = (i32)last_x;
 
-        x = start.x;
-        y = start.y;
+        x = start_x;
+        y = start_y;
         gap = oneMinusFractionOf(y1 + 0.5f);
 
-        if (inRange(y, h, y_top)) {
-            if (inRange(x, w, x_left)) canvas.setPixel(x, y, color, oneMinusFractionOf(first.x) * gap * opacity, z1);
-
-            for (u8 i = 0; i < line_width; i++) {
-                x++;
-                if (inRange(x, w, x_left)) canvas.setPixel(x, y, color, opacity, z1);
-            }
-
-            x++;
-            if (inRange(x, w, x_left)) canvas.setPixel(x, y, color, fractionOf(first.x) * gap * opacity, z1);
+        if (Y[y]) {
+            if (X[x]) canvas.setPixel(x, y, color, oneMinusFractionOf(first_x) * gap * opacity, z1);
+            for (u8 i = 0; i < line_width; i++) if (X[++x]) canvas.setPixel(x, y, color, opacity, z1);
+            if (X[++x]) canvas.setPixel(x, y, color, fractionOf(first_x) * gap * opacity, z1);
         }
 
-        x = end.x;
-        y = end.y;
+        x = end_x;
+        y = end_y;
         gap = fractionOf(y2 + 0.5f);
 
-        if (inRange(y, h, y_top)) {
-            if (inRange(x, w, x_left)) canvas.setPixel(x, y, color, oneMinusFractionOf(last.x) * gap * opacity, z2);
-
-            for (u8 i = 0; i < line_width; i++) {
-                x++;
-                if (inRange(x, w, x_left)) canvas.setPixel(x, y, color, opacity, z2);
-            }
-
-            x++;
-            if (inRange(x, w, x_left)) canvas.setPixel(x, y, color, fractionOf(last.x) * gap * opacity, z2);
+        if (Y[y]) {
+            if (X[x]) canvas.setPixel(x, y, color, oneMinusFractionOf(last_x) * gap * opacity, z2);
+            for (u8 i = 0; i < line_width; i++) if (X[++x]) canvas.setPixel(x, y, color, opacity, z2);
+            if (X[++x]) canvas.setPixel(x, y, color, fractionOf(last_x) * gap * opacity, z2);
         }
 
         if (has_depth) { // Compute one-over-depth start and step
@@ -245,25 +212,19 @@ void drawLine(f32 x1, f32 y1, f32 z1,
             z1 += range_remap * (first_offset + 1.0f);
             z2 += range_remap * (last_offset  - 1.0f);
             z_range = z2 - z1;
-            z_step = z_range / (last.y - first.y - 1.0f);
+            z_step = z_range / (last_y - first_y - 1.0f);
             z_curr = z1;
         } else z = 0.0f;
 
-        gap = first.x + grad;
-        for (y = start.y + 1; y < end.y; y++) {
-            if (inRange(y, h, y_top)) {
+        gap = first_x + grad;
+        for (y = start_y + 1; y < end_y; y++) {
+            if (Y[y]) {
                 if (has_depth) z = 1.0f / z_curr;
                 x = (i32)gap;
 
-                if (inRange(x, w, x_left)) canvas.setPixel(x, y, color, oneMinusFractionOf(gap) * opacity, z);
-
-                for (u8 i = 0; i < line_width; i++) {
-                    x++;
-                    if (inRange(x, w, x_left)) canvas.setPixel(x, y, color, opacity, z);
-                }
-
-                x++;
-                if (inRange(x, w, x_left)) canvas.setPixel(x, y, color, fractionOf(gap) * opacity, z);
+                if (X[x]) canvas.setPixel(x, y, color, oneMinusFractionOf(gap) * opacity, z);
+                for (u8 i = 0; i < line_width; i++) if (X[++x]) canvas.setPixel(x, y, color, opacity, z);
+                if (X[++x]) canvas.setPixel(x, y, color, fractionOf(gap) * opacity, z);
             }
 
             gap += grad;

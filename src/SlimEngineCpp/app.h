@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./viewport/canvas.h"
+#include "core/canvas.h"
 
 namespace window {
     u16 width{DEFAULT_WIDTH};

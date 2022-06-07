@@ -3,7 +3,7 @@
 #include "../math/vec2.h"
 #include "./navigation.h"
 #include "./frustum.h"
-#include "./canvas.h"
+#include "../core/canvas.h"
 #include "../core/ray.h"
 
 struct Viewport {
@@ -12,10 +12,13 @@ struct Viewport {
     Frustum frustum;
     Dimensions dimensions;
     Navigation navigation;
-    vec2i position{0, 0};
+    RectI bounds{};
 
     Viewport(Canvas &canvas, Camera *camera) : canvas{canvas} {
         dimensions = canvas.dimensions;
+        bounds.left = bounds.top = 0;
+        bounds.right = dimensions.width - 1;
+        bounds.bottom = dimensions.height - 1;
         setCamera(*camera);
     }
 
@@ -29,8 +32,12 @@ struct Viewport {
     }
 
     void updateDimensions(u16 width, u16 height) {
+        i32 dx = width - dimensions.width;
+        i32 dy = height - dimensions.height;
         dimensions.update(width, height);
-        dimensions.stride += (u16)position.x;
+        dimensions.stride += (u16)bounds.left;
+        bounds.right += dx;
+        bounds.bottom += dy;
         updateProjection();
     }
 

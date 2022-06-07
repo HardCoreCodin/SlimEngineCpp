@@ -37,14 +37,6 @@ struct vec4 {
         return nonZero();
     }
 
-    INLINE f32 operator | (const vec4 &rhs) const {
-        return dot(rhs);
-    }
-
-    INLINE vec4 operator % (const vec4 &rhs) const {
-        return reflectAround(rhs);
-    }
-
     INLINE vec4 operator - () const {
         return {
             -x,

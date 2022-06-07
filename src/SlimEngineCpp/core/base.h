@@ -143,23 +143,74 @@ INLINE i32 clampedValue(i32 value) {
     return mn > 0 ? mn : 0;
 }
 
-INLINE void swap(i32 *a, i32 *b) {
-    i32 t = *a;
+template <typename T>
+INLINE void swap(T *a, T *b) {
+    T t = *a;
     *a = *b;
     *b = t;
 }
 
-INLINE void subRange(i32 from, i32 to, i32 end, i32 start, i32 *first, i32 *last) {
-    *first = from;
-    *last  = to;
-    if (to < from) swap(first, last);
-    *first = *first > start ? *first : start;
-    *last  = (*last < end ? *last : end) - 1;
-}
+template <typename T>
+struct RangeOf {
+    T first, last;
 
-INLINE bool inRange(i32 value, i32 end, i32 start = 0) {
-    return start <= value && value < end;
-}
+    RangeOf() : RangeOf{0, 0} {}
+    RangeOf(T first, T last) : first{first}, last{last} {}
+    RangeOf(const RangeOf<T> &other) : RangeOf{other.first, other.last} {}
+
+    INLINE bool contains(i32 v) const { return first <= v && v <= last; }
+    INLINE bool bounds(i32 v) const { return first < v && v < last; }
+    INLINE bool operator!() const { return first == last; }
+    INLINE bool operator[](T v) const { return contains(v); }
+    INLINE bool operator()(T v) const { return bounds(v); }
+    INLINE void operator+=(T offset) {first += offset; last += offset;}
+    INLINE void operator-=(T offset) {first -= offset; last -= offset;}
+    INLINE RangeOf<T> sub(const RangeOf<T> &other) const { return sub(other.first, other.last); }
+    INLINE RangeOf<T> sub(T sub_first, T sub_last) const {
+        if (sub_last < sub_first) {
+            T tmp = sub_last;
+            sub_last = sub_first;
+            sub_first = tmp;
+        }
+        sub_first = sub_first > first ? sub_first : first;
+        sub_last = sub_last < last ? sub_last : last;
+        return {sub_first, sub_last};
+    }
+};
+typedef RangeOf<f32> Range;
+typedef RangeOf<i32> RangeI;
+
+template <typename T>
+struct RectOf {
+    union {
+        struct {
+            T left;
+            T right;
+            T top;
+            T bottom;
+        };
+        struct {
+            RangeOf<T> x_range, y_range;
+        };
+    };
+
+    RectOf(const RectOf<T> &other) : RectOf{other.x_range, other.y_range} {}
+    RectOf(const RangeOf<T> &x_range, const RangeOf<T> &y_range) : x_range{x_range}, y_range{y_range} {}
+    RectOf(T left = 0, T right = 0, T top = 0, T bottom = 0) : left{left}, right{right}, top{top}, bottom{bottom} {}
+
+    INLINE bool contains(T x, T y) const { return x_range.contains(x) && y_range.contains(y); }
+    INLINE bool bounds(T x, T y) const { return x_range.bounds(x) && y_range.bounds(y); }
+    INLINE bool operator!() const { return !x_range && !y_range; }
+    INLINE bool isOutsideOf(const RectOf<T> &other) {
+        return (
+            other.right < left || right < other.left ||
+            other.bottom < top || bottom < other.top
+        );
+    }
+};
+typedef RectOf<f32> Rect;
+typedef RectOf<i32> RectI;
+
 
 INLINE f32 smoothStep(f32 from, f32 to, f32 t) {
     t = (t - from) / (to - from);
@@ -418,7 +469,7 @@ struct Color {
         }
     }
 
-    INLINE void setIntoGammaSpace() {
+    INLINE void toGamma() {
         r *= r;
         g *= g;
         b *= b;
@@ -470,27 +521,24 @@ struct Pixel {
     }
 
     INLINE Pixel alphaBlendOver(const Pixel &background) {
-        const f32 one_minus_opacity = 1.0f - opacity;
-        const f32 remaining_opacity = one_minus_opacity * background.opacity;
-        const f32 resulting_opacity = opacity + remaining_opacity;
-
-        f32 one_over_resulting_opacity = resulting_opacity == 0 ? 1.0f : 1.0f / resulting_opacity;
+        f32 background_opacity = background.opacity * (1.0f - opacity);
+        f32 new_opacity = background_opacity + opacity;
+        f32 one_over_opacity = new_opacity == 0 ? 1.0f : 1.0f / new_opacity;
         return {
                 color.blendWith(
                     background.color,
-                    one_over_resulting_opacity * opacity,
-                    one_over_resulting_opacity * remaining_opacity
+                    one_over_opacity * opacity,
+                    one_over_opacity * background_opacity
                 ),
-                resulting_opacity
+                new_opacity
         };
     }
 
-    INLINE u32 asContent() const {
-        u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.r)));
-        u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.g)));
-        u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.b)));
-        u8 A = (u8)(clampedValue(opacity) * FLOAT_TO_COLOR_COMPONENT);
-        return A << 24 | R << 16 | G << 8 | B;
+    INLINE u32 asContent(bool premultiply = false) const {
+        u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(premultiply ? color.r * opacity : color.r)));
+        u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(premultiply ? color.g * opacity : color.g)));
+        u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(premultiply ? color.b * opacity : color.b)));
+        return R << 16 | G << 8 | B;
     }
 
 };

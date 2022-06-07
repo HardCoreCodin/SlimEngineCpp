@@ -57,7 +57,7 @@ struct MeshExample : SlimEngine {
         draw(mesh,mesh2.transform, draw_normals, viewport,mesh2.color, opacity, line_width);
 
         if (controls::is_pressed::alt) draw(selection, viewport, scene);
-        if (hud.enabled) draw(hud, viewport.canvas);
+        if (hud.enabled) draw(hud, viewport.bounds, viewport.canvas);
     }
 
     void OnKeyChanged(u8 key, bool is_pressed) override {

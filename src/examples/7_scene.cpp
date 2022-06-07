@@ -52,13 +52,13 @@ struct SceneExample : SlimEngine {
     }
     void OnRender() override {
         bool draw_normals = controls::is_pressed::ctrl;
-        draw(dog,dog1.transform, draw_normals, viewport,Color(dog1.color), opacity, line_width);
-        draw(suz,suz1.transform, draw_normals, viewport,Color(suz1.color), opacity, line_width);
-        draw(suz,suz2.transform, draw_normals, viewport,Color(suz2.color), opacity, line_width);
-        draw(grid,grid1.transform, viewport,Color(grid1.color), opacity, line_width);
-        draw(box,box1.transform, viewport,Color(box1.color), opacity, line_width);
-        draw(coil,coil1.transform, viewport ,Color(coil1.color), opacity, line_width);
-        draw(helix,helix1.transform, viewport, Color(helix1.color), opacity, line_width);
+        draw(dog,dog1.transform, draw_normals, viewport,dog1.color, opacity, line_width);
+        draw(suz,suz1.transform, draw_normals, viewport,suz1.color, opacity, line_width);
+        draw(suz,suz2.transform, draw_normals, viewport,suz2.color, opacity, line_width);
+        draw(grid,grid1.transform, viewport, grid1.color, opacity, line_width);
+        draw(box,box1.transform, viewport, box1.color, opacity, line_width);
+        draw(coil,coil1.transform, viewport ,coil1.color, opacity, line_width);
+        draw(helix,helix1.transform, viewport, helix1.color, opacity, line_width);
         if (controls::is_pressed::alt)
             draw(selection, viewport, scene);
         drawMessage();
@@ -78,7 +78,9 @@ struct SceneExample : SlimEngine {
             }
             i32 x = 50;
             i32 y = 20;
-            drawText(text, x, y, viewport.canvas, color, 1);
+            drawText(text, x, y,
+                     viewport.bounds,
+                     viewport.canvas, color, 1);
         }
     }
     void OnKeyChanged(u8 key, bool is_pressed) override {

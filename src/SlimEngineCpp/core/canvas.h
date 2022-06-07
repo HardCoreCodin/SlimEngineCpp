@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../core/base.h"
+#include "./base.h"
 
 enum AntiAliasing {
     NoAA,
@@ -79,9 +79,8 @@ struct Canvas {
         else
             for (u16 y = 0; y < dimensions.height; y++)
                 for (u16 x = 0; x < dimensions.width; x++, content_value++, pixel++)
-                    *content_value = pixel->opacity ? pixel->asContent() : 0;
+                    *content_value = pixel->opacity ? pixel->asContent(true) : 0;
     }
-
 private:
     static INLINE bool _isTransparentPixelQuad(Pixel *pixel_quad) {
         return pixel_quad->opacity == 0.0f && pixel_quad[1].opacity == 0.0f  && pixel_quad[2].opacity == 0.0f  && pixel_quad[3].opacity == 0.0f;

@@ -60,11 +60,11 @@ INLINE BoxSide rayHitsCube(Ray &ray) {
 }
 
 INLINE bool rayHitsPlane(Ray &ray, const vec3 &P, const vec3 &N) {
-    f32 NdotRd = N | ray.direction;
+    f32 NdotRd = N.dot(ray.direction);
     if (NdotRd == 0) // The ray is parallel to the plane
         return false;
 
-    f32 NdotRoP = N | (P - ray.origin);
+    f32 NdotRoP = N.dot(P - ray.origin);
     if (NdotRoP == 0) return false; // The ray originated within the plane
 
     bool ray_is_facing_the_plane = NdotRd < 0;
