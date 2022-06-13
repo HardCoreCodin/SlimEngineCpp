@@ -160,21 +160,32 @@ struct RangeOf {
 
     INLINE bool contains(i32 v) const { return first <= v && v <= last; }
     INLINE bool bounds(i32 v) const { return first < v && v < last; }
-    INLINE bool operator!() const { return first == last; }
+    INLINE bool operator!() const { return last < first; }
     INLINE bool operator[](T v) const { return contains(v); }
     INLINE bool operator()(T v) const { return bounds(v); }
     INLINE void operator+=(T offset) {first += offset; last += offset;}
     INLINE void operator-=(T offset) {first -= offset; last -= offset;}
-    INLINE RangeOf<T> sub(const RangeOf<T> &other) const { return sub(other.first, other.last); }
-    INLINE RangeOf<T> sub(T sub_first, T sub_last) const {
+    INLINE void operator*=(T factor) {first *= factor; last *= factor;}
+    INLINE void operator/=(T factor) {factor = 1 / factor; first *= factor; last *= factor;}
+    INLINE void operator-=(const RangeOf<T> &rhs) { sub(rhs.first, rhs.last); }
+    INLINE RangeOf<T> operator-(const RangeOf<T> &rhs) const {
+        RangeOf<T> result{first, last};
+        result.sub(rhs.first, rhs.last);
+        return result;
+    }
+    INLINE void sub(T sub_first, T sub_last) {
         if (sub_last < sub_first) {
             T tmp = sub_last;
             sub_last = sub_first;
             sub_first = tmp;
         }
-        sub_first = sub_first > first ? sub_first : first;
-        sub_last = sub_last < last ? sub_last : last;
-        return {sub_first, sub_last};
+        if (last < sub_first || sub_last < first) {
+            first = -1;
+            last = -2;
+        } else {
+            first = first < sub_first ? sub_first : first;
+            last = sub_last < last ? sub_last : last;
+        }
     }
 };
 typedef RangeOf<f32> Range;
@@ -200,17 +211,44 @@ struct RectOf {
 
     INLINE bool contains(T x, T y) const { return x_range.contains(x) && y_range.contains(y); }
     INLINE bool bounds(T x, T y) const { return x_range.bounds(x) && y_range.bounds(y); }
-    INLINE bool operator!() const { return !x_range && !y_range; }
+    INLINE bool operator!() const { return !x_range || !y_range; }
     INLINE bool isOutsideOf(const RectOf<T> &other) {
         return (
             other.right < left || right < other.left ||
             other.bottom < top || bottom < other.top
         );
     }
+    INLINE void operator+=(T offset) {x_range += offset; y_range += offset;}
+    INLINE void operator-=(T offset) {x_range -= offset; y_range -= offset;}
+    INLINE void operator*=(T factor) {x_range *= factor; y_range *= factor;}
+    INLINE void operator/=(T factor) {x_range /= factor; y_range /= factor;}
+    INLINE void operator-=(const RectOf<T> &rhs) { sub(rhs.x_range, rhs.y_range); }
+    INLINE RectOf<T> operator-(const RectOf<T> &rhs) const {
+        RectOf<T> result{x_range, y_range};
+        result.sub(rhs.x_range, rhs.y_range);
+        return result;
+    }
+    INLINE void sub(const RangeOf<T> &other_x_range, const RangeOf<T> &other_y_range) {
+        x_range -= other_x_range;
+        y_range -= other_y_range;
+    }
 };
 typedef RectOf<f32> Rect;
 typedef RectOf<i32> RectI;
 
+struct Turn {
+    bool right{false};
+    bool left{false};
+};
+
+struct Move {
+    bool right{false};
+    bool left{false};
+    bool up{false};
+    bool down{false};
+    bool forward{false};
+    bool backward{false};
+};
 
 INLINE f32 smoothStep(f32 from, f32 to, f32 t) {
     t = (t - from) / (to - from);

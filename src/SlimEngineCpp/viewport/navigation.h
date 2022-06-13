@@ -2,20 +2,6 @@
 
 #include "../scene/camera.h"
 
-struct NavigationTurn {
-    bool right{false};
-    bool left{false};
-};
-
-struct NavigationMove {
-    bool right{false};
-    bool left{false};
-    bool up{false};
-    bool down{false};
-    bool forward{false};
-    bool backward{false};
-};
-
 struct Navigation {
     struct {
         struct {
@@ -30,8 +16,8 @@ struct Navigation {
         f32 acceleration{NAVIGATION_DEFAULT__ACCELERATION};
     } settings;
 
-    NavigationMove move{};
-    NavigationTurn turn{};
+    Move move{};
+    Turn turn{};
 
     bool zoomed{false};
     bool moved{false};
@@ -44,19 +30,16 @@ struct Navigation {
         mouse::raw_movement_handled = true;
         mouse::moved = false;
     }
-
     void zoom(Camera &camera) {
         camera.zoom(settings.speed.zoom * mouse::wheel_scroll_amount);
         zoomed = true;
         mouse::wheel_scroll_handled = true;
     }
-
     void dolly(Camera &camera) {
         camera.dolly(settings.speed.dolly * mouse::wheel_scroll_amount);
         moved = true;
         mouse::wheel_scroll_handled = true;
     }
-
     void orient(Camera &camera) {
         camera.rotate(settings.speed.orient * -(f32)mouse::pos_raw_diff_y,
                       settings.speed.orient * -(f32)mouse::pos_raw_diff_x);
@@ -64,7 +47,6 @@ struct Navigation {
         mouse::raw_movement_handled = true;
         turned = true;
     }
-
     void orbit(Camera &camera) {
         camera.orbit(settings.speed.orbit * -(f32)mouse::pos_raw_diff_x,
                      settings.speed.orbit * -(f32)mouse::pos_raw_diff_y);
@@ -73,7 +55,6 @@ struct Navigation {
         mouse::raw_movement_handled = true;
         mouse::moved = false;
     }
-
     void navigate(Camera &camera, f32 delta_time) {
         vec3 target_velocity;
         if (move.right)    target_velocity.x += settings.max_velocity;
@@ -92,15 +73,13 @@ struct Navigation {
         }
 
         // Update the current speed_x and position_x:
-        vec3 &V = camera.current_velocity;
-        f32 V_delta = settings.acceleration * delta_time;
-        V = V.approachTo(target_velocity, V_delta);
-        vec3 movement = V * delta_time;
+        vec3 &velocity = camera.current_velocity;
+        velocity = velocity.approachTo(target_velocity,
+                                       settings.acceleration * delta_time);
+        vec3 movement = velocity * delta_time;
         moved = movement.nonZero();
-        if (moved)
-            camera.position += camera.rotation * movement;
+        if (moved) camera.position += camera.rotation * movement;
     }
-
     void update(Camera &camera, f32 delta_time) {
         if (mouse::is_captured) {
             navigate(camera, delta_time);

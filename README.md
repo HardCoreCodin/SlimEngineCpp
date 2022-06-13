@@ -5,7 +5,7 @@ Written in plain C++. For the original C variant, see [SlimEngine](https://githu
 Pure-software (no hardware acceleration)<br>
 Focuses on simplicity, ease of use and setup with no dependencies and an optional single header file variant<br>
 <br>
-Built on: [SlimApp](https://github.com/HardCoreCodin/SlimApp) <br>
+Built on: [SlimApp++](https://github.com/HardCoreCodin/SlimAppCpp) <br>
 Used in: [SlimTracin](https://github.com/HardCoreCodin/SlimTracin) and [SlimRaster++](https://github.com/HardCoreCodin/SlimRasterCpp) <br>
 
 For related projects, see [my portfolio](https://hardcorecodin.com/portfolio)
@@ -24,11 +24,7 @@ Usage:
 The single header file variant includes everything.<br>
 Alternatively, specific headers can be included from the directory of headers.<br>
 <br>
-All features are opt-in, only the entry point needs to be defined.<br>
-It just needs to return a pointer to an instance of a SlimEngine derived class:<br><br>
-<img src="src/examples/0_barebone.png"><br><br>
-On its own that yield a valid application with a well-behaved blank window.<br>
-<br>
+All features are opt-in, only the entry point needs to be defined (see [SlimApp++](https://github.com/HardCoreCodin/SlimAppCpp)).<br>
 SlimEngine++ comes with pre-configured CMake targets for all examples.<br>
 For manual builds on Windows, the typical system libraries need to be linked<br>
 (winmm.lib, gdi32.lib, shell32.lib, user32.lib) and the SUBSYSTEM needs to be set to WINDOWS<br>
@@ -51,26 +47,6 @@ Additional features include facilities for interactive 3D applications:<br><br>
 <img src="src/examples/MSAA.gif" alt="MSAA"><br><br>
 
 Well documented example applications cover the features:<br><br>
-
-* <b><u>Window:</b></u><br><br>
-  Contains the window-content and comes with a Canvas that draws into it:<br><br> 
-  <img src="src/examples/0_window.png"><br><br>
-  <br>
-
-* <b><u>HUD:</b></u><br><br>
-  A table of lines with Title and Value columns.<br><br> 
-  <img src="src/examples/1_HUDLine.png"><br><br>
-  Values can be numeric or strings and can be bound to a boolean for toggling<br><br>
-  <img src="src/examples/1_HUD.png"><br><br>
-  Line height and text color can be controlled globally or per line<br><br>
-  <img src="src/examples/1_HUDSettings.png"><br><br>
-  A typical setup might look like this:<br><br>
-  <img src="src/examples/1_HUD_setup.png"><br><br>
-  Updating the values may look like this:<br><br>
-  <img src="src/examples/1_HUD_update.png"><br><br>
-  Toggled rendering might look like this:<br><br>
-  <img src="src/examples/1_HUD_render.png"><br><br>
-  <br>
 
 * <b><u>Viewport:</b></u><br><br>
   <img src="src/examples/1_viewport_HUD.gif"><br><br>

@@ -76,11 +76,8 @@ struct SceneExample : SlimEngine {
                 text = (char *) "Scene loaded from: this.scene";
                 color = Cyan;
             }
-            i32 x = 50;
-            i32 y = 20;
-            drawText(text, x, y,
-                     viewport.bounds,
-                     viewport.canvas, color, 1);
+            draw(text, 50, 20,
+                 viewport.canvas, color);
         }
     }
     void OnKeyChanged(u8 key, bool is_pressed) override {
@@ -93,8 +90,8 @@ struct SceneExample : SlimEngine {
                 load(scene, scene_file.char_ptr);
             scene.last_io_ticks = time::getTicks();
         }
-        NavigationMove &move = viewport.navigation.move;
-        NavigationTurn &turn = viewport.navigation.turn;
+        Move &move = viewport.navigation.move;
+        Turn &turn = viewport.navigation.turn;
         if (key == 'Q') turn.left     = is_pressed;
         if (key == 'E') turn.right    = is_pressed;
         if (key == 'R') move.up       = is_pressed;

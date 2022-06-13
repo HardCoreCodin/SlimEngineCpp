@@ -63,8 +63,8 @@ struct ManipulationExample : SlimEngine {
     }
 
     void OnKeyChanged(u8 key, bool is_pressed) override {
-        NavigationMove &move = viewport.navigation.move;
-        NavigationTurn &turn = viewport.navigation.turn;
+        Move &move = viewport.navigation.move;
+        Turn &turn = viewport.navigation.turn;
         if (key == 'Q') turn.left     = is_pressed;
         if (key == 'E') turn.right    = is_pressed;
         if (key == 'R') move.up       = is_pressed;

@@ -57,8 +57,8 @@ struct CamerasExample : SlimEngine {
             other_camera_color = camera1_color;
         }
 
-        NavigationMove &move = viewport.navigation.move;
-        NavigationTurn &turn = viewport.navigation.turn;
+        Move &move = viewport.navigation.move;
+        Turn &turn = viewport.navigation.turn;
         if (key == 'Q') turn.left     = is_pressed;
         if (key == 'E') turn.right    = is_pressed;
         if (key == 'R') move.up       = is_pressed;

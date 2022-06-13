@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../viewport/viewport.h"
+#include "../core/canvas.h"
 
 #define LINE_HEIGHT 30
 #define FIRST_CHARACTER_CODE 32
@@ -109,11 +109,16 @@ u8 *char_addr[] = {bitmap_32,bitmap_33,bitmap_34,bitmap_35,bitmap_36,bitmap_37,b
 
 
 
-void drawText(char *str, i32 x, i32 y, const RectI &viewport_bounds, const Canvas &canvas, Color color, f32 opacity = 1.0f) {
-    x += viewport_bounds.left;
-    y += viewport_bounds.top;
-    if (x < viewport_bounds.left || x > viewport_bounds.right - FONT_WIDTH ||
-        y < viewport_bounds.top || y > viewport_bounds.bottom - FONT_HEIGHT)
+void draw(char *str, i32 x, i32 y, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
+    RectI bounds{0, canvas.dimensions.width - 1, 0, canvas.dimensions.height - 1};
+    if (viewport_bounds) {
+        x += viewport_bounds->left;
+        y += viewport_bounds->top;
+        bounds -= *viewport_bounds;
+    }
+
+    if (x < bounds.left || x > (bounds.right - FONT_WIDTH) ||
+        y < bounds.top || y > (bounds.bottom - FONT_HEIGHT))
         return;
 
     color.toGamma();
@@ -127,7 +132,7 @@ void drawText(char *str, i32 x, i32 y, const RectI &viewport_bounds, const Canva
     char character = *str;
     while (character) {
         if (character == '\n') {
-            if (current_y + FONT_HEIGHT > viewport_bounds.bottom)
+            if (current_y + FONT_HEIGHT > bounds.bottom)
                 break;
 
             current_x = (u16)x;
@@ -164,7 +169,7 @@ void drawText(char *str, i32 x, i32 y, const RectI &viewport_bounds, const Canva
                 }
             }
             current_x += FONT_WIDTH;
-            if (current_x + FONT_WIDTH > viewport_bounds.bottom)
+            if (current_x + FONT_WIDTH > bounds.right)
                 return;
         }
         character = *++str;

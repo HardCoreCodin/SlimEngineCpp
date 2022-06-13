@@ -162,21 +162,32 @@ struct RangeOf {
 
     INLINE bool contains(i32 v) const { return first <= v && v <= last; }
     INLINE bool bounds(i32 v) const { return first < v && v < last; }
-    INLINE bool operator!() const { return first == last; }
+    INLINE bool operator!() const { return last < first; }
     INLINE bool operator[](T v) const { return contains(v); }
     INLINE bool operator()(T v) const { return bounds(v); }
     INLINE void operator+=(T offset) {first += offset; last += offset;}
     INLINE void operator-=(T offset) {first -= offset; last -= offset;}
-    INLINE RangeOf<T> sub(const RangeOf<T> &other) const { return sub(other.first, other.last); }
-    INLINE RangeOf<T> sub(T sub_first, T sub_last) const {
+    INLINE void operator*=(T factor) {first *= factor; last *= factor;}
+    INLINE void operator/=(T factor) {factor = 1 / factor; first *= factor; last *= factor;}
+    INLINE void operator-=(const RangeOf<T> &rhs) { sub(rhs.first, rhs.last); }
+    INLINE RangeOf<T> operator-(const RangeOf<T> &rhs) const {
+        RangeOf<T> result{first, last};
+        result.sub(rhs.first, rhs.last);
+        return result;
+    }
+    INLINE void sub(T sub_first, T sub_last) {
         if (sub_last < sub_first) {
             T tmp = sub_last;
             sub_last = sub_first;
             sub_first = tmp;
         }
-        sub_first = sub_first > first ? sub_first : first;
-        sub_last = sub_last < last ? sub_last : last;
-        return {sub_first, sub_last};
+        if (last < sub_first || sub_last < first) {
+            first = -1;
+            last = -2;
+        } else {
+            first = first < sub_first ? sub_first : first;
+            last = sub_last < last ? sub_last : last;
+        }
     }
 };
 typedef RangeOf<f32> Range;
@@ -202,12 +213,26 @@ struct RectOf {
 
     INLINE bool contains(T x, T y) const { return x_range.contains(x) && y_range.contains(y); }
     INLINE bool bounds(T x, T y) const { return x_range.bounds(x) && y_range.bounds(y); }
-    INLINE bool operator!() const { return !x_range && !y_range; }
+    INLINE bool operator!() const { return !x_range || !y_range; }
     INLINE bool isOutsideOf(const RectOf<T> &other) {
         return (
                 other.right < left || right < other.left ||
                 other.bottom < top || bottom < other.top
         );
+    }
+    INLINE void operator+=(T offset) {x_range += offset; y_range += offset;}
+    INLINE void operator-=(T offset) {x_range -= offset; y_range -= offset;}
+    INLINE void operator*=(T factor) {x_range *= factor; y_range *= factor;}
+    INLINE void operator/=(T factor) {x_range /= factor; y_range /= factor;}
+    INLINE void operator-=(const RectOf<T> &rhs) { sub(rhs.x_range, rhs.y_range); }
+    INLINE RectOf<T> operator-(const RectOf<T> &rhs) const {
+        RectOf<T> result{x_range, y_range};
+        result.sub(rhs.x_range, rhs.y_range);
+        return result;
+    }
+    INLINE void sub(const RangeOf<T> &other_x_range, const RangeOf<T> &other_y_range) {
+        x_range -= other_x_range;
+        y_range -= other_y_range;
     }
 };
 typedef RectOf<f32> Rect;
@@ -4958,12 +4983,12 @@ struct Frustum {
     }
 };
 
-struct NavigationTurn {
+struct Turn {
     bool right{false};
     bool left{false};
 };
 
-struct NavigationMove {
+struct Move {
     bool right{false};
     bool left{false};
     bool up{false};
@@ -4986,8 +5011,8 @@ struct Navigation {
         f32 acceleration{NAVIGATION_DEFAULT__ACCELERATION};
     } settings;
 
-    NavigationMove move{};
-    NavigationTurn turn{};
+    Move move{};
+    Turn turn{};
 
     bool zoomed{false};
     bool moved{false};
@@ -5267,19 +5292,25 @@ struct Selection {
 };
 
 
-void drawHLine(i32 x_start, i32 x_end, i32 y, const RectI &viewport_bounds, const Canvas &canvas, Color color, f32 opacity = 1.0f) {
-    y += viewport_bounds.top;
-    if (!viewport_bounds.y_range[y]) return;
-
+void drawHLine(i32 x_start, i32 x_end, i32 y, const Canvas &canvas, Color color, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     RangeI x_range{x_start, x_end};
-    x_range += viewport_bounds.left;
-    x_range = x_range.sub(viewport_bounds.x_range);
+    RangeI y_range{0, canvas.dimensions.height - 1};
+
+    if (viewport_bounds) {
+        y += viewport_bounds->top;
+        y_range -= viewport_bounds->y_range;
+
+        x_range += viewport_bounds->left;
+        x_range -= viewport_bounds->x_range;
+    }
+    x_range.sub(0, canvas.dimensions.width - 1);
+    if (!x_range || !y_range[y])
+        return;
 
     color.toGamma();
     if (canvas.antialias == SSAA) {
-        y <<= 1;
-        x_range.first <<= 1;
-        x_range.last  <<= 1;
+        y *= 2;
+        x_range *= 2;
         for (i32 x = x_range.first; x <= x_range.last; x += 2) {
             canvas.setPixel(x, y, color, opacity);
             canvas.setPixel(x+1, y, color, opacity);
@@ -5291,19 +5322,25 @@ void drawHLine(i32 x_start, i32 x_end, i32 y, const RectI &viewport_bounds, cons
             canvas.setPixel(x, y, color, opacity);
 }
 
-void drawVLine(i32 y_start, i32 y_end, i32 x, const RectI &viewport_bounds, const Canvas &canvas, Color color, f32 opacity = 1.0f) {
-    x += viewport_bounds.left;
-    if (!viewport_bounds.x_range[x]) return;
-
+void drawVLine(i32 y_start, i32 y_end, i32 x, const Canvas &canvas, Color color, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+    RangeI x_range{0, canvas.dimensions.width - 1};
     RangeI y_range{y_start, y_end};
-    y_range += viewport_bounds.top;
-    y_range = y_range.sub(viewport_bounds.y_range);
+
+    if (viewport_bounds) {
+        x += viewport_bounds->left;
+        x_range -= viewport_bounds->x_range;
+
+        y_range += viewport_bounds->top;
+        y_range -= viewport_bounds->y_range;
+    }
+    y_range.sub(0, canvas.dimensions.height - 1);
+    if (!y_range || !x_range[x])
+        return;
 
     color.toGamma();
     if (canvas.antialias == SSAA) {
-        x <<= 1;
-        y_range.first <<= 1;
-        y_range.last  <<= 1;
+        x *= 2;
+        y_range *= 2;
         for (i32 y = y_range.first; y <= y_range.last; y += 2) {
             canvas.setPixel(x, y, color, opacity);
             canvas.setPixel(x+1, y, color, opacity);
@@ -5317,21 +5354,34 @@ void drawVLine(i32 y_start, i32 y_end, i32 x, const RectI &viewport_bounds, cons
 
 void drawLine(f32 x1, f32 y1, f32 z1,
               f32 x2, f32 y2, f32 z2,
-              const RectI &viewport_bounds,
               const Canvas &canvas,
-              Color color, f32 opacity, u8 line_width) {
-    if (x1 < 0 &&
-        y1 < 0 &&
-        x2 < 0 &&
-        y2 < 0)
+              Color color = White, f32 opacity = 1.0f, u8 line_width = 1,
+              const RectI *viewport_bounds = nullptr) {
+    Range float_x_range{x1 <= x2 ? x1 : x2, x1 <= x2 ? x2 : x1};
+    Range float_y_range{y1 <= y2 ? y1 : y2, y1 <= y2 ? y2 : y1};
+    if (viewport_bounds) {
+        const f32 left = (f32)viewport_bounds->left;
+        const f32 right = (f32)viewport_bounds->right;
+        const f32 top = (f32)viewport_bounds->top;
+        const f32 bottom = (f32)viewport_bounds->bottom;
+        x1 += left;
+        x2 += left;
+        y1 += top;
+        y2 += top;
+        float_x_range += left;
+        float_y_range += top;
+        float_x_range.sub(left, right);
+        float_y_range.sub(top, bottom);
+    }
+    float_x_range.sub(0, canvas.dimensions.f_width - 1.0f);
+    float_y_range.sub(0, canvas.dimensions.f_height - 1.0f);
+    if (!float_x_range || !float_y_range)
         return;
 
-    RangeI X{viewport_bounds.x_range};
-    RangeI Y{viewport_bounds.y_range};
-    x1 += (f32)viewport_bounds.left;
-    x2 += (f32)viewport_bounds.left;
-    y1 += (f32)viewport_bounds.top;
-    y2 += (f32)viewport_bounds.top;
+    RangeI x_range{(i32)float_x_range.first, (i32)(ceilf(float_x_range.last))};
+    RangeI y_range{(i32)float_y_range.first, (i32)(ceilf(float_y_range.last))};
+    if (x_range.last == (i32)canvas.dimensions.width) x_range.last--;
+    if (y_range.last == (i32)canvas.dimensions.height) y_range.last--;
 
     color.toGamma();
     i32 x, y;
@@ -5340,10 +5390,10 @@ void drawLine(f32 x1, f32 y1, f32 z1,
         x2 += x2;
         y1 += y1;
         y2 += y2;
-        X.first += X.first;
-        Y.first += Y.first;
-        X.last += X.last;
-        Y.last += Y.last;
+        x_range.first <<= 1;
+        y_range.first <<= 1;
+        x_range.last <<= 1;
+        y_range.last <<= 1;
         line_width <<= 1;
         line_width++;
     }
@@ -5359,8 +5409,8 @@ void drawLine(f32 x1, f32 y1, f32 z1,
     bool has_depth = z1 != 0.0f || z2 != 0.0f;
     if (fabsf(dx) > fabsf(dy)) { // Shallow:
         if (x2 < x1) { // Left to right:
-            tmp = x2; x2 = x1; x1 = (f32)tmp;
-            tmp = y2; y2 = y1; y1 = (f32)tmp;
+            tmp = x2; x2 = x1; x1 = tmp;
+            tmp = y2; y2 = y1; y1 = tmp;
             tmp = z2; z2 = z1; z1 = tmp;
         }
 
@@ -5383,20 +5433,20 @@ void drawLine(f32 x1, f32 y1, f32 z1,
         y = start_y;
         gap = oneMinusFractionOf(x1 + 0.5f);
 
-        if (X[x]) {
-            if (Y[y]) canvas.setPixel(x, y, color, oneMinusFractionOf(first_y) * gap * opacity, z1);
-            for (u8 i = 0; i < line_width; i++) if (Y[++y]) canvas.setPixel(x, y, color, opacity, z1);
-            if (Y[++y]) canvas.setPixel(x, y, color, fractionOf(first_y) * gap * opacity, z1);
+        if (x_range[x]) {
+            if (y_range[y]) canvas.setPixel(x, y, color, oneMinusFractionOf(first_y) * gap * opacity, z1);
+            for (u8 i = 0; i < line_width; i++) if (y_range[++y]) canvas.setPixel(x, y, color, opacity, z1);
+            if (y_range[++y]) canvas.setPixel(x, y, color, fractionOf(first_y) * gap * opacity, z1);
         }
 
         x = end_x;
         y = end_y;
         gap = fractionOf(x2 + 0.5f);
 
-        if (X[x]) {
-            if (Y[y]) canvas.setPixel(x, y, color, oneMinusFractionOf(last_y) * gap * opacity, z2);
-            for (u8 i = 0; i < line_width; i++) if (Y[++y]) canvas.setPixel(x, y, color, opacity, z2);
-            if (Y[++y]) canvas.setPixel(x, y, color, fractionOf(last_y) * gap * opacity, z2);
+        if (x_range[x]) {
+            if (y_range[y]) canvas.setPixel(x, y, color, oneMinusFractionOf(last_y) * gap * opacity, z2);
+            for (u8 i = 0; i < line_width; i++) if (y_range[++y]) canvas.setPixel(x, y, color, opacity, z2);
+            if (y_range[++y]) canvas.setPixel(x, y, color, fractionOf(last_y) * gap * opacity, z2);
         }
 
         if (has_depth) { // Compute one-over-depth start and step
@@ -5413,13 +5463,13 @@ void drawLine(f32 x1, f32 y1, f32 z1,
 
         gap = first_y + grad;
         for (x = start_x + 1; x < end_x; x++) {
-            if (X[x]) {
+            if (x_range[x]) {
                 y = (i32) gap;
 
                 if (has_depth) z = 1.0f / z_curr;
-                if (Y[y]) canvas.setPixel(x, y, color, oneMinusFractionOf(gap) * opacity, z);
-                for (u8 i = 0; i < line_width; i++) if (Y[++y]) canvas.setPixel(x, y, color, opacity, z);
-                if (Y[++y]) canvas.setPixel(x, y, color, fractionOf(gap) * opacity, z);
+                if (y_range[y]) canvas.setPixel(x, y, color, oneMinusFractionOf(gap) * opacity, z);
+                for (u8 i = 0; i < line_width; i++) if (y_range[++y]) canvas.setPixel(x, y, color, opacity, z);
+                if (y_range[++y]) canvas.setPixel(x, y, color, fractionOf(gap) * opacity, z);
             }
 
             gap += grad;
@@ -5453,20 +5503,20 @@ void drawLine(f32 x1, f32 y1, f32 z1,
         y = start_y;
         gap = oneMinusFractionOf(y1 + 0.5f);
 
-        if (Y[y]) {
-            if (X[x]) canvas.setPixel(x, y, color, oneMinusFractionOf(first_x) * gap * opacity, z1);
-            for (u8 i = 0; i < line_width; i++) if (X[++x]) canvas.setPixel(x, y, color, opacity, z1);
-            if (X[++x]) canvas.setPixel(x, y, color, fractionOf(first_x) * gap * opacity, z1);
+        if (y_range[y]) {
+            if (x_range[x]) canvas.setPixel(x, y, color, oneMinusFractionOf(first_x) * gap * opacity, z1);
+            for (u8 i = 0; i < line_width; i++) if (x_range[++x]) canvas.setPixel(x, y, color, opacity, z1);
+            if (x_range[++x]) canvas.setPixel(x, y, color, fractionOf(first_x) * gap * opacity, z1);
         }
 
         x = end_x;
         y = end_y;
         gap = fractionOf(y2 + 0.5f);
 
-        if (Y[y]) {
-            if (X[x]) canvas.setPixel(x, y, color, oneMinusFractionOf(last_x) * gap * opacity, z2);
-            for (u8 i = 0; i < line_width; i++) if (X[++x]) canvas.setPixel(x, y, color, opacity, z2);
-            if (X[++x]) canvas.setPixel(x, y, color, fractionOf(last_x) * gap * opacity, z2);
+        if (y_range[y]) {
+            if (x_range[x]) canvas.setPixel(x, y, color, oneMinusFractionOf(last_x) * gap * opacity, z2);
+            for (u8 i = 0; i < line_width; i++) if (x_range[++x]) canvas.setPixel(x, y, color, opacity, z2);
+            if (x_range[++x]) canvas.setPixel(x, y, color, fractionOf(last_x) * gap * opacity, z2);
         }
 
         if (has_depth) { // Compute one-over-depth start and step
@@ -5483,13 +5533,13 @@ void drawLine(f32 x1, f32 y1, f32 z1,
 
         gap = first_x + grad;
         for (y = start_y + 1; y < end_y; y++) {
-            if (Y[y]) {
+            if (y_range[y]) {
                 if (has_depth) z = 1.0f / z_curr;
                 x = (i32)gap;
 
-                if (X[x]) canvas.setPixel(x, y, color, oneMinusFractionOf(gap) * opacity, z);
-                for (u8 i = 0; i < line_width; i++) if (X[++x]) canvas.setPixel(x, y, color, opacity, z);
-                if (X[++x]) canvas.setPixel(x, y, color, fractionOf(gap) * opacity, z);
+                if (x_range[x]) canvas.setPixel(x, y, color, oneMinusFractionOf(gap) * opacity, z);
+                for (u8 i = 0; i < line_width; i++) if (x_range[++x]) canvas.setPixel(x, y, color, opacity, z);
+                if (x_range[++x]) canvas.setPixel(x, y, color, fractionOf(gap) * opacity, z);
             }
 
             gap += grad;
@@ -5499,109 +5549,106 @@ void drawLine(f32 x1, f32 y1, f32 z1,
 }
 
 
-void draw(RectI rect, const RectI &viewport_bounds, const Canvas &canvas, Color color = White, f32 opacity = 1.0f) {
-    rect.x_range += viewport_bounds.left;
-    rect.y_range += viewport_bounds.top;
-    if (rect.isOutsideOf(viewport_bounds))
+void draw(RectI rect, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
+    RectI bounds{0, canvas.dimensions.width - 1, 0, canvas.dimensions.height - 1};
+    if (viewport_bounds) {
+        bounds -= *viewport_bounds;
+        rect.x_range += viewport_bounds->left;
+        rect.y_range += viewport_bounds->top;
+    }
+    if (rect.isOutsideOf(bounds))
         return;
 
-    const bool draw_top = viewport_bounds.y_range[rect.top];
-    const bool draw_bottom = viewport_bounds.y_range[rect.bottom];
-    const bool draw_left = viewport_bounds.x_range[rect.left];
-    const bool draw_right = viewport_bounds.x_range[rect.right];
+    const bool draw_top = bounds.y_range[rect.top];
+    const bool draw_bottom = bounds.y_range[rect.bottom];
+    const bool draw_left = bounds.x_range[rect.left];
+    const bool draw_right = bounds.x_range[rect.right];
+
     const bool draw_horizontal = draw_left || draw_right;
     const bool draw_vertical = draw_top || draw_bottom;
     if (!(draw_horizontal || draw_vertical))
         return;
 
+    rect = bounds - rect;
+    if (!rect)
+        return;
+
     color.toGamma();
 
-    if (draw_horizontal) {
-        RangeI x_range{rect.x_range.sub(viewport_bounds.x_range)};
+    if (canvas.antialias == SSAA) {
+        rect *= 2;
 
-        i32 bottom = rect.bottom;
-        i32 top = rect.top;
-
-        if (canvas.antialias == SSAA) {
-            bottom <<= 1;
-            top <<= 1;
-            x_range.first <<= 1;
-            x_range.last  <<= 1;
-            for (i32 x = x_range.first; x <= x_range.last; x += 2) {
+        if (draw_horizontal) {
+            for (i32 x = rect.left; x <= rect.right; x += 2) {
                 if (draw_bottom) {
-                    canvas.setPixel(x, bottom, color, opacity);
-                    canvas.setPixel(x+1, bottom, color, opacity);
-                    canvas.setPixel(x, bottom+1, color, opacity);
-                    canvas.setPixel(x+1, bottom+1, color, opacity);
+                    canvas.setPixel(x, rect.bottom, color, opacity);
+                    canvas.setPixel(x+1, rect.bottom, color, opacity);
+                    canvas.setPixel(x, rect.bottom+1, color, opacity);
+                    canvas.setPixel(x+1, rect.bottom+1, color, opacity);
                 }
                 if (draw_top) {
-                    canvas.setPixel(x, top, color, opacity);
-                    canvas.setPixel(x+1, top, color, opacity);
-                    canvas.setPixel(x, top+1, color, opacity);
-                    canvas.setPixel(x+1, top+1, color, opacity);
+                    canvas.setPixel(x, rect.top, color, opacity);
+                    canvas.setPixel(x+1, rect.top, color, opacity);
+                    canvas.setPixel(x, rect.top+1, color, opacity);
+                    canvas.setPixel(x+1, rect.top+1, color, opacity);
                 }
-            }
-        } else {
-            for (i32 x = x_range.first; x <= x_range.last; x += 1) {
-                if (draw_bottom) canvas.setPixel(x, bottom, color, opacity);
-                if (draw_top) canvas.setPixel(x, top, color, opacity);
             }
         }
-    }
 
-    if (draw_vertical) {
-        RangeI y_range{rect.y_range.sub(viewport_bounds.y_range)};
-
-        i32 left = rect.left;
-        i32 right = rect.right;
-
-        if (canvas.antialias == SSAA) {
-            left <<= 1;
-            right <<= 1;
-            y_range.first <<= 1;
-            y_range.last  <<= 1;
-            for (i32 y = y_range.first; y <= y_range.last; y += 2) {
+        if (draw_vertical) {
+            for (i32 y = rect.top; y <= rect.bottom; y += 2) {
                 if (draw_left) {
-                    canvas.setPixel(left, y, color, opacity);
-                    canvas.setPixel(left+1, y, color, opacity);
-                    canvas.setPixel(left, y+1, color, opacity);
-                    canvas.setPixel(left+1, y+1, color, opacity);
+                    canvas.setPixel(rect.left, y, color, opacity);
+                    canvas.setPixel(rect.left+1, y, color, opacity);
+                    canvas.setPixel(rect.left, y+1, color, opacity);
+                    canvas.setPixel(rect.left+1, y+1, color, opacity);
                 }
                 if (draw_right) {
-                    canvas.setPixel(right, y, color, opacity);
-                    canvas.setPixel(right+1, y, color, opacity);
-                    canvas.setPixel(right, y+1, color, opacity);
-                    canvas.setPixel(right+1, y+1, color, opacity);
+                    canvas.setPixel(rect.right, y, color, opacity);
+                    canvas.setPixel(rect.right+1, y, color, opacity);
+                    canvas.setPixel(rect.right, y+1, color, opacity);
+                    canvas.setPixel(rect.right+1, y+1, color, opacity);
                 }
             }
-        } else {
-            for (i32 y = y_range.first; y <= y_range.last; y += 1) {
-                if (draw_right) canvas.setPixel(left, y, color, opacity);
-                if (draw_left) canvas.setPixel(right, y, color, opacity);
+        }
+    } else {
+        if (draw_horizontal) {
+            for (i32 x = rect.left; x <= rect.right; x++) {
+                if (draw_bottom) canvas.setPixel(x, rect.bottom, color, opacity);
+                if (draw_top) canvas.setPixel(x, rect.top, color, opacity);
+            }
+        }
+
+        if (draw_vertical) {
+            for (i32 y = rect.top; y <= rect.bottom; y++) {
+                if (draw_right) canvas.setPixel(rect.right, y, color, opacity);
+                if (draw_left) canvas.setPixel(rect.left, y, color, opacity);
             }
         }
     }
 }
 
-void fill(RectI rect, const RectI &viewport_bounds, const Canvas &canvas, Color color = White, f32 opacity = 1.0f) {
-    rect.x_range += viewport_bounds.left;
-    rect.y_range += viewport_bounds.top;
-    if (rect.isOutsideOf(viewport_bounds))
+void fill(RectI rect, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
+    RectI bounds{0, canvas.dimensions.width - 1, 0, canvas.dimensions.height - 1};
+    if (viewport_bounds) {
+        bounds -= *viewport_bounds;
+        rect.x_range += viewport_bounds->left;
+        rect.y_range += viewport_bounds->top;
+    }
+    if (rect.isOutsideOf(bounds))
         return;
 
-    RangeI x_range{rect.x_range.sub(viewport_bounds.x_range)};
-    RangeI y_range{rect.y_range.sub(viewport_bounds.y_range)};
+    rect = bounds - rect;
+    if (!rect)
+        return;
 
     color.toGamma();
 
     if (canvas.antialias == SSAA) {
-        x_range.first <<= 1;
-        x_range.last <<= 1;
-        y_range.first <<= 1;
-        y_range.last <<= 1;
+        rect *= 2;
 
-        for (i32 y = y_range.first; y <= y_range.last; y += 2) {
-            for (i32 x = x_range.first; x <= x_range.last; x += 2) {
+        for (i32 y = rect.top; y <= rect.bottom; y += 2) {
+            for (i32 x = rect.left; x <= rect.right; x += 2) {
                 canvas.setPixel(x, y, color, opacity);
                 canvas.setPixel(x+1, y, color, opacity);
                 canvas.setPixel(x, y+1, color, opacity);
@@ -5609,8 +5656,8 @@ void fill(RectI rect, const RectI &viewport_bounds, const Canvas &canvas, Color 
             }
         }
     } else
-        for (i32 y = y_range.first; y <= y_range.last; y++)
-            for (i32 x = x_range.first; x <= x_range.last; x++)
+        for (i32 y = rect.top; y <= rect.bottom; y++)
+            for (i32 x = rect.left; x <= rect.right; x++)
                 canvas.setPixel(x, y, color, opacity);
 }
 
@@ -5625,7 +5672,7 @@ void draw(Edge edge, const Viewport &viewport, const Color &color = White, f32 o
              edge.to.x,
              edge.to.y,
              edge.to.z,
-             viewport.bounds, viewport.canvas, color, opacity, line_width);
+             viewport.canvas, color, opacity, line_width, &viewport.bounds);
 }
 
 
@@ -5893,11 +5940,16 @@ u8 *char_addr[] = {bitmap_32,bitmap_33,bitmap_34,bitmap_35,bitmap_36,bitmap_37,b
 
 
 
-void drawText(char *str, i32 x, i32 y, const RectI &viewport_bounds, const Canvas &canvas, Color color, f32 opacity = 1.0f) {
-    x += viewport_bounds.left;
-    y += viewport_bounds.top;
-    if (x < viewport_bounds.left || x > viewport_bounds.right - FONT_WIDTH ||
-        y < viewport_bounds.top || y > viewport_bounds.bottom - FONT_HEIGHT)
+void draw(char *str, i32 x, i32 y, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
+    RectI bounds{0, canvas.dimensions.width - 1, 0, canvas.dimensions.height - 1};
+    if (viewport_bounds) {
+        x += viewport_bounds->left;
+        y += viewport_bounds->top;
+        bounds -= *viewport_bounds;
+    }
+
+    if (x < bounds.left || x > (bounds.right - FONT_WIDTH) ||
+        y < bounds.top || y > (bounds.bottom - FONT_HEIGHT))
         return;
 
     color.toGamma();
@@ -5911,7 +5963,7 @@ void drawText(char *str, i32 x, i32 y, const RectI &viewport_bounds, const Canva
     char character = *str;
     while (character) {
         if (character == '\n') {
-            if (current_y + FONT_HEIGHT > viewport_bounds.bottom)
+            if (current_y + FONT_HEIGHT > bounds.bottom)
                 break;
 
             current_x = (u16)x;
@@ -5948,21 +6000,20 @@ void drawText(char *str, i32 x, i32 y, const RectI &viewport_bounds, const Canva
                 }
             }
             current_x += FONT_WIDTH;
-            if (current_x + FONT_WIDTH > viewport_bounds.bottom)
+            if (current_x + FONT_WIDTH > bounds.right)
                 return;
         }
         character = *++str;
     }
 }
-
-void drawNumber(i32 number, i32 x, i32 y, const RectI &viewport_bounds, const Canvas &canvas, const Color &color, f32 opacity) {
+void draw(i32 number, i32 x, i32 y, const Canvas &canvas, const Color &color, f32 opacity, RectI *viewport_bounds = nullptr) {
     static NumberString number_string;
     number_string = number;
-    drawText(number_string.string.char_ptr, x - (i32)number_string.string.length * FONT_WIDTH, y, viewport_bounds, canvas, color, opacity);
+    draw(number_string.string.char_ptr, x - (i32)number_string.string.length * FONT_WIDTH, y, canvas, color, opacity, viewport_bounds);
 }
 
 
-void draw(const HUD &hud, const RectI &viewport_bounds, const Canvas &canvas) {
+void draw(const HUD &hud, const Canvas &canvas, RectI *viewport_bounds = nullptr) {
     i32 x = hud.left;
     i32 y = hud.top;
 
@@ -5978,8 +6029,8 @@ void draw(const HUD &hud, const RectI &viewport_bounds, const Canvas &canvas) {
 
         ColorID color = alt ? line->alternate_value_color : line->value_color;
         char *text = alt ? line->alternate_value.char_ptr : line->value.string.char_ptr;
-        drawText(line->title.char_ptr, x, y, viewport_bounds, canvas, line->title_color);
-        drawText(text, x + (i32)line->title.length * FONT_WIDTH, y, viewport_bounds, canvas, color);
+        draw(line->title.char_ptr, x, y, canvas, line->title_color, 1.0f, viewport_bounds);
+        draw(text, x + (i32)line->title.length * FONT_WIDTH, y, canvas, color, 1.0f, viewport_bounds);
         y += (i32)(hud.settings.line_height * (f32)FONT_HEIGHT);
     }
 }
