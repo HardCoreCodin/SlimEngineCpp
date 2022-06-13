@@ -2,8 +2,7 @@
 
 #include "../core/canvas.h"
 
-void drawHLine(i32 x_start, i32 x_end, i32 y, const Canvas &canvas, Color color, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
-    RangeI x_range{x_start, x_end};
+void drawHLine(RangeI x_range, i32 y, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     RangeI y_range{0, canvas.dimensions.height - 1};
 
     if (viewport_bounds) {
@@ -31,10 +30,12 @@ void drawHLine(i32 x_start, i32 x_end, i32 y, const Canvas &canvas, Color color,
         for (i32 x = x_range.first; x <= x_range.last; x += 1)
             canvas.setPixel(x, y, color, opacity);
 }
+INLINE void drawHLine(i32 x_start, i32 x_end, i32 y, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+    drawHLine(RangeI{x_start, x_end}, y, canvas, color, opacity, viewport_bounds);
+}
 
-void drawVLine(i32 y_start, i32 y_end, i32 x, const Canvas &canvas, Color color, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+void drawVLine(RangeI y_range, i32 x, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     RangeI x_range{0, canvas.dimensions.width - 1};
-    RangeI y_range{y_start, y_end};
 
     if (viewport_bounds) {
         x += viewport_bounds->left;
@@ -60,6 +61,9 @@ void drawVLine(i32 y_start, i32 y_end, i32 x, const Canvas &canvas, Color color,
     } else
         for (i32 y = y_range.first; y <= y_range.last; y += 1)
             canvas.setPixel(x, y, color, opacity);
+}
+INLINE void drawVLine(i32 y_start, i32 y_end, i32 x, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+    drawVLine(RangeI{y_start, y_end}, x, canvas, color, opacity, viewport_bounds);
 }
 
 void drawLine(f32 x1, f32 y1, f32 z1,
@@ -258,118 +262,11 @@ void drawLine(f32 x1, f32 y1, f32 z1,
     }
 }
 
-void drawLine2(f32 x1, f32 y1, f32 z1,
-               f32 x2, f32 y2, f32 z2,
-               const RectI &viewport_bounds,
-               const Canvas &canvas,
-               Color color, f32 opacity, u8 line_width) {
-    x1 += (f32)viewport_bounds.left;
-    x2 += (f32)viewport_bounds.left;
-    y1 += (f32)viewport_bounds.top;
-    y2 += (f32)viewport_bounds.top;
-    if (x1 < 0 &&
-        y1 < 0 &&
-        x2 < 0 &&
-        y2 < 0)
-        return;
-
-    f32 half_width = (f32)line_width * 0.5f;
-
-    f32 left{x1}, right{x2}, top{y1}, bottom{y2};
-    if (x2 < x1) {
-        left = x2;
-        right = x1;
-    }
-    if (y2 < y1) {
-        top = y2;
-        bottom = y1;
-    }
-
-    left -= half_width;
-    right += half_width;
-    top -= half_width;
-    bottom += half_width;
-
-    if ((f32)viewport_bounds.right < left || right < (f32)viewport_bounds.left ||
-        (f32)viewport_bounds.bottom < top || bottom < (f32)viewport_bounds.top)
-        return;
-
-    if (left < (f32)viewport_bounds.left) left = (f32)viewport_bounds.left;
-    if ((f32)viewport_bounds.right < right) right = (f32)viewport_bounds.right;
-    if (top < (f32)viewport_bounds.top) top = (f32)viewport_bounds.top;
-    if ((f32)viewport_bounds.bottom < bottom) bottom = (f32)viewport_bounds.bottom;
-
-    if (canvas.antialias == SSAA) {
-        x1 += x1;
-        x2 += x2;
-        y1 += y1;
-        y2 += y2;
-
-        half_width += half_width;
-        left += left;
-        right += right;
-        top += top;
-        bottom += bottom;
-    }
-
-    f32 X = x2 - x1;
-    f32 Y = y2 - y1;
-
-    f32 vector_length = sqrtf(X*X + Y*Y);
-    f32 one_over_distance = 1.0f / vector_length;
-
-    f32 dir_x = X * one_over_distance;
-    f32 dir_y = Y * one_over_distance;
-
-    f32 perp_x = -dir_y;
-    f32 perp_y = dir_x;
-
-    i32 x_start = (i32)left;
-    i32 x_end = (i32)(right + 1) + 1;
-    i32 y_start = (i32)top;
-    i32 y_end = (i32)(bottom + 1) + 1;
-
-    f32 line_softness = 1.0f;
-
-    f32 max_distance_to_line = half_width + line_softness * 2.0f;
-    f32 distance_to_line, dir_dot_x, dir_dot_y, perp_dot_x, perp_dot_y, t, z, pixel_opacity, gap, px, py, fx, fy = (f32)y_start + 0.5f;
-
-    bool has_depth = z1 != 0.0f || z2 != 0.0f;
-    if (has_depth) { // Compute one-over-depth start and step
-        z1 = 1.0f / z1;
-        z2 = 1.0f / z2;
-    } else z = 0.0f;
-
-    for (i32 y = y_start; y < y_end; y++) {
-        py = fy - y1;
-        perp_dot_y = py * perp_y;
-        dir_dot_y = py * dir_y;
-        for (i32 x = x_start; x < x_end; x++) {
-            fx = (f32)x + 0.5f;
-            px = fx - x1;
-            perp_dot_x = px * perp_x;
-            distance_to_line = fabsf(perp_dot_x + perp_dot_y) + line_softness;
-            if (max_distance_to_line < distance_to_line)
-                continue;
-
-            dir_dot_x = px * dir_x;
-            t = dir_dot_x + dir_dot_y;
-            if (t < 0 || t > vector_length)
-                continue;
-
-            t /= vector_length;
-            if (has_depth) {
-                z = z1 + t*z2;
-                z = 1.0f / z;
-            }
-
-            pixel_opacity = opacity;
-            gap = distance_to_line - half_width;
-            if (0 < gap)
-                pixel_opacity *= gap / (line_softness * 2.0f);
-
-            canvas.setPixel(x, y, color, pixel_opacity, z);
-        }
-        fy += 1.0f;
-    }
+#ifdef SLIM_VEC2
+void drawLine(vec2 from, vec2 to,
+              const Canvas &canvas,
+              Color color = White, f32 opacity = 1.0f, u8 line_width = 1,
+              const RectI *viewport_bounds = nullptr) {
+    drawLine(from.x, from.y, 0, to.x, to.y, 0, canvas, color, opacity, line_width, viewport_bounds);
 }
+#endif

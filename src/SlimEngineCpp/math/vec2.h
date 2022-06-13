@@ -2,6 +2,8 @@
 
 #include "../core/base.h"
 
+#define SLIM_VEC2
+
 struct vec2i {
     i32 x, y;
 
@@ -750,17 +752,3 @@ INLINE vec2 operator * (f32 lhs, const vec2 &rhs) {
 INLINE vec2 lerp(const vec2 &from, const vec2 &to, f32 by) {
     return (to - from).scaleAdd(by, from);
 }
-
-template <typename T, typename V>
-struct BoundsOf : RectOf<T> {
-    BoundsOf(const V &top_left, const V &bottom_right) : RectOf<T>{top_left.x, bottom_right.x, top_left.y, bottom_right.y} {}
-
-    INLINE bool contains(const V &pos) const { return x_range.contains(pos.x) && y_range.contains(pos.y); }
-    INLINE bool bounds(const V &pos) const { return x_range.bounds(pos.x) && y_range.bounds(pos.y); }
-    INLINE bool operator[](const vec2 &pos) const { return contains(pos); }
-    INLINE bool operator()(const vec2 &pos) const { return bounds(pos); }
-    INLINE vec2 clamped(const vec2 &vec) const { return vec.clamped({left, top}, {right, bottom}); }
-};
-
-typedef BoundsOf<f32, vec2> Bounds2D;
-typedef BoundsOf<i32, vec2i> Bounds2Di;

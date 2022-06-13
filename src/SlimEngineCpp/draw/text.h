@@ -175,3 +175,12 @@ void draw(char *str, i32 x, i32 y, const Canvas &canvas, Color color = White, f3
         character = *++str;
     }
 }
+
+#ifdef SLIM_VEC2
+void draw(char *str, vec2i position, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
+    draw(str, position.x, position.y, canvas, color, opacity, viewport_bounds);
+}
+void draw(char *str, vec2 position, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
+    draw(str, (i32)position.x, (i32)position.y, canvas, color, opacity, viewport_bounds);
+}
+#endif

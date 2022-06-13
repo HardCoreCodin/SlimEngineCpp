@@ -517,7 +517,7 @@ struct Color {
         };
     }
 
-    INLINE Color blendWith(const Color &other_color, f32 factor, f32 other_factor) {
+    INLINE Color blendWith(const Color &other_color, f32 factor, f32 other_factor) const {
         return {
                 fast_mul_add(r, factor, other_color.r * other_factor),
                 fast_mul_add(g, factor, other_color.g * other_factor),
@@ -547,7 +547,7 @@ struct Pixel {
         return *this;
     }
 
-    INLINE Pixel alphaBlendOver(const Pixel &background) {
+    Pixel alphaBlendOver(const Pixel &background) const {
         f32 background_opacity = background.opacity * (1.0f - opacity);
         f32 new_opacity = background_opacity + opacity;
         f32 one_over_opacity = new_opacity == 0 ? 1.0f : 1.0f / new_opacity;
@@ -1989,20 +1989,6 @@ INLINE vec2 operator * (f32 lhs, const vec2 &rhs) {
 INLINE vec2 lerp(const vec2 &from, const vec2 &to, f32 by) {
     return (to - from).scaleAdd(by, from);
 }
-
-template <typename T, typename V>
-struct BoundsOf : RectOf<T> {
-    BoundsOf(const V &top_left, const V &bottom_right) : RectOf<T>{top_left.x, bottom_right.x, top_left.y, bottom_right.y} {}
-
-    INLINE bool contains(const V &pos) const { return x_range.contains(pos.x) && y_range.contains(pos.y); }
-    INLINE bool bounds(const V &pos) const { return x_range.bounds(pos.x) && y_range.bounds(pos.y); }
-    INLINE bool operator[](const vec2 &pos) const { return contains(pos); }
-    INLINE bool operator()(const vec2 &pos) const { return bounds(pos); }
-    INLINE vec2 clamped(const vec2 &vec) const { return vec.clamped({left, top}, {right, bottom}); }
-};
-
-typedef BoundsOf<f32, vec2> Bounds2D;
-typedef BoundsOf<i32, vec2i> Bounds2Di;
 
 
 struct vec3 {
@@ -5292,8 +5278,8 @@ struct Selection {
 };
 
 
-void drawHLine(i32 x_start, i32 x_end, i32 y, const Canvas &canvas, Color color, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
-    RangeI x_range{x_start, x_end};
+
+void drawHLine(RangeI x_range, i32 y, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     RangeI y_range{0, canvas.dimensions.height - 1};
 
     if (viewport_bounds) {
@@ -5321,10 +5307,12 @@ void drawHLine(i32 x_start, i32 x_end, i32 y, const Canvas &canvas, Color color,
         for (i32 x = x_range.first; x <= x_range.last; x += 1)
             canvas.setPixel(x, y, color, opacity);
 }
+INLINE void drawHLine(i32 x_start, i32 x_end, i32 y, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+    drawHLine(RangeI{x_start, x_end}, y, canvas, color, opacity, viewport_bounds);
+}
 
-void drawVLine(i32 y_start, i32 y_end, i32 x, const Canvas &canvas, Color color, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+void drawVLine(RangeI y_range, i32 x, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     RangeI x_range{0, canvas.dimensions.width - 1};
-    RangeI y_range{y_start, y_end};
 
     if (viewport_bounds) {
         x += viewport_bounds->left;
@@ -5350,6 +5338,9 @@ void drawVLine(i32 y_start, i32 y_end, i32 x, const Canvas &canvas, Color color,
     } else
         for (i32 y = y_range.first; y <= y_range.last; y += 1)
             canvas.setPixel(x, y, color, opacity);
+}
+INLINE void drawVLine(i32 y_start, i32 y_end, i32 x, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+    drawVLine(RangeI{y_start, y_end}, x, canvas, color, opacity, viewport_bounds);
 }
 
 void drawLine(f32 x1, f32 y1, f32 z1,
@@ -5548,6 +5539,12 @@ void drawLine(f32 x1, f32 y1, f32 z1,
     }
 }
 
+void drawLine(vec2 from, vec2 to,
+              const Canvas &canvas,
+              Color color = White, f32 opacity = 1.0f, u8 line_width = 1,
+              const RectI *viewport_bounds = nullptr) {
+    drawLine(from.x, from.y, 0, to.x, to.y, 0, canvas, color, opacity, line_width, viewport_bounds);
+}
 
 void draw(RectI rect, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
     RectI bounds{0, canvas.dimensions.width - 1, 0, canvas.dimensions.height - 1};
@@ -5661,177 +5658,323 @@ void fill(RectI rect, const Canvas &canvas, Color color = White, f32 opacity = 1
                 canvas.setPixel(x, y, color, opacity);
 }
 
+void _paintCircle(bool fill, i32 center_x, i32 center_y, i32 radius,
+                  const Canvas &canvas,
+                  Color color = White, f32 opacity = 1.0f,
+                  const RectI *viewport_bounds = nullptr) {
+    RectI bounds{0, canvas.dimensions.width - 1, 0, canvas.dimensions.height - 1};
+    RectI rect{center_x - radius,
+               center_x + radius,
+               center_y - radius,
+               center_y + radius};
+    if (viewport_bounds) {
+        center_x += viewport_bounds->left;
+        center_y += viewport_bounds->top;
+        rect.x_range += viewport_bounds->left;
+        rect.y_range += viewport_bounds->top;
+        rect -= *viewport_bounds;
+        bounds -= *viewport_bounds;
+    }
+    rect -= bounds;
+    if (!rect)
+        return;
 
-void draw(Edge edge, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
-    if (!viewport.cullAndClipEdge(edge)) return;
+    if (radius <= 1) {
+        if (canvas.antialias == SSAA) {
+            center_x *= 2;
+            center_y *= 2;
+            canvas.setPixel(center_x, center_y, color, opacity);
+            canvas.setPixel(center_x+1, center_y, color, opacity);
+            canvas.setPixel(center_x, center_y+1, color, opacity);
+            canvas.setPixel(center_x+1, center_y+1, color, opacity);
+        } else
+            canvas.setPixel(center_x, center_y, color, opacity);
 
-    viewport.projectEdge(edge);
-    drawLine(edge.from.x,
-             edge.from.y,
-             edge.from.z,
-             edge.to.x,
-             edge.to.y,
-             edge.to.z,
-             viewport.canvas, color, opacity, line_width, &viewport.bounds);
-}
+        return;
+    }
 
+    if (canvas.antialias == SSAA) {
+        center_x *= 2;
+        center_y *= 2;
+        radius *= 2;
+        bounds *= 2;
+    }
 
-void draw(const Box &box, const Transform &transform, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, u8 sides = BOX__ALL_SIDES) {
-    static Box view_space_box;
+    i32 x = radius, y = 0, y2 = 0;
+    i32 r2 = radius * radius;
+    i32 x2 = r2;
 
-    // Transform vertices positions from local-space to world-space and then to view-space:
-    for (u8 i = 0; i < BOX__VERTEX_COUNT; i++)
-        view_space_box.vertices.buffer[i] = viewport.camera->internPos(transform.externPos(box.vertices.buffer[i]));
+    RangeI x_range1{center_x - radius, center_x + radius};
+    RangeI y_range2{center_y - radius, center_y + radius};
+    RangeI y_range1{center_y, center_y};
+    RangeI x_range2{center_x, center_x};
+    RangeI range1, range2;
+    i32 i;
 
-    // Distribute transformed vertices positions to edges:
-    view_space_box.edges.setFrom(view_space_box.vertices);
+    while (y <= x) {
+        if (fill) {
+            range1 = bounds.x_range - x_range1;
+            range2 = bounds.x_range - x_range2;
+            if (bounds.y_range[y_range1.first]) for (i = range1.first; i <= range1.last; i++) canvas.setPixel(i, y_range1.first, color, opacity);
+            if (bounds.y_range[y_range1.last])  for (i = range1.first; i <= range1.last; i++) canvas.setPixel(i, y_range1.last , color, opacity);
+            if (bounds.y_range[y_range2.first]) for (i = range2.first; i <= range2.last; i++) canvas.setPixel(i, y_range2.first, color, opacity);
+            if (bounds.y_range[y_range2.last])  for (i = range2.first; i <= range2.last; i++) canvas.setPixel(i, y_range2.last , color, opacity);
+        } else {
+            if (bounds.y_range[y_range1.first]) {
+                if (bounds.x_range[x_range1.first]) canvas.setPixel(x_range1.first, y_range1.first, color, opacity);
+                if (bounds.x_range[x_range1.last ]) canvas.setPixel(x_range1.last,  y_range1.first, color, opacity);
+            }
+            if (bounds.y_range[y_range1.last]) {
+                if (bounds.x_range[x_range1.first]) canvas.setPixel(x_range1.first, y_range1.last, color, opacity);
+                if (bounds.x_range[x_range1.last ]) canvas.setPixel(x_range1.last,  y_range1.last, color, opacity);
+            }
 
-    if (sides == BOX__ALL_SIDES) for (const auto &edge : view_space_box.edges.buffer) draw(edge, viewport, color, opacity, line_width);
-    else {
-        BoxEdgeSides &box_edges = view_space_box.edges.sides;
-        if (sides & Front | sides & Top   ) draw(box_edges.front_top,    viewport, color, opacity, line_width);
-        if (sides & Front | sides & Bottom) draw(box_edges.front_bottom, viewport, color, opacity, line_width);
-        if (sides & Front | sides & Left  ) draw(box_edges.front_left,   viewport, color, opacity, line_width);
-        if (sides & Front | sides & Right ) draw(box_edges.front_right,  viewport, color, opacity, line_width);
-        if (sides & Back  | sides & Top   ) draw(box_edges.back_top,     viewport, color, opacity, line_width);
-        if (sides & Back  | sides & Bottom) draw(box_edges.back_bottom,  viewport, color, opacity, line_width);
-        if (sides & Back  | sides & Left  ) draw(box_edges.back_left,    viewport, color, opacity, line_width);
-        if (sides & Back  | sides & Right ) draw(box_edges.back_right,   viewport, color, opacity, line_width);
-        if (sides & Left  | sides & Top   ) draw(box_edges.left_top,     viewport, color, opacity, line_width);
-        if (sides & Left  | sides & Bottom) draw(box_edges.left_bottom,  viewport, color, opacity, line_width);
-        if (sides & Right | sides & Top   ) draw(box_edges.right_top,    viewport, color, opacity, line_width);
-        if (sides & Right | sides & Bottom) draw(box_edges.right_bottom, viewport, color, opacity, line_width);
+            if (bounds.y_range[y_range2.first]) {
+                if (bounds.x_range[x_range2.first]) canvas.setPixel(x_range2.first, y_range2.first, color, opacity);
+                if (bounds.x_range[x_range2.last ]) canvas.setPixel(x_range2.last,  y_range2.first, color, opacity);
+            }
+            if (bounds.y_range[y_range2.last]) {
+                if (bounds.x_range[x_range2.first]) canvas.setPixel(x_range2.first, y_range2.last, color, opacity);
+                if (bounds.x_range[x_range2.last ]) canvas.setPixel(x_range2.last,  y_range2.last, color, opacity);
+            }
+        }
+
+        if ((x2 + y2) > r2) {
+            x--;
+            x2 = x * x;
+
+            x_range1.first++;
+            y_range2.first++;
+            x_range1.last--;
+            y_range2.last--;
+        }
+
+        y++;
+        y2 = y * y;
+
+        y_range1.first--;
+        x_range2.first--;
+        y_range1.last++;
+        x_range2.last++;
     }
 }
 
-void draw(const Camera &camera, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
-    static Transform transform;
-    static Box box;
-
-    transform.rotation = Quat(camera.rotation);
-    transform.position = camera.position;
-    transform.scale = 1.0f;
-
-    new(&box) Box();
-    draw(box, transform, viewport, color, opacity, line_width, BOX__ALL_SIDES);
-
-    box.vertices.corners.back_bottom_left   *= 0.5f;
-    box.vertices.corners.back_bottom_right  *= 0.5f;
-    box.vertices.corners.back_top_left      *= 0.5f;
-    box.vertices.corners.back_top_right     *= 0.5f;
-    box.vertices.corners.front_bottom_left  *= 2.0f;
-    box.vertices.corners.front_bottom_right *= 2.0f;
-    box.vertices.corners.front_top_left     *= 2.0f;
-    box.vertices.corners.front_top_right    *= 2.0f;
-
-    for (auto &vertex : box.vertices.buffer)
-        vertex.z += 1.5f;
-
-    draw(box, transform, viewport, color, opacity, line_width, BOX__ALL_SIDES);
+void fillCircle(i32 center_x, i32 center_y, i32 radius,
+                const Canvas &canvas,
+                Color color = White, f32 opacity = 1.0f,
+                const RectI *viewport_bounds = nullptr) {
+    _paintCircle(true, center_x, center_y, radius, canvas, color, opacity, viewport_bounds);
 }
 
-#define CURVE_STEPS 360
+void drawCircle(i32 center_x, i32 center_y, i32 radius,
+                const Canvas &canvas,
+                Color color = White, f32 opacity = 1.0f,
+                const RectI *viewport_bounds = nullptr) {
+    _paintCircle(false, center_x, center_y, radius, canvas, color, opacity, viewport_bounds);
+}
 
-void draw(const Curve &curve, const Transform &transform, const Viewport &viewport,
-          const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, u32 step_count = CURVE_STEPS) {
-    const Camera &cam = *viewport.camera;
+void drawCircle(vec2i center, i32 radius,
+                const Canvas &canvas,
+                Color color = White, f32 opacity = 1.0f,
+                const RectI *viewport_bounds = nullptr) {
+    drawCircle(center.x, center.y, radius, canvas, color, opacity, viewport_bounds);
+}
 
-    f32 one_over_step_count = 1.0f / (f32)step_count;
-    f32 rotation_step = one_over_step_count * TAU;
-    f32 rotation_step_times_rev_count = rotation_step * (f32)curve.revolution_count;
-
-    if (curve.type == CurveType::Helix)
-        rotation_step = rotation_step_times_rev_count;
-
-    vec3 center_to_orbit;
-    center_to_orbit.x = 1;
-    center_to_orbit.y = center_to_orbit.z = 0;
-
-    vec3 orbit_to_curve;
-    orbit_to_curve.x = curve.thickness;
-    orbit_to_curve.y = orbit_to_curve.z = 0;
-
-    mat3 rotation;
-    rotation.X.x = rotation.Z.z = cosf(rotation_step);
-    rotation.X.z = sinf(rotation_step);
-    rotation.Z.x = -rotation.X.z;
-    rotation.X.y = rotation.Z.y = rotation.Y.x = rotation.Y.z =  0;
-    rotation.Y.y = 1;
-
-    mat3 orbit_to_curve_rotation;
-    if (curve.type == CurveType::Coil) {
-        orbit_to_curve_rotation.X.x = orbit_to_curve_rotation.Y.y = cosf(rotation_step_times_rev_count);
-        orbit_to_curve_rotation.X.y = sinf(rotation_step_times_rev_count);
-        orbit_to_curve_rotation.Y.x = -orbit_to_curve_rotation.X.y;
-        orbit_to_curve_rotation.X.z = orbit_to_curve_rotation.Y.z = orbit_to_curve_rotation.Z.x = orbit_to_curve_rotation.Z.y =  0;
-        orbit_to_curve_rotation.Z.z = 1;
-    }
-
-    // Transform vertices positions of edges from view-space to screen-space (w/ culling and clipping):
-    mat3 accumulated_orbit_rotation = rotation;
-    vec3 current_position, previous_position;
-    Edge edge;
-
-    for (u32 i = 0; i < step_count; i++) {
-        center_to_orbit = rotation * center_to_orbit;
-
-        switch (curve.type) {
-            case CurveType::Helix:
-                current_position = center_to_orbit;
-                current_position.y -= 1;
-                break;
-            case CurveType::Coil:
-                orbit_to_curve  = orbit_to_curve_rotation * orbit_to_curve;
-                current_position = accumulated_orbit_rotation * orbit_to_curve;
-                current_position += center_to_orbit;
-                break;
-            default:
-                break;
-        }
-
-        current_position = cam.internPos(transform.externPos(current_position));
-
-        if (i) {
-            edge.from = previous_position;
-            edge.to   = current_position;
-            draw(edge, viewport, color, opacity, line_width);
-        }
-
-        switch (curve.type) {
-            case CurveType::Helix:
-                center_to_orbit.y += 2 * one_over_step_count;
-                break;
-            case CurveType::Coil:
-                accumulated_orbit_rotation *= rotation;
-                break;
-            default:
-                break;
-        }
-
-        previous_position = current_position;
-    }
+void fillCircle(vec2i center, i32 radius,
+                const Canvas &canvas,
+                Color color = White, f32 opacity = 1.0f,
+                const RectI *viewport_bounds = nullptr) {
+    fillCircle(center.x, center.y, radius, canvas, color, opacity, viewport_bounds);
 }
 
 
-void draw(const Grid &grid, const Transform &transform, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
-    static Grid view_space_grid;
+void drawTriangle(f32 x1, f32 y1,
+                  f32 x2, f32 y2,
+                  f32 x3, f32 y3,
+                  const Canvas &canvas,
+                  Color color = White, f32 opacity = 1.0f, u8 line_width = 1,
+                  const RectI *viewport_bounds = nullptr) {
 
-    // Transform vertices positions from local-space to world-space and then to view-space:
-    for (u8 side = 0; side < 2; side++) {
-        for (u8 axis = 0; axis < 2; axis++) {
-            u8 segment_count = axis ? grid.v_segments : grid.u_segments;
-            for (u8 segment = 0; segment < segment_count; segment++)
-                view_space_grid.vertices.buffer[axis][side][segment] = (viewport.camera->internPos(transform.externPos(grid.vertices.buffer[axis][side][segment])));
-        }
-    }
-
-    // Distribute transformed vertices positions to edges:
-    view_space_grid.edges.update(view_space_grid.vertices, grid.u_segments, grid.v_segments);
-
-    for (u8 u = 0; u < grid.u_segments; u++) draw(view_space_grid.edges.u.edges[u], viewport, color, opacity, line_width);
-    for (u8 v = 0; v < grid.v_segments; v++) draw(view_space_grid.edges.v.edges[v], viewport, color, opacity, line_width);
+    drawLine(x1, y1, 0, x2, y2, 0, canvas, color, opacity, line_width, viewport_bounds);
+    drawLine(x2, y2, 0, x3, y3, 0, canvas, color, opacity, line_width, viewport_bounds);
+    drawLine(x3, y3, 0, x1, y1, 0, canvas, color, opacity, line_width, viewport_bounds);
+}
+void drawTriangle(i32 x1, i32 y1,
+                  i32 x2, i32 y2,
+                  i32 x3, i32 y3,
+                  const Canvas &canvas,
+                  Color color = White, f32 opacity = 1.0f, u8 line_width = 1,
+                  const RectI *viewport_bounds = nullptr) {
+    drawTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, canvas, color, opacity, line_width, viewport_bounds);
 }
 
+
+void fillTriangle(f32 x1, f32 y1,
+                  f32 x2, f32 y2,
+                  f32 x3, f32 y3,
+                  const Canvas &canvas,
+                  Color color = White, f32 opacity = 1.0f,
+                  const RectI *viewport_bounds = nullptr) {
+    // Cull this triangle against the edges of the viewport:
+    Rect bounds{0, canvas.dimensions.f_width - 1.0f, 0, canvas.dimensions.f_height - 1.0f};
+    Rect rect{
+            x1 < x2 ? x1 : x2,
+            x1 > x2 ? x1 : x2,
+            y1 < y2 ? y1 : y2,
+            y1 > y2 ? y1 : y2,
+    };
+    if (x3 < rect.left) rect.left = x3;
+    if (x3 > rect.right) rect.right = x3;
+    if (y3 < rect.top) rect.top = y3;
+    if (y3 > rect.bottom) rect.bottom = y3;
+    if (viewport_bounds) {
+        Rect float_bounds{
+                (f32)viewport_bounds->left,
+                (f32)viewport_bounds->right,
+                (f32)viewport_bounds->top,
+                (f32)viewport_bounds->bottom,
+        };
+        x1 += float_bounds.left;
+        x2 += float_bounds.left;
+        x3 += float_bounds.left;
+        y1 += float_bounds.top;
+        y2 += float_bounds.top;
+        y3 += float_bounds.top;
+        rect.x_range += float_bounds.left;
+        rect.y_range += float_bounds.top;
+        rect -= float_bounds;
+        bounds -= float_bounds;
+    }
+    rect -= bounds;
+    if (!rect)
+        return;
+
+    if (canvas.antialias == SSAA) {
+        x1 *= 2.0f;
+        x2 *= 2.0f;
+        x3 *= 2.0f;
+        y1 *= 2.0f;
+        y2 *= 2.0f;
+        y3 *= 2.0f;
+        rect *= 2.0f;;
+    }
+
+    // Compute area components:
+    f32 ABx = x2 - x1;
+    f32 ABy = y2 - y1;
+
+    f32 ACx = x3 - x1;
+    f32 ACy = y3 - y1;
+
+    f32 ABC = ACx*ABy - ACy*ABx;
+
+    // Cull faces facing backwards:
+    if (ABC < 0) {
+        f32 tmp = x3;
+        x3 = x2;
+        x2 = tmp;
+
+        tmp = y3;
+        y3 = y2;
+        y2 = tmp;
+
+        ABx = x2 - x1;
+        ABy = y2 - y1;
+
+        ACx = x3 - x1;
+        ACy = y3 - y1;
+        ABC = ACx*ABy - ACy*ABx;
+    } else if (ABC == 0)
+        return;
+
+    // Floor bounds coordinates down to their integral component:
+    u32 first_x = (u32)rect.left;
+    u32 first_y = (u32)rect.top;
+    u32 last_x  = (u32)rect.right;
+    u32 last_y  = (u32)rect.bottom;
+
+    rect.left   = (f32)first_x;
+    rect.top    = (f32)first_y;
+    rect.right  = (f32)last_x;
+    rect.bottom = (f32)last_y;
+
+    // Drawing: Top-down
+    // Origin: Top-left
+
+    // Compute weight constants:
+    f32 one_over_ABC = 1.0f / ABC;
+
+    f32 Cdx =  ABy * one_over_ABC;
+    f32 Bdx = -ACy * one_over_ABC;
+
+    f32 Cdy = -ABx * one_over_ABC;
+    f32 Bdy =  ACx * one_over_ABC;
+
+    // Compute initial areal coordinates for the first pixel center:
+    rect.left += 0.5f;
+    rect.top += 0.5f;
+    f32 C_start = Cdx*rect.left + Cdy*rect.top + (y1*x2 - x1*y2) * one_over_ABC;
+    f32 B_start = Bdx*rect.left + Bdy*rect.top + (y3*x1 - x3*y1) * one_over_ABC;
+
+    f32 A, B, C;
+
+    // Scan the bounds:
+    for (u32 y = first_y; y <= last_y; y++, C_start += Cdy, B_start += Bdy) {
+        B = B_start;
+        C = C_start;
+
+        for (u32 x = first_x; x <= last_x; x++, B += Bdx, C += Cdx) {
+            if (Bdx < 0 && B < 0 ||
+                Cdx < 0 && C < 0)
+                break;
+
+            A = 1 - B - C;
+
+            // Skip the pixel if it's outside:
+            if (fminf(A, fminf(B, C)) < 0)
+                continue;
+
+            canvas.setPixel(x, y, color, opacity);
+        }
+    }
+}
+
+void fillTriangle(i32 x1, i32 y1,
+                  i32 x2, i32 y2,
+                  i32 x3, i32 y3,
+                  const Canvas &canvas,
+                  Color color = White, f32 opacity = 1.0f,
+                  const RectI *viewport_bounds = nullptr) {
+    fillTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, canvas, color, opacity, viewport_bounds);
+}
+
+void drawTriangle(vec2 p1, vec2 p2, vec2 p3,
+                  const Canvas &canvas,
+                  Color color = White, f32 opacity = 1.0f, u8 line_width = 1,
+                  const RectI *viewport_bounds = nullptr) {
+    drawTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, canvas, color, opacity, line_width, viewport_bounds);
+}
+
+void fillTriangle(vec2 p1, vec2 p2, vec2 p3,
+                  const Canvas &canvas,
+                  Color color = White, f32 opacity = 1.0f,
+                  const RectI *viewport_bounds = nullptr) {
+    fillTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, canvas, color, opacity, viewport_bounds);
+}
+
+void drawTriangle(vec2i p1, vec2i p2, vec2i p3,
+                  const Canvas &canvas,
+                  Color color = White, f32 opacity = 1.0f, u8 line_width = 1,
+                  const RectI *viewport_bounds = nullptr) {
+    drawTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, canvas, color, opacity, line_width, viewport_bounds);
+}
+
+void fillTriangle(vec2i p1, vec2i p2, vec2i p3,
+                  const Canvas &canvas,
+                  Color color = White, f32 opacity = 1.0f,
+                  const RectI *viewport_bounds = nullptr) {
+    fillTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, canvas, color, opacity, viewport_bounds);
+}
 
 #define LINE_HEIGHT 30
 #define FIRST_CHARACTER_CODE 32
@@ -6006,12 +6149,25 @@ void draw(char *str, i32 x, i32 y, const Canvas &canvas, Color color = White, f3
         character = *++str;
     }
 }
-void draw(i32 number, i32 x, i32 y, const Canvas &canvas, const Color &color, f32 opacity, RectI *viewport_bounds = nullptr) {
+
+void draw(char *str, vec2i position, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
+    draw(str, position.x, position.y, canvas, color, opacity, viewport_bounds);
+}
+void draw(char *str, vec2 position, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
+    draw(str, (i32)position.x, (i32)position.y, canvas, color, opacity, viewport_bounds);
+}
+
+void draw(i32 number, i32 x, i32 y, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
     static NumberString number_string;
     number_string = number;
     draw(number_string.string.char_ptr, x - (i32)number_string.string.length * FONT_WIDTH, y, canvas, color, opacity, viewport_bounds);
 }
-
+void draw(i32 number, vec2i position, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
+    draw(number, position.x, position.y, canvas, color, opacity, viewport_bounds);
+}
+void draw(i32 number, vec2 position, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
+    draw(number, (i32)position.x, (i32)position.y, canvas, color, opacity, viewport_bounds);
+}
 
 void draw(const HUD &hud, const Canvas &canvas, RectI *viewport_bounds = nullptr) {
     i32 x = hud.left;
@@ -6035,6 +6191,176 @@ void draw(const HUD &hud, const Canvas &canvas, RectI *viewport_bounds = nullptr
     }
 }
 
+
+void draw(Edge edge, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
+    if (!viewport.cullAndClipEdge(edge)) return;
+
+    viewport.projectEdge(edge);
+    drawLine(edge.from.x,
+             edge.from.y,
+             edge.from.z,
+             edge.to.x,
+             edge.to.y,
+             edge.to.z,
+             viewport.canvas, color, opacity, line_width, &viewport.bounds);
+}
+
+
+void draw(const Box &box, const Transform &transform, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, u8 sides = BOX__ALL_SIDES) {
+    static Box view_space_box;
+
+    // Transform vertices positions from local-space to world-space and then to view-space:
+    for (u8 i = 0; i < BOX__VERTEX_COUNT; i++)
+        view_space_box.vertices.buffer[i] = viewport.camera->internPos(transform.externPos(box.vertices.buffer[i]));
+
+    // Distribute transformed vertices positions to edges:
+    view_space_box.edges.setFrom(view_space_box.vertices);
+
+    if (sides == BOX__ALL_SIDES) for (const auto &edge : view_space_box.edges.buffer) draw(edge, viewport, color, opacity, line_width);
+    else {
+        BoxEdgeSides &box_edges = view_space_box.edges.sides;
+        if (sides & Front | sides & Top   ) draw(box_edges.front_top,    viewport, color, opacity, line_width);
+        if (sides & Front | sides & Bottom) draw(box_edges.front_bottom, viewport, color, opacity, line_width);
+        if (sides & Front | sides & Left  ) draw(box_edges.front_left,   viewport, color, opacity, line_width);
+        if (sides & Front | sides & Right ) draw(box_edges.front_right,  viewport, color, opacity, line_width);
+        if (sides & Back  | sides & Top   ) draw(box_edges.back_top,     viewport, color, opacity, line_width);
+        if (sides & Back  | sides & Bottom) draw(box_edges.back_bottom,  viewport, color, opacity, line_width);
+        if (sides & Back  | sides & Left  ) draw(box_edges.back_left,    viewport, color, opacity, line_width);
+        if (sides & Back  | sides & Right ) draw(box_edges.back_right,   viewport, color, opacity, line_width);
+        if (sides & Left  | sides & Top   ) draw(box_edges.left_top,     viewport, color, opacity, line_width);
+        if (sides & Left  | sides & Bottom) draw(box_edges.left_bottom,  viewport, color, opacity, line_width);
+        if (sides & Right | sides & Top   ) draw(box_edges.right_top,    viewport, color, opacity, line_width);
+        if (sides & Right | sides & Bottom) draw(box_edges.right_bottom, viewport, color, opacity, line_width);
+    }
+}
+
+void draw(const Camera &camera, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
+    static Transform transform;
+    static Box box;
+
+    transform.rotation = Quat(camera.rotation);
+    transform.position = camera.position;
+    transform.scale = 1.0f;
+
+    new(&box) Box();
+    draw(box, transform, viewport, color, opacity, line_width, BOX__ALL_SIDES);
+
+    box.vertices.corners.back_bottom_left   *= 0.5f;
+    box.vertices.corners.back_bottom_right  *= 0.5f;
+    box.vertices.corners.back_top_left      *= 0.5f;
+    box.vertices.corners.back_top_right     *= 0.5f;
+    box.vertices.corners.front_bottom_left  *= 2.0f;
+    box.vertices.corners.front_bottom_right *= 2.0f;
+    box.vertices.corners.front_top_left     *= 2.0f;
+    box.vertices.corners.front_top_right    *= 2.0f;
+
+    for (auto &vertex : box.vertices.buffer)
+        vertex.z += 1.5f;
+
+    draw(box, transform, viewport, color, opacity, line_width, BOX__ALL_SIDES);
+}
+
+#define CURVE_STEPS 360
+
+void draw(const Curve &curve, const Transform &transform, const Viewport &viewport,
+          const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, u32 step_count = CURVE_STEPS) {
+    const Camera &cam = *viewport.camera;
+
+    f32 one_over_step_count = 1.0f / (f32)step_count;
+    f32 rotation_step = one_over_step_count * TAU;
+    f32 rotation_step_times_rev_count = rotation_step * (f32)curve.revolution_count;
+
+    if (curve.type == CurveType::Helix)
+        rotation_step = rotation_step_times_rev_count;
+
+    vec3 center_to_orbit;
+    center_to_orbit.x = 1;
+    center_to_orbit.y = center_to_orbit.z = 0;
+
+    vec3 orbit_to_curve;
+    orbit_to_curve.x = curve.thickness;
+    orbit_to_curve.y = orbit_to_curve.z = 0;
+
+    mat3 rotation;
+    rotation.X.x = rotation.Z.z = cosf(rotation_step);
+    rotation.X.z = sinf(rotation_step);
+    rotation.Z.x = -rotation.X.z;
+    rotation.X.y = rotation.Z.y = rotation.Y.x = rotation.Y.z =  0;
+    rotation.Y.y = 1;
+
+    mat3 orbit_to_curve_rotation;
+    if (curve.type == CurveType::Coil) {
+        orbit_to_curve_rotation.X.x = orbit_to_curve_rotation.Y.y = cosf(rotation_step_times_rev_count);
+        orbit_to_curve_rotation.X.y = sinf(rotation_step_times_rev_count);
+        orbit_to_curve_rotation.Y.x = -orbit_to_curve_rotation.X.y;
+        orbit_to_curve_rotation.X.z = orbit_to_curve_rotation.Y.z = orbit_to_curve_rotation.Z.x = orbit_to_curve_rotation.Z.y =  0;
+        orbit_to_curve_rotation.Z.z = 1;
+    }
+
+    // Transform vertices positions of edges from view-space to screen-space (w/ culling and clipping):
+    mat3 accumulated_orbit_rotation = rotation;
+    vec3 current_position, previous_position;
+    Edge edge;
+
+    for (u32 i = 0; i < step_count; i++) {
+        center_to_orbit = rotation * center_to_orbit;
+
+        switch (curve.type) {
+            case CurveType::Helix:
+                current_position = center_to_orbit;
+                current_position.y -= 1;
+                break;
+            case CurveType::Coil:
+                orbit_to_curve  = orbit_to_curve_rotation * orbit_to_curve;
+                current_position = accumulated_orbit_rotation * orbit_to_curve;
+                current_position += center_to_orbit;
+                break;
+            default:
+                break;
+        }
+
+        current_position = cam.internPos(transform.externPos(current_position));
+
+        if (i) {
+            edge.from = previous_position;
+            edge.to   = current_position;
+            draw(edge, viewport, color, opacity, line_width);
+        }
+
+        switch (curve.type) {
+            case CurveType::Helix:
+                center_to_orbit.y += 2 * one_over_step_count;
+                break;
+            case CurveType::Coil:
+                accumulated_orbit_rotation *= rotation;
+                break;
+            default:
+                break;
+        }
+
+        previous_position = current_position;
+    }
+}
+
+
+void draw(const Grid &grid, const Transform &transform, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
+    static Grid view_space_grid;
+
+    // Transform vertices positions from local-space to world-space and then to view-space:
+    for (u8 side = 0; side < 2; side++) {
+        for (u8 axis = 0; axis < 2; axis++) {
+            u8 segment_count = axis ? grid.v_segments : grid.u_segments;
+            for (u8 segment = 0; segment < segment_count; segment++)
+                view_space_grid.vertices.buffer[axis][side][segment] = (viewport.camera->internPos(transform.externPos(grid.vertices.buffer[axis][side][segment])));
+        }
+    }
+
+    // Distribute transformed vertices positions to edges:
+    view_space_grid.edges.update(view_space_grid.vertices, grid.u_segments, grid.v_segments);
+
+    for (u8 u = 0; u < grid.u_segments; u++) draw(view_space_grid.edges.u.edges[u], viewport, color, opacity, line_width);
+    for (u8 v = 0; v < grid.v_segments; v++) draw(view_space_grid.edges.v.edges[v], viewport, color, opacity, line_width);
+}
 
 void draw(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     const Camera &cam = *viewport.camera;
@@ -6165,10 +6491,10 @@ void DisplayError(LPTSTR lpszFunction) {
     lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT, (lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR));
 
     if (FAILED( StringCchPrintf((LPTSTR)lpDisplayBuf, LocalSize(lpDisplayBuf) / sizeof(TCHAR),
-                                TEXT("%s failed with error code %d as follows:\n%s"), lpszFunction, last_error, lpMsgBuf)))
+                                (LPTSTR)"%s failed with error code %d as follows:\n%s", lpszFunction, last_error, lpMsgBuf)))
         printf("FATAL ERROR: Unable to output error code.\n");
 
-    _tprintf(TEXT((LPTSTR)"ERROR: %s\n"), (LPCTSTR)lpDisplayBuf);
+    _tprintf((LPTSTR)"ERROR: %s\n", (LPCTSTR)lpDisplayBuf);
 
     LocalFree(lpMsgBuf);
     LocalFree(lpDisplayBuf);
@@ -6235,17 +6561,17 @@ void os::closeFile(void *handle) {
 }
 
 void* os::openFileForReading(const char* path) {
-    HANDLE handle = CreateFile(path,           // file to open
-                               GENERIC_READ,          // open for reading
-                               FILE_SHARE_READ,       // share for reading
-                               nullptr,                  // default security
-                               OPEN_EXISTING,         // existing file only
-                               FILE_ATTRIBUTE_NORMAL, // normal file
-                               nullptr);                 // no attr. template
+    HANDLE handle = CreateFileA(path,           // file to open
+                                GENERIC_READ,          // open for reading
+                                FILE_SHARE_READ,       // share for reading
+                                nullptr,                  // default security
+                                OPEN_EXISTING,         // existing file only
+                                FILE_ATTRIBUTE_NORMAL, // normal file
+                                nullptr);                 // no attr. template
 #ifndef NDEBUG
     if (handle == INVALID_HANDLE_VALUE) {
-        DisplayError(TEXT((LPTSTR)"CreateFile"));
-        _tprintf(TEXT("Terminal failure: unable to open file \"%s\" for read.\n"), path);
+        DisplayError((LPTSTR)"CreateFile");
+        _tprintf((LPTSTR)"Terminal failure: unable to open file \"%s\" for read.\n", path);
         return nullptr;
     }
 #endif
@@ -6253,17 +6579,17 @@ void* os::openFileForReading(const char* path) {
 }
 
 void* os::openFileForWriting(const char* path) {
-    HANDLE handle = CreateFile(path,           // file to open
-                               GENERIC_WRITE,          // open for writing
-                               0,                      // do not share
-                               nullptr,                   // default security
-                               OPEN_ALWAYS,            // create new or open existing
-                               FILE_ATTRIBUTE_NORMAL,  // normal file
-                               nullptr);
+    HANDLE handle = CreateFileA(path,           // file to open
+                                GENERIC_WRITE,   // open for writing
+                                0,               // do not share
+                                nullptr,         // default security
+                                OPEN_ALWAYS,     // create new or open existing
+                                FILE_ATTRIBUTE_NORMAL,  // normal file
+                                nullptr);
 #ifndef NDEBUG
     if (handle == INVALID_HANDLE_VALUE) {
-        DisplayError(TEXT((LPTSTR)"CreateFile"));
-        _tprintf(TEXT("Terminal failure: unable to open file \"%s\" for write.\n"), path);
+        DisplayError((LPTSTR)"CreateFile");
+        _tprintf((LPTSTR)"Terminal failure: unable to open file \"%s\" for write.\n", path);
         return nullptr;
     }
 #endif
@@ -6275,7 +6601,7 @@ bool os::readFromFile(LPVOID out, DWORD size, HANDLE handle) {
     BOOL result = ReadFile(handle, out, size, &bytes_read, nullptr);
 #ifndef NDEBUG
     if (result == FALSE) {
-        DisplayError(TEXT((LPTSTR)"ReadFile"));
+        DisplayError((LPTSTR)"ReadFile");
         printf("Terminal failure: Unable to read from file.\n GetLastError=%08x\n", (unsigned int)GetLastError());
         CloseHandle(handle);
     }
@@ -6288,7 +6614,7 @@ bool os::writeToFile(LPVOID out, DWORD size, HANDLE handle) {
     BOOL result = WriteFile(handle, out, size, &bytes_written, nullptr);
 #ifndef NDEBUG
     if (result == FALSE) {
-        DisplayError(TEXT((LPTSTR)"WriteFile"));
+        DisplayError((LPTSTR)"WriteFile");
         printf("Terminal failure: Unable to write from file.\n GetLastError=%08x\n", (unsigned int)GetLastError());
         CloseHandle(handle);
     }
@@ -6470,7 +6796,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
     window_class.hInstance      = hInstance;
     window_class.lpfnWndProc    = WndProc;
     window_class.style          = CS_OWNDC|CS_HREDRAW|CS_VREDRAW|CS_DBLCLKS;
-    window_class.hCursor        = LoadCursorA(nullptr, IDC_ARROW);
+    window_class.hCursor        = LoadCursor(nullptr, IDC_ARROW);
 
     if (!RegisterClassA(&window_class)) return -1;
 

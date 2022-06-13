@@ -528,7 +528,7 @@ struct Color {
         };
     }
 
-    INLINE Color blendWith(const Color &other_color, f32 factor, f32 other_factor) {
+    INLINE Color blendWith(const Color &other_color, f32 factor, f32 other_factor) const {
         return {
             fast_mul_add(r, factor, other_color.r * other_factor),
             fast_mul_add(g, factor, other_color.g * other_factor),
@@ -558,7 +558,7 @@ struct Pixel {
         return *this;
     }
 
-    INLINE Pixel alphaBlendOver(const Pixel &background) {
+    Pixel alphaBlendOver(const Pixel &background) const {
         f32 background_opacity = background.opacity * (1.0f - opacity);
         f32 new_opacity = background_opacity + opacity;
         f32 one_over_opacity = new_opacity == 0 ? 1.0f : 1.0f / new_opacity;

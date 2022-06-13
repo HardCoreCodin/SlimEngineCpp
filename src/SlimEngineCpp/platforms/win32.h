@@ -23,10 +23,10 @@ void DisplayError(LPTSTR lpszFunction) {
     lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT, (lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR));
 
     if (FAILED( StringCchPrintf((LPTSTR)lpDisplayBuf, LocalSize(lpDisplayBuf) / sizeof(TCHAR),
-                                TEXT("%s failed with error code %d as follows:\n%s"), lpszFunction, last_error, lpMsgBuf)))
+                                (LPTSTR)"%s failed with error code %d as follows:\n%s", lpszFunction, last_error, lpMsgBuf)))
         printf("FATAL ERROR: Unable to output error code.\n");
 
-    _tprintf(TEXT((LPTSTR)"ERROR: %s\n"), (LPCTSTR)lpDisplayBuf);
+    _tprintf((LPTSTR)"ERROR: %s\n", (LPCTSTR)lpDisplayBuf);
 
     LocalFree(lpMsgBuf);
     LocalFree(lpDisplayBuf);
@@ -93,17 +93,17 @@ void os::closeFile(void *handle) {
 }
 
 void* os::openFileForReading(const char* path) {
-    HANDLE handle = CreateFile(path,           // file to open
-                               GENERIC_READ,          // open for reading
-                               FILE_SHARE_READ,       // share for reading
-                               nullptr,                  // default security
-                               OPEN_EXISTING,         // existing file only
-                               FILE_ATTRIBUTE_NORMAL, // normal file
-                               nullptr);                 // no attr. template
+    HANDLE handle = CreateFileA(path,           // file to open
+                                GENERIC_READ,          // open for reading
+                                FILE_SHARE_READ,       // share for reading
+                                nullptr,                  // default security
+                                OPEN_EXISTING,         // existing file only
+                                FILE_ATTRIBUTE_NORMAL, // normal file
+                                nullptr);                 // no attr. template
 #ifndef NDEBUG
     if (handle == INVALID_HANDLE_VALUE) {
-        DisplayError(TEXT((LPTSTR)"CreateFile"));
-        _tprintf(TEXT("Terminal failure: unable to open file \"%s\" for read.\n"), path);
+        DisplayError((LPTSTR)"CreateFile");
+        _tprintf((LPTSTR)"Terminal failure: unable to open file \"%s\" for read.\n", path);
         return nullptr;
     }
 #endif
@@ -111,17 +111,17 @@ void* os::openFileForReading(const char* path) {
 }
 
 void* os::openFileForWriting(const char* path) {
-    HANDLE handle = CreateFile(path,           // file to open
-                               GENERIC_WRITE,          // open for writing
-                               0,                      // do not share
-                               nullptr,                   // default security
-                               OPEN_ALWAYS,            // create new or open existing
-                               FILE_ATTRIBUTE_NORMAL,  // normal file
-                               nullptr);
+    HANDLE handle = CreateFileA(path,           // file to open
+                                GENERIC_WRITE,   // open for writing
+                                0,               // do not share
+                                nullptr,         // default security
+                                OPEN_ALWAYS,     // create new or open existing
+                                FILE_ATTRIBUTE_NORMAL,  // normal file
+                                nullptr);
 #ifndef NDEBUG
     if (handle == INVALID_HANDLE_VALUE) {
-        DisplayError(TEXT((LPTSTR)"CreateFile"));
-        _tprintf(TEXT("Terminal failure: unable to open file \"%s\" for write.\n"), path);
+        DisplayError((LPTSTR)"CreateFile");
+        _tprintf((LPTSTR)"Terminal failure: unable to open file \"%s\" for write.\n", path);
         return nullptr;
     }
 #endif
@@ -133,7 +133,7 @@ bool os::readFromFile(LPVOID out, DWORD size, HANDLE handle) {
     BOOL result = ReadFile(handle, out, size, &bytes_read, nullptr);
 #ifndef NDEBUG
     if (result == FALSE) {
-        DisplayError(TEXT((LPTSTR)"ReadFile"));
+        DisplayError((LPTSTR)"ReadFile");
         printf("Terminal failure: Unable to read from file.\n GetLastError=%08x\n", (unsigned int)GetLastError());
         CloseHandle(handle);
     }
@@ -146,7 +146,7 @@ bool os::writeToFile(LPVOID out, DWORD size, HANDLE handle) {
     BOOL result = WriteFile(handle, out, size, &bytes_written, nullptr);
 #ifndef NDEBUG
     if (result == FALSE) {
-        DisplayError(TEXT((LPTSTR)"WriteFile"));
+        DisplayError((LPTSTR)"WriteFile");
         printf("Terminal failure: Unable to write from file.\n GetLastError=%08x\n", (unsigned int)GetLastError());
         CloseHandle(handle);
     }
@@ -328,7 +328,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
     window_class.hInstance      = hInstance;
     window_class.lpfnWndProc    = WndProc;
     window_class.style          = CS_OWNDC|CS_HREDRAW|CS_VREDRAW|CS_DBLCLKS;
-    window_class.hCursor        = LoadCursorA(nullptr, IDC_ARROW);
+    window_class.hCursor        = LoadCursor(nullptr, IDC_ARROW);
 
     if (!RegisterClassA(&window_class)) return -1;
 
