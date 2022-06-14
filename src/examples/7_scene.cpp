@@ -10,7 +10,7 @@
 // Or using the single-header file:
 //#include "../slim.h"
 
-struct SceneExample : SlimApp {
+struct SceneApp : SlimApp {
     // Viewport:
     Camera camera{
        {0, 10, -15},
@@ -118,5 +118,5 @@ struct SceneExample : SlimApp {
 };
 
 SlimApp* createApp() {
-    return new SceneExample();
+    return new SceneApp();
 }

@@ -7,7 +7,7 @@
 // Or using the single-header file:
 //#include "../slim.h"
 
-struct MeshExample : SlimApp {
+struct MeshApp : SlimApp {
     // Viewport:
     Camera camera{
         {0, 10, -15},
@@ -109,5 +109,5 @@ struct MeshExample : SlimApp {
 };
 
 SlimApp* createApp() {
-    return new MeshExample();
+    return new MeshApp();
 }

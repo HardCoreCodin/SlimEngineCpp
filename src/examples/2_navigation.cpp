@@ -6,7 +6,7 @@
 
 #include "./_common.h"
 
-struct ViewportNavigationExample : SlimApp {
+struct NavigationApp : SlimApp {
     // Viewport:
     Camera camera{
         {0, 7, -11},
@@ -69,5 +69,5 @@ struct ViewportNavigationExample : SlimApp {
 };
 
 SlimApp* createApp() {
-    return new ViewportNavigationExample();
+    return new NavigationApp();
 }

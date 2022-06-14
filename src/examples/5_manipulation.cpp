@@ -9,7 +9,7 @@
 
 #include "./_common.h"
 
-struct ManipulationExample : SlimApp {
+struct ManipulationApp : SlimApp {
     // Viewport:
     Camera camera{
         {0, 7, -11},
@@ -91,5 +91,5 @@ struct ManipulationExample : SlimApp {
 };
 
 SlimApp* createApp() {
-    return (SlimApp*)new ManipulationExample();
+    return (SlimApp*)new ManipulationApp();
 }

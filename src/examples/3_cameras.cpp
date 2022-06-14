@@ -6,7 +6,7 @@
 //#include "../slim.h"
 
 
-struct CamerasExample : SlimApp {
+struct CamerasApp : SlimApp {
     // Viewport:
     Camera camera1{
         {0, 7, -11},
@@ -85,5 +85,5 @@ struct CamerasExample : SlimApp {
 };
 
 SlimApp* createApp() {
-    return new CamerasExample();
+    return new CamerasApp();
 }
