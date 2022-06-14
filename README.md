@@ -1,18 +1,18 @@
-<img src="SlimEngineCpp_logo.png" alt="SlimEngine++_logo"><br>
+<img src="SlimEngineCpp_logo.png" alt="SlimEngine_logo"><br>
 
 Minimalist base-project for interactive graphical applications (2D/3D)<br>
 Written in plain C++. For the original C variant, see [SlimEngine](https://github.com/HardCoreCodin/SlimEngine)<br>
 Pure-software (no hardware acceleration)<br>
 Focuses on simplicity, ease of use and setup with no dependencies and an optional single header file variant<br>
 <br>
-Built on: [SlimApp++](https://github.com/HardCoreCodin/SlimAppCpp) <br>
-Used in: [SlimTracin](https://github.com/HardCoreCodin/SlimTracin) and [SlimRaster++](https://github.com/HardCoreCodin/SlimRasterCpp) <br>
+Built on: [SlimApp](https://github.com/HardCoreCodin/SlimAppCpp) <br>
+Used in: [SlimTracin](https://github.com/HardCoreCodin/SlimTracin) and [SlimRaster](https://github.com/HardCoreCodin/SlimRasterCpp) <br>
 
 For related projects, see [my portfolio](https://hardcorecodin.com/portfolio)
 
 Architecture:
 -
-SlimEngine++ is platform-agnostic by design, though currently only supports Windows.<br>
+SlimEngine is platform-agnostic by design, though currently only supports Windows.<br>
 The platform layer only uses operating-system headers - no standard library used.<br>
 The application layer itself has no 3rd-party dependencies - only uses standard math headers.<br>
 It is just a library that the platform layer uses - it has no knowledge of the platform.<br>
@@ -24,8 +24,8 @@ Usage:
 The single header file variant includes everything.<br>
 Alternatively, specific headers can be included from the directory of headers.<br>
 <br>
-All features are opt-in, only the entry point needs to be defined (see [SlimApp++](https://github.com/HardCoreCodin/SlimAppCpp)).<br>
-SlimEngine++ comes with pre-configured CMake targets for all examples.<br>
+All features are opt-in, only the entry point needs to be defined (see [SlimApp](https://github.com/HardCoreCodin/SlimAppCpp)).<br>
+SlimEngine comes with pre-configured CMake targets for all examples.<br>
 For manual builds on Windows, the typical system libraries need to be linked<br>
 (winmm.lib, gdi32.lib, shell32.lib, user32.lib) and the SUBSYSTEM needs to be set to WINDOWS<br>
 
@@ -36,7 +36,7 @@ CPU Arch: x86, x64<br>
 
 Features:
 -
-SlimEngine++ extends SlimApp++ and so inherits all it's features<br>
+SlimEngine extends SlimApp and so inherits all it's features<br>
 Additional features include facilities for interactive 3D applications:<br><br>
 * Scene with cameras, geometries, meshes and parametric curves<br>
 * Scene selection with interactive transformations (moving, rotating and scaling)<br>
@@ -136,7 +136,7 @@ Well documented example applications cover the features:<br><br>
   - scale_x:\<float\>: Apply an embedded scaling<br>
   - rotY:\<float\>: Apply an embedded rotation around the Y axis<br>
   
-<b>SlimEngine++</b> does not come with any GUI functionality at this point.<br>
+<b>SlimEngine</b> does not come with any GUI functionality at this point.<br>
 Some example apps have an optional HUD that shows additional information.<br>
 It can be toggled on or off using the`tab` key.<br>
 

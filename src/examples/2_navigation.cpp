@@ -1,12 +1,12 @@
-#include "../SlimEngineCpp/scene/grid.h"
-#include "../SlimEngineCpp/draw/grid.h"
-#include "../SlimEngineCpp/app.h"
+#include "../slim/scene/grid.h"
+#include "../slim/draw/grid.h"
+#include "../slim/app.h"
 // Or using the single-header file:
-// #include "../SlimEngine.h"
+//#include "../slim.h"
 
 #include "./_common.h"
 
-struct ViewportNavigationExample : SlimEngine {
+struct ViewportNavigationExample : SlimApp {
     // Viewport:
     Camera camera{
         {0, 7, -11},
@@ -68,6 +68,6 @@ struct ViewportNavigationExample : SlimEngine {
     }
 };
 
-SlimEngine* createEngine() {
-    return (SlimEngine*)new ViewportNavigationExample();
+SlimApp* createApp() {
+    return new ViewportNavigationExample();
 }

@@ -13,7 +13,7 @@ struct Canvas {
     Pixel *pixels{nullptr};
     f32 *depths{nullptr};
 
-    AntiAliasing antialias{SSAA};
+    AntiAliasing antialias{NoAA};
 
     Canvas(Pixel *pixels, f32 *depths) noexcept : pixels{pixels}, depths{depths} {}
 

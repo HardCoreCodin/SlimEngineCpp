@@ -154,7 +154,7 @@ bool os::writeToFile(LPVOID out, DWORD size, HANDLE handle) {
     return result != FALSE;
 }
 
-SlimEngine *CURRENT_ENGINE;
+SlimApp *APP;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     bool pressed = message == WM_SYSKEYDOWN || message == WM_KEYDOWN;
@@ -164,7 +164,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
     switch (message) {
         case WM_DESTROY:
-            CURRENT_ENGINE->is_running = false;
+            APP->is_running = false;
             PostQuitMessage(0);
             break;
 
@@ -173,7 +173,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
             info.bmiHeader.biWidth = win_rect.right - win_rect.left;
             info.bmiHeader.biHeight = win_rect.top - win_rect.bottom;
-            CURRENT_ENGINE->resize((u16)info.bmiHeader.biWidth, (u16)-info.bmiHeader.biHeight);
+            APP->resize((u16)info.bmiHeader.biWidth, (u16)-info.bmiHeader.biHeight);
 
             break;
 
@@ -203,7 +203,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 case VK_DOWN   : controls::is_pressed::down   = pressed; break;
                 default: break;
             }
-            CURRENT_ENGINE->OnKeyChanged(key, pressed);
+            APP->OnKeyChanged(key, pressed);
 
             break;
 
@@ -240,31 +240,31 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 case WM_LBUTTONDBLCLK:
                     mouse_button->doubleClick(x, y);
                     mouse::double_clicked = true;
-                    CURRENT_ENGINE->OnMouseButtonDoubleClicked(*mouse_button);
+                    APP->OnMouseButtonDoubleClicked(*mouse_button);
                     break;
                 case WM_MBUTTONUP:
                 case WM_RBUTTONUP:
                 case WM_LBUTTONUP:
                     mouse_button->up(x, y);
-                    CURRENT_ENGINE->OnMouseButtonUp(*mouse_button);
+                    APP->OnMouseButtonUp(*mouse_button);
                     break;
                 default:
                     mouse_button->down(x, y);
-                    CURRENT_ENGINE->OnMouseButtonDown(*mouse_button);
+                    APP->OnMouseButtonDown(*mouse_button);
             }
 
             break;
 
         case WM_MOUSEWHEEL:
             scroll_amount = (f32)(GET_WHEEL_DELTA_WPARAM(wParam)) / (f32)(WHEEL_DELTA);
-            mouse::scroll(scroll_amount); CURRENT_ENGINE->OnMouseWheelScrolled(scroll_amount);
+            mouse::scroll(scroll_amount); APP->OnMouseWheelScrolled(scroll_amount);
             break;
 
         case WM_MOUSEMOVE:
             x = GET_X_LPARAM(lParam);
             y = GET_Y_LPARAM(lParam);
-            mouse::move(x, y);        CURRENT_ENGINE->OnMouseMovementSet(x, y);
-            mouse::setPosition(x, y); CURRENT_ENGINE->OnMousePositionSet(x, y);
+            mouse::move(x, y);        APP->OnMouseMovementSet(x, y);
+            mouse::setPosition(x, y); APP->OnMousePositionSet(x, y);
             break;
 
         case WM_INPUT:
@@ -273,11 +273,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                     raw_inputs.data.mouse.lLastY != 0)) {
                 x = raw_inputs.data.mouse.lLastX;
                 y = raw_inputs.data.mouse.lLastY;
-                mouse::moveRaw(x, y); CURRENT_ENGINE->OnMouseRawMovementSet(x, y);
+                mouse::moveRaw(x, y); APP->OnMouseRawMovementSet(x, y);
             }
 
         default:
-            return DefWindowProc(hWnd, message, wParam, lParam);
+            return DefWindowProcA(hWnd, message, wParam, lParam);
     }
 
     return 0;
@@ -315,8 +315,8 @@ int APIENTRY WinMain(HINSTANCE hInstance,
     time::microseconds_per_tick = 1000.0 * time::milliseconds_per_tick;
     time::nanoseconds_per_tick  = 1000.0 * time::microseconds_per_tick;
 
-    CURRENT_ENGINE = createEngine();
-    if (!CURRENT_ENGINE->is_running)
+    APP = createApp();
+    if (!APP->is_running)
         return -1;
 
     info.bmiHeader.biSize        = sizeof(info.bmiHeader);
@@ -368,12 +368,12 @@ int APIENTRY WinMain(HINSTANCE hInstance,
     ShowWindow(window_handle, nCmdShow);
 
     MSG message;
-    while (CURRENT_ENGINE->is_running) {
+    while (APP->is_running) {
         while (PeekMessageA(&message, nullptr, 0, 0, PM_REMOVE)) {
             TranslateMessage(&message);
             DispatchMessageA(&message);
         }
-        CURRENT_ENGINE->OnWindowRedraw();
+        APP->OnWindowRedraw();
         InvalidateRgn(window_handle, nullptr, false);
     }
 

@@ -60,6 +60,6 @@ dkms.conf
 /.idea/
 /.vs/
 /.vscode/
-/SlimEngineCpp.sln
-/SlimEngineCpp.vcxproj
-/SlimEngineCpp.vcxproj.user
+/slim.sln
+/slim.vcxproj
+/slim.vcxproj.user

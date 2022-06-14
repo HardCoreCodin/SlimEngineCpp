@@ -1,11 +1,11 @@
 #pragma once
 
 #ifndef SLIM_ENGINE_SHF
-#include "../SlimEngineCpp/draw/text.h"
-#include "../SlimEngineCpp/draw/rectangle.h"
+#include "../slim/draw/text.h"
+#include "../slim/draw/rectangle.h"
 #endif
 // Or using the single-header file:
-// #include "../SlimEngine.h"
+//#include "../slim.h"
 
 #define MOUSE_WHEEL__MAX 2000
 

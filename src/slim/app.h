@@ -10,7 +10,7 @@ namespace window {
     Canvas canvas{nullptr, nullptr};
 }
 
-struct SlimEngine {
+struct SlimApp {
     time::Timer update_timer, render_timer;
     bool is_running{true};
 
@@ -48,6 +48,6 @@ struct SlimEngine {
     }
 };
 
-SlimEngine* createEngine();
+SlimApp* createApp();
 
 #include "./platforms/win32.h"

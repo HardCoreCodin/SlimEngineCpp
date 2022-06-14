@@ -1,15 +1,15 @@
-#include "../SlimEngineCpp/scene/selection.h"
-#include "../SlimEngineCpp/draw/grid.h"
-#include "../SlimEngineCpp/draw/curve.h"
-#include "../SlimEngineCpp/draw/box.h"
-#include "../SlimEngineCpp/draw/selection.h"
-#include "../SlimEngineCpp/app.h"
+#include "../slim/scene/selection.h"
+#include "../slim/draw/grid.h"
+#include "../slim/draw/curve.h"
+#include "../slim/draw/box.h"
+#include "../slim/draw/selection.h"
+#include "../slim/app.h"
 // Or using the single-header file:
-// #include "../SlimEngine.h"
+//#include "../slim.h"
 
 #include "./_common.h"
 
-struct ManipulationExample : SlimEngine {
+struct ManipulationExample : SlimApp {
     // Viewport:
     Camera camera{
         {0, 7, -11},
@@ -90,6 +90,6 @@ struct ManipulationExample : SlimEngine {
     }
 };
 
-SlimEngine* createEngine() {
-    return (SlimEngine*)new ManipulationExample();
+SlimApp* createApp() {
+    return (SlimApp*)new ManipulationExample();
 }

@@ -11,10 +11,10 @@
 #include <malloc.h>
 
 
-#include "./SlimEngineCpp/math/mat3.h"
-#include "./SlimEngineCpp/scene/mesh.h"
+#include "./slim/math/mat3.h"
+#include "./slim/scene/mesh.h"
 // Or using the single-header file:
-// #include "../SlimEngineCpp.h"
+// #include "../slim.h"
 
 void os::setWindowTitle(char* str) {}
 void os::setCursorVisibility(bool on) {}
