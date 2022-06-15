@@ -12,7 +12,7 @@
     #define COMPILER_MSVC 1
 #endif
 
-#ifndef NDEBUG
+#if (defined(SLIMMER) || !defined(NDEBUG))
 #define INLINE
 #elif defined(COMPILER_MSVC)
 #define INLINE inline __forceinline
@@ -558,7 +558,7 @@ struct Pixel {
         return *this;
     }
 
-    Pixel alphaBlendOver(const Pixel &background) const {
+    INLINE Pixel alphaBlendOver(const Pixel &background) const {
         f32 background_opacity = background.opacity * (1.0f - opacity);
         f32 new_opacity = background_opacity + opacity;
         f32 one_over_opacity = new_opacity == 0 ? 1.0f : 1.0f / new_opacity;

@@ -19,7 +19,7 @@ struct ViewportApp : SlimApp {
     HUDLine Width{ (char*)"Width  : "};
     HUDLine Height{(char*)"Height : "};
     HUDLine MouseX{(char*)"Mouse X: "};
-    HUDLine MouseY{(char*)"Mouse X: "};
+    HUDLine MouseY{(char*)"Mouse Y: "};
     HUDSettings hud_settings{
         6,
         1.2f,
