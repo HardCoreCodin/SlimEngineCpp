@@ -3,17 +3,38 @@
 #include "../core/string.h"
 #include "./text.h"
 
-void draw(i32 number, i32 x, i32 y, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
+void _drawNumber(i32 number, i32 x, i32 y, const Canvas &canvas, const Color &color, f32 opacity, const RectI *viewport_bounds) {
     static NumberString number_string;
     number_string = number;
-    draw(number_string.string.char_ptr, x - (i32)number_string.string.length * FONT_WIDTH, y, canvas, color, opacity, viewport_bounds);
+    _drawText(number_string.string.char_ptr, x - (i32)number_string.string.length * FONT_WIDTH, y, canvas, color, opacity, viewport_bounds);
+}
+
+
+#ifdef SLIM_ENABLE_CANVAS_NUMBER_DRAWING
+INLINE void Canvas::drawNumber(i32 number, i32 x, i32 y, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
+    _drawNumber(number, x, y, *this, color, opacity, viewport_bounds);
 }
 
 #ifdef SLIM_VEC2
-void draw(i32 number, vec2i position, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
-    draw(number, position.x, position.y, canvas, color, opacity, viewport_bounds);
+INLINE void Canvas::drawNumber(i32 number, vec2i position, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
+    _drawNumber(number, position.x, position.y, *this, color, opacity, viewport_bounds);
 }
-void draw(i32 number, vec2 position, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
-    draw(number, (i32)position.x, (i32)position.y, canvas, color, opacity, viewport_bounds);
+INLINE void Canvas::drawNumber(i32 number, vec2 position, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
+    _drawNumber(number, (i32)position.x, (i32)position.y, *this, color, opacity, viewport_bounds);
+}
+#endif
+#endif
+
+
+INLINE void drawNumber(i32 number, i32 x, i32 y, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+    _drawNumber(number, x, y, canvas, color, opacity, viewport_bounds);
+}
+
+#ifdef SLIM_VEC2
+INLINE void drawNumber(i32 number, vec2i position, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+    _drawNumber(number, position.x, position.y, canvas, color, opacity, viewport_bounds);
+}
+INLINE void drawNumber(i32 number, vec2 position, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+    _drawNumber(number, (i32)position.x, (i32)position.y, canvas, color, opacity, viewport_bounds);
 }
 #endif

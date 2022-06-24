@@ -1,6 +1,15 @@
+#ifdef SLIMMER
+#define SLIM_DISABLE_ALL_CANVAS_DRAWING
+#define SLIM_ENABLE_CANVAS_HUD_DRAWING
+
+#define SLIM_DISABLE_ALL_VIEWPORT_DRAWING
+#define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
+#define SLIM_ENABLE_VIEWPORT_MESH_DRAWING
+#endif
+
 #include "../slim/scene/selection.h"
-#include "../slim/draw/grid.h"
 #include "../slim/draw/hud.h"
+#include "../slim/draw/grid.h"
 #include "../slim/draw/mesh.h"
 #include "../slim/draw/selection.h"
 #include "../slim/app.h"
@@ -13,11 +22,18 @@ struct MeshApp : SlimApp {
         {0, 10, -15},
         {-25*DEG_TO_RAD,0, 0}
     }, *cameras{&camera};
-    HUDLine Fps{(char*)"Fps    : "};
-    HUDLine Mfs{(char*)"Mic-s/f: "};
-    HUDSettings hud_settings{2,1.2f,Green};
-    HUD hud{hud_settings, &Fps};
-    Viewport viewport{window::canvas, &camera};
+    Canvas canvas;
+    Viewport viewport{canvas, &camera};
+    bool antialias = false;
+
+    // HUD:
+    HUDLine AA{(char*)"AA : ",
+               (char*)"On",
+               (char*)"Off",
+               &antialias,
+               true};
+    HUDSettings hud_settings{1};
+    HUD hud{hud_settings, &AA};
 
     // Scene:
     Grid grid{11,
@@ -35,7 +51,7 @@ struct MeshApp : SlimApp {
     char strings[2][100] = {};
     String mesh_files[2] = {
         String::getFilePath((char*)"suzanne.mesh",strings[0],(char*)__FILE__),
-        String::getFilePath((char*)"dog.mesh"    ,strings[1],(char*)__FILE__)
+        String::getFilePath((char*)"dragon.mesh" ,strings[1],(char*)__FILE__)
     };
     Mesh meshes[2];
 
@@ -46,52 +62,56 @@ struct MeshApp : SlimApp {
 
     // Drawing:
     f32 opacity = 0.5f;
-    u8 line_width = 0;
 
     void OnRender() override {
-        draw(grid,grid1.transform, viewport,grid1.color, opacity, line_width);
+        canvas.clear();
+        viewport.drawGrid(grid, grid1.transform, grid1.color, opacity);
 
         bool draw_normals = controls::is_pressed::ctrl;
         Mesh &mesh{meshes[scene.geometries[1].id]};
-        draw(mesh,mesh1.transform, draw_normals, viewport,mesh1.color, opacity, line_width);
-        draw(mesh,mesh2.transform, draw_normals, viewport,mesh2.color, opacity, line_width);
+        viewport.drawMesh(mesh, mesh1.transform, draw_normals, mesh1.color, opacity);
+        viewport.drawMesh(mesh, mesh2.transform, draw_normals, mesh2.color, opacity);
 
-        if (controls::is_pressed::alt) draw(selection, viewport, scene);
-        if (hud.enabled) draw(hud, viewport.canvas);
+        if (controls::is_pressed::alt) drawSelection(selection, viewport, scene);
+        if (hud.enabled)
+            canvas.drawHUD(hud);
+        canvas.drawToWindow();
     }
 
     void OnKeyChanged(u8 key, bool is_pressed) override {
-        if (key == 'M' && !is_pressed) {
-            u32 old_mesh_id = scene.geometries[1].id;
-            u32 new_mesh_id = (old_mesh_id + 1) % 2;
-            scene.geometries[1].id = new_mesh_id;
-            scene.geometries[2].id = new_mesh_id;
-        }
-
-        if (!is_pressed && key == controls::key_map::tab)
-            hud.enabled = !hud.enabled;
-
         Move &move = viewport.navigation.move;
         Turn &turn = viewport.navigation.turn;
-        if (key == 'Q') turn.left     = is_pressed;
-        if (key == 'E') turn.right    = is_pressed;
+        if (key == 'X') turn.left     = is_pressed;
+        if (key == 'C') turn.right    = is_pressed;
         if (key == 'R') move.up       = is_pressed;
         if (key == 'F') move.down     = is_pressed;
         if (key == 'W') move.forward  = is_pressed;
         if (key == 'S') move.backward = is_pressed;
         if (key == 'A') move.left     = is_pressed;
         if (key == 'D') move.right    = is_pressed;
+        if (!is_pressed) {
+            if (key == controls::key_map::tab)
+                hud.enabled = !hud.enabled;
+            else if (key == 'Q') {
+                canvas.antialias = canvas.antialias == NoAA ? SSAA : NoAA;
+                antialias = canvas.antialias == SSAA;
+            } else if (key == 'M') {
+                u32 old_mesh_id = scene.geometries[1].id;
+                u32 new_mesh_id = (old_mesh_id + 1) % 2;
+                scene.geometries[1].id = new_mesh_id;
+                scene.geometries[2].id = new_mesh_id;
+            }
+        }
     }
 
     void OnUpdate(f32 delta_time) override {
-        Fps.value = (i32)render_timer.average_frames_per_second;
-        Mfs.value = (i32)render_timer.average_microseconds_per_frame;
         if (!mouse::is_captured) selection.manipulate(viewport, scene);
         if (!controls::is_pressed::alt) viewport.updateNavigation(delta_time);
     }
 
     void OnWindowResize(u16 width, u16 height) override {
         viewport.updateDimensions(width, height);
+        canvas.dimensions.update(width, height);
     }
 
     void OnMouseButtonDown(mouse::Button &mouse_button) override {

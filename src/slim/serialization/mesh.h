@@ -129,7 +129,7 @@ bool load(Mesh &mesh, char *file_path, memory::MonotonicAllocator *memory_alloca
     if (!file) return false;
 
     if (memory_allocator) {
-        new(&mesh) Mesh{};
+        mesh = Mesh{};
         readHeader(mesh, file);
         if (!allocateMemory(mesh, memory_allocator)) return false;
     } else if (!mesh.vertex_positions) return false;

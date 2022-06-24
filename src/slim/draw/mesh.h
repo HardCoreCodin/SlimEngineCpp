@@ -5,7 +5,7 @@
 #include "../viewport/viewport.h"
 
 
-void draw(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
+void _drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport, const Color &color, f32 opacity, u8 line_width) {
     const Camera &cam = *viewport.camera;
     vec3 pos;
     Edge edge;
@@ -13,7 +13,7 @@ void draw(const Mesh &mesh, const Transform &transform, bool draw_normals, const
     for (u32 i = 0; i < mesh.edge_count; i++, edge_index++) {
         edge.from = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->from]));
         edge.to   = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->to]));
-        draw(edge, viewport, color, opacity, line_width);
+        drawEdge(edge, viewport, color, opacity, line_width);
     }
 
     if (draw_normals && mesh.normals_count && mesh.vertex_normals && mesh.vertex_normal_indices) {
@@ -25,8 +25,20 @@ void draw(const Mesh &mesh, const Transform &transform, bool draw_normals, const
                 edge.to = mesh.vertex_normals[normal_index->ids[i]] * 0.1f + pos;
                 edge.from = cam.internPos(transform.externPos(pos));
                 edge.to = cam.internPos(transform.externPos(edge.to));
-                draw(edge, viewport, Red, opacity * 0.5f, line_width);
+                drawEdge(edge, viewport, Red, opacity * 0.5f, line_width);
             }
         }
     }
+}
+
+#ifdef SLIM_ENABLE_VIEWPORT_MESH_DRAWING
+INLINE void Viewport::drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Color &color,
+                               f32 opacity, u8 line_width) const {
+    _drawMesh(mesh, transform, draw_normals, *this, color, opacity, line_width);
+}
+#endif
+
+INLINE void drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport,
+                     const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
+    _drawMesh(mesh, transform, draw_normals, viewport, color, opacity, line_width);
 }

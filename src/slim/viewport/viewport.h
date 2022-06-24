@@ -1,10 +1,23 @@
 #pragma once
 
-#include "../math/vec2.h"
 #include "./navigation.h"
 #include "./frustum.h"
-#include "../core/canvas.h"
-#include "../core/ray.h"
+#include "../draw/canvas.h"
+
+#ifdef SLIM_ENABLE_VIEWPORT_BOX_DRAWING
+#include "../core/transform.h"
+#include "../scene/box.h"
+#endif
+
+#ifdef SLIM_ENABLE_VIEWPORT_GRID_DRAWING
+#include "../core/transform.h"
+#include "../scene/grid.h"
+#endif
+
+#ifdef SLIM_ENABLE_VIEWPORT_MESH_DRAWING
+#include "../core/transform.h"
+#include "../scene/mesh.h"
+#endif
 
 struct Viewport {
     Canvas &canvas;
@@ -54,16 +67,28 @@ struct Viewport {
         return frustum.cullAndClipEdge(edge, camera->focal_length, dimensions.width_over_height);
     }
 
-    INLINE Ray getRayAt(const vec2i &coords) const {
-        vec3 start = (
-                camera->rotation.up * (dimensions.h_height - 0.5f) +
-                camera->rotation.forward * (dimensions.h_height * camera->focal_length) +
-                camera->rotation.right * (0.5f - dimensions.h_width)
-        );
-        return {
-            camera->position,
-            camera->rotation.up.scaleAdd(-((f32)coords.y),
-         camera->rotation.right.scaleAdd((f32)coords.x,start)).normalized()
-        };
-    }
+#ifdef SLIM_ENABLE_VIEWPORT_BOX_DRAWING
+    INLINE void drawBox(const Box &box, const Transform &transform, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, u8 sides = BOX__ALL_SIDES) const;
+#endif
+
+#ifdef SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
+    INLINE void drawCamera(const Camera &camera, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) const;
+#endif
+
+#ifdef SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
+    INLINE void drawCurve(const Curve &curve, const Transform &transform, const Color &color = White,
+                          f32 opacity = 1.0f, u8 line_width = 0, u32 step_count = CURVE_STEPS) const;
+#endif
+
+#ifdef SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
+    INLINE void drawEdge(Edge edge, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) const;
+#endif
+
+#ifdef SLIM_ENABLE_VIEWPORT_GRID_DRAWING
+    INLINE void drawGrid(const Grid &grid, const Transform &transform, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) const;
+#endif
+
+#ifdef SLIM_ENABLE_VIEWPORT_MESH_DRAWING
+    INLINE void drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) const;
+#endif
 };

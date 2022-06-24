@@ -4,10 +4,8 @@
 #include "../core/transform.h"
 #include "../viewport/viewport.h"
 
-#define CURVE_STEPS 360
-
-void draw(const Curve &curve, const Transform &transform, const Viewport &viewport,
-          const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, u32 step_count = CURVE_STEPS) {
+void _drawCurve(const Curve &curve, const Transform &transform, const Viewport &viewport,
+               const Color &color, f32 opacity, u8 line_width, u32 step_count) {
     const Camera &cam = *viewport.camera;
 
     f32 one_over_step_count = 1.0f / (f32)step_count;
@@ -68,7 +66,7 @@ void draw(const Curve &curve, const Transform &transform, const Viewport &viewpo
         if (i) {
             edge.from = previous_position;
             edge.to   = current_position;
-            draw(edge, viewport, color, opacity, line_width);
+            drawEdge(edge, viewport, color, opacity, line_width);
         }
 
         switch (curve.type) {
@@ -84,4 +82,16 @@ void draw(const Curve &curve, const Transform &transform, const Viewport &viewpo
 
         previous_position = current_position;
     }
+}
+
+#ifdef SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
+INLINE void Viewport::drawCurve(const Curve &curve, const Transform &transform,
+                                const Color &color, f32 opacity, u8 line_width, u32 step_count) const {
+    _drawCurve(curve, transform, *this, color, opacity, line_width, step_count);
+}
+#endif
+
+INLINE void drawCurve(const Curve &curve, const Transform &transform, const Viewport &viewport,
+                      const Color &color = White, f32 opacity = 1.0f, u8 line_width = 0, u32 step_count = CURVE_STEPS) {
+    _drawCurve(curve, transform, viewport, color, opacity, line_width, step_count);
 }

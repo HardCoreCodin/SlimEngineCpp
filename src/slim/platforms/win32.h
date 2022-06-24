@@ -52,14 +52,14 @@ inline UINT getRawInput(LPVOID data) {
     return GetRawInputData(raw_input_handle, RID_INPUT, data, raw_input_size_ptr, raw_input_header_size);
 }
 inline bool hasRawInput() {
-    return getRawInput(0) == 0 && raw_input_size != 0;
+    return (getRawInput(0) == 0) && (raw_input_size != 0);
 }
 inline bool hasRawMouseInput(LPARAM lParam) {
     raw_input_handle = (HRAWINPUT)(lParam);
     return (
-            hasRawInput() &&
-            getRawInput((LPVOID)&raw_inputs) == raw_input_size &&
-            raw_inputs.header.dwType == RIM_TYPEMOUSE
+            (hasRawInput()) &&
+            (getRawInput((LPVOID)&raw_inputs) == raw_input_size) &&
+            (raw_inputs.header.dwType == RIM_TYPEMOUSE)
     );
 }
 
@@ -287,13 +287,12 @@ int APIENTRY WinMain(HINSTANCE hInstance,
                      HINSTANCE hPrevInstance,
                      LPSTR     lpCmdLine,
                      int       nCmdShow) {
-    void* window_content_and_canvas_memory = GlobalAlloc(GPTR, WINDOW_CONTENT_SIZE + CANVAS_SIZE);
+    void* window_content_and_canvas_memory = GlobalAlloc(GPTR, WINDOW_CONTENT_SIZE + (CANVAS_SIZE * CANVAS_COUNT));
     if (!window_content_and_canvas_memory)
         return -1;
 
     window::content = (u32*)window_content_and_canvas_memory;
-    window::canvas.pixels = (Pixel*)((u8*)window_content_and_canvas_memory + WINDOW_CONTENT_SIZE);
-    window::canvas.depths = (f32*)((u8*)window_content_and_canvas_memory + WINDOW_CONTENT_SIZE + CANVAS_PIXELS_SIZE);
+    memory::canvas_memory = (u8*)window_content_and_canvas_memory + WINDOW_CONTENT_SIZE;
 
     controls::key_map::ctrl = VK_CONTROL;
     controls::key_map::alt = VK_MENU;
@@ -374,6 +373,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
             DispatchMessageA(&message);
         }
         CURRENT_APP->OnWindowRedraw();
+        mouse::resetChanges();
         InvalidateRgn(window_handle, nullptr, false);
     }
 

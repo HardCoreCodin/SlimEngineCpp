@@ -14,8 +14,8 @@ struct vec2i {
     explicit vec2i(i32 value) noexcept : vec2i{value, value} {}
 
     INLINE bool operator == (const vec2i &other) const {
-        return other.x == x &&
-               other.y == y;
+        return (other.x == x) &&
+               (other.y == y);
     }
 
     INLINE vec2i & operator = (f32 value) {
@@ -200,11 +200,11 @@ struct vec2i {
                y != 0;
     }
 
-    INLINE i32 min() const {
+    INLINE i32 minimum() const {
         return x < y ? x : y;
     }
 
-    INLINE i32 max() const {
+    INLINE i32 maximum() const {
         return x > y ? x : y;
     }
 
@@ -271,8 +271,8 @@ struct vec2 {
     explicit vec2(const vec2i &other) noexcept : vec2{(f32)other.x, (f32)other.y} {}
 
     INLINE bool operator == (const vec2 &other) const {
-        return other.x == x &&
-               other.y == y;
+        return (other.x == x) &&
+               (other.y == y);
     }
 
     INLINE vec2 & operator = (f32 value) {
@@ -513,11 +513,11 @@ struct vec2 {
                y != 0.0f;
     }
 
-    INLINE f32 min() const {
+    INLINE f32 minimum() const {
         return x < y ? x : y;
     }
 
-    INLINE f32 max() const {
+    INLINE f32 maximum() const {
         return x > y ? x : y;
     }
 
@@ -548,7 +548,7 @@ struct vec2 {
         return *this / length();
     }
 
-    INLINE vec2 reflectAround(const vec2 &N) const {
+    INLINE vec2 reflectedAround(const vec2 &N) const {
         return N.scaleAdd(-2 * dot(N), *this);
     }
 
@@ -609,28 +609,28 @@ struct vec2 {
 vec2 vec2::X{1.0f, 0.0f};
 vec2 vec2::Y{0.0f, 1.0f};
 
-INLINE vec2 min(const vec2 &a, const vec2 &b) {
+INLINE vec2 minimum(const vec2 &a, const vec2 &b) {
     return {
         a.x < b.x ? a.x : b.x,
         a.y < b.y ? a.y : b.y
     };
 }
 
-INLINE vec2 max(const vec2 &a, const vec2 &b) {
+INLINE vec2 maximum(const vec2 &a, const vec2 &b) {
     return {
         a.x > b.x ? a.x : b.x,
         a.y > b.y ? a.y : b.y
     };
 }
 
-INLINE vec2i min(const vec2i &a, const vec2i &b) {
+INLINE vec2i minimum(const vec2i &a, const vec2i &b) {
     return {
         a.x < b.x ? a.x : b.x,
         a.y < b.y ? a.y : b.y
     };
 }
 
-INLINE vec2i max(const vec2i &a, const vec2i &b) {
+INLINE vec2i maximum(const vec2i &a, const vec2i &b) {
     return {
         a.x > b.x ? a.x : b.x,
         a.y > b.y ? a.y : b.y

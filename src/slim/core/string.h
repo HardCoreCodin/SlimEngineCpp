@@ -51,7 +51,7 @@ struct String {
     static u32 getDirectoryLength(char *path) {
         u32 path_len = getLength(path);
         u32 dir_len = path_len;
-        while (path[dir_len] != '/' && path[dir_len] != '\\') dir_len--;
+        while ((path[dir_len] != '/') && (path[dir_len] != '\\')) dir_len--;
         return dir_len + 1;
     }
 };
@@ -61,7 +61,7 @@ struct NumberString {
     String string{_buffer, 0};
     char _buffer[13]{};
 
-    explicit NumberString(u8 digit_count = 3) : string{_buffer, 1}, float_digits_count{digit_count} {
+    explicit NumberString(u8 digit_count = 3) : float_digits_count{digit_count}, string{_buffer, 1} {
         _buffer[12] = 0;
         for (u8 i = 0; i < 12; i++)
             _buffer[i] = ' ';
@@ -72,10 +72,10 @@ struct NumberString {
         char *char_ptr = (char*)str;
         string.length = (u8)String::getLength(char_ptr);
         if (string.length > 12) string.length = 12;
-        if (*str >= '0' && *str <= '9') {
+        if ((*str >= '0') && (*str <= '9')) {
             char_ptr += string.length;
             char_ptr--;
-            for (char i = 11; i >= 0; i--, char_ptr--)
+            for (i32 i = 11; i >= 0; i--, char_ptr--)
                 _buffer[i] = (11 - i) < float_digits_count ? *char_ptr : ' ';
         } else {
             for (u8 i = 0; i < string.length; i++, char_ptr++) _buffer[i] = *char_ptr;

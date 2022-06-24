@@ -27,24 +27,20 @@ struct Navigation {
         camera.pan(settings.speed.pan * -(f32)mouse::pos_raw_diff_x,
                    settings.speed.pan * +(f32)mouse::pos_raw_diff_y);
         moved = true;
-        mouse::raw_movement_handled = true;
         mouse::moved = false;
     }
     void zoom(Camera &camera) {
         camera.zoom(settings.speed.zoom * mouse::wheel_scroll_amount);
         zoomed = true;
-        mouse::wheel_scroll_handled = true;
     }
     void dolly(Camera &camera) {
         camera.dolly(settings.speed.dolly * mouse::wheel_scroll_amount);
         moved = true;
-        mouse::wheel_scroll_handled = true;
     }
     void orient(Camera &camera) {
         camera.rotate(settings.speed.orient * -(f32)mouse::pos_raw_diff_y,
                       settings.speed.orient * -(f32)mouse::pos_raw_diff_x);
         mouse::moved = false;
-        mouse::raw_movement_handled = true;
         turned = true;
     }
     void orbit(Camera &camera) {
@@ -52,7 +48,6 @@ struct Navigation {
                      settings.speed.orbit * -(f32)mouse::pos_raw_diff_y);
         turned = true;
         moved = true;
-        mouse::raw_movement_handled = true;
         mouse::moved = false;
     }
     void navigate(Camera &camera, f32 delta_time) {

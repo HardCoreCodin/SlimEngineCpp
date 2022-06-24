@@ -1,4 +1,13 @@
-#include "../slim/scene/grid.h"
+#ifdef SLIMMER
+#define SLIM_DISABLE_ALL_CANVAS_DRAWING
+#define SLIM_ENABLE_CANVAS_HUD_DRAWING
+
+#define SLIM_DISABLE_ALL_VIEWPORT_DRAWING
+#define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
+#define SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
+#endif
+
+#include "../slim/draw/hud.h"
 #include "../slim/draw/grid.h"
 #include "../slim/draw/camera.h"
 #include "../slim/app.h"
@@ -21,7 +30,18 @@ struct CamerasApp : SlimApp {
     Color camera1_color = Cyan;
     Color camera2_color = Yellow;
     Color other_camera_color = camera2_color;
-    Viewport viewport{window::canvas,&camera1};
+    Canvas canvas;
+    Viewport viewport{canvas,&camera1};
+    bool antialias = false;
+
+    // HUD:
+    HUDLine AA{(char*)"AA : ",
+               (char*)"On",
+               (char*)"Off",
+               &antialias,
+               true};
+    HUDSettings hud_settings{1};
+    HUD hud{hud_settings, &AA};
 
     // Geometry:
     Grid grid{11, 11};
@@ -34,18 +54,24 @@ struct CamerasApp : SlimApp {
     };
 
     // Drawing:
-    f32 opacity = 0.5f;
-    u8 line_width = 0;
-    Color color = White;
+    f32 opacity = 0.2f;
+
+    void OnRender() override {
+        const Camera &camera{*other_camera};
+        const Color color{other_camera_color};
+
+        canvas.clear();
+        viewport.drawGrid(grid, transform,White, opacity);
+        viewport.drawCamera(camera,color, opacity);
+        if (hud.enabled)
+            canvas.drawHUD(hud);
+        canvas.drawToWindow();
+    }
 
     void OnUpdate(f32 delta_time) override {
         viewport.updateNavigation(delta_time);
     }
-    void OnRender() override {
-        draw(grid, transform, viewport, color, opacity, line_width);
-        draw(*other_camera, viewport,
-             other_camera_color, opacity, line_width);
-    }
+
     void OnKeyChanged(u8 key, bool is_pressed) override {
         if (key == '1') viewport.setCamera(camera1);
         if (key == '2') viewport.setCamera(camera2);
@@ -59,17 +85,26 @@ struct CamerasApp : SlimApp {
 
         Move &move = viewport.navigation.move;
         Turn &turn = viewport.navigation.turn;
-        if (key == 'Q') turn.left     = is_pressed;
-        if (key == 'E') turn.right    = is_pressed;
+        if (key == 'X') turn.left     = is_pressed;
+        if (key == 'C') turn.right    = is_pressed;
         if (key == 'R') move.up       = is_pressed;
         if (key == 'F') move.down     = is_pressed;
         if (key == 'W') move.forward  = is_pressed;
         if (key == 'S') move.backward = is_pressed;
         if (key == 'A') move.left     = is_pressed;
         if (key == 'D') move.right    = is_pressed;
+        if (!is_pressed) {
+            if (key == controls::key_map::tab)
+                hud.enabled = !hud.enabled;
+            else if (key == 'Q') {
+                canvas.antialias = canvas.antialias == NoAA ? SSAA : NoAA;
+                antialias = canvas.antialias == SSAA;
+            }
+        }
     }
     void OnWindowResize(u16 width, u16 height) override {
         viewport.updateDimensions(width, height);
+        canvas.dimensions.update(width, height);
     }
     void OnMouseButtonDown(mouse::Button &mouse_button) override {
         mouse::pos_raw_diff_x = mouse::pos_raw_diff_y = 0;

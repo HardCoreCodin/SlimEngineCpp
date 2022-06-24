@@ -1,6 +1,19 @@
+#ifdef SLIMMER
+#define SLIM_DISABLE_ALL_CANVAS_DRAWING
+#define SLIM_ENABLE_CANVAS_HUD_DRAWING
+#define SLIM_ENABLE_CANVAS_TEXT_DRAWING
+
+#define SLIM_DISABLE_ALL_VIEWPORT_DRAWING
+#define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
+#define SLIM_ENABLE_VIEWPORT_MESH_DRAWING
+#define SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
+#define SLIM_ENABLE_VIEWPORT_BOX_DRAWING
+#endif
+
 #include "../slim/scene/selection.h"
-#include "../slim/draw/grid.h"
+#include "../slim/draw/text.h"
 #include "../slim/draw/hud.h"
+#include "../slim/draw/grid.h"
 #include "../slim/draw/mesh.h"
 #include "../slim/draw/curve.h"
 #include "../slim/draw/box.h"
@@ -16,53 +29,86 @@ struct SceneApp : SlimApp {
        {0, 10, -15},
        {-25*DEG_TO_RAD,0, 0}
     }, *cameras{&camera};
-    Viewport viewport{window::canvas, &camera};
+    Canvas canvas;
+    Viewport viewport{canvas, &camera};
+    bool antialias = false;
+
+    // HUD:
+    HUDLine AA{(char*)"AA : ",
+               (char*)"On",
+               (char*)"Off",
+               &antialias,
+               true};
+    HUDSettings hud_settings{1};
+    HUD hud{hud_settings, &AA};
 
     // Scene:
-    Box box{}, *boxes{&box};
+    Box box, *boxes{&box};
     Grid grid{11, 11}, *grids{&grid};
-    Curve helix{CurveType::Helix, 10}, coil{CurveType::Coil, 30}, *curves{&helix};
-    Mesh suz, dog, *meshes{&suz};
-    Transform grid_transform{{0, 0, 0},{0, 45 * DEG_TO_RAD, 0},{5, 1, 5}};
-    Geometry grid1{grid_transform,GeometryType_Grid, Green};
-    Geometry helix1{{ {-3, 4, 2} },GeometryType_Curve,Cyan};
-    Geometry coil1{{ {4, 4, 2} }, GeometryType_Curve,Magenta,1};
-    Geometry suz1{{{+8, 5, 0} }, GeometryType_Mesh, Yellow};
-    Geometry suz2{{{-8, 5, 0} }, GeometryType_Mesh, Cyan};
-    Geometry dog1{{{0, 5, 5} }, GeometryType_Mesh, Blue, 1};
-    Geometry box1{{},GeometryType_Curve,Yellow}, *geometries{&grid1};
+    Curve helix{CurveType::Helix, 10};
+    Curve coil{ CurveType::Coil,  30}, *curves{&helix};
+
+    Geometry grid_geo{{{0, 0, 0}, {0, 45 * DEG_TO_RAD, 0}, {5, 1, 5}}, GeometryType_Grid, Green};
+    Geometry helix_geo{{{-3, 4, 2}}, GeometryType_Curve, Cyan};
+    Geometry coil_geo{{{4, 4, 2}}, GeometryType_Curve, Magenta, 1};
+    Geometry suzanne_geo1{{{+8, 5, 0}}, GeometryType_Mesh, Yellow};
+    Geometry suzanne_geo2{{{-8, 5, 0}}, GeometryType_Mesh, Cyan};
+    Geometry dragon_geo{{{0, 5, 5}}, GeometryType_Mesh, Blue, 1};
+    Geometry box_geo{{}, GeometryType_Box, Yellow}, *geometries{&grid_geo};
 
     char strings[3][100] = {};
-    String scene_file = String::getFilePath((char*)"this.scene",strings[0],(char*)__FILE__);
+    Mesh meshes[2];
     String mesh_files[2] = {
             String::getFilePath((char*)"suzanne.mesh",strings[1],(char*)__FILE__),
-            String::getFilePath((char*)"dog.mesh"    ,strings[2],(char*)__FILE__)
+            String::getFilePath((char*)"dragon.mesh" ,strings[2],(char*)__FILE__)
     };
+    String scene_file = String::getFilePath((char*)"this.scene",strings[0],(char*)__FILE__);
     SceneCounts counts{1, 7, 1, 1, 2, 2 };
     Scene scene{counts,scene_file.char_ptr, cameras, geometries, grids, boxes, curves, meshes, mesh_files};
     Selection selection;
 
     // Drawing:
-    f32 opacity = 0.5f;
-    u8 line_width = 0;
+    f32 opacity = 0.2f;
 
     void OnUpdate(f32 delta_time) override {
         if (!mouse::is_captured) selection.manipulate(viewport, scene);
         if (!controls::is_pressed::alt) viewport.updateNavigation(delta_time);
     }
+
     void OnRender() override {
+        canvas.clear();
+
         bool draw_normals = controls::is_pressed::ctrl;
-        draw(dog,dog1.transform, draw_normals, viewport,dog1.color, opacity, line_width);
-        draw(suz,suz1.transform, draw_normals, viewport,suz1.color, opacity, line_width);
-        draw(suz,suz2.transform, draw_normals, viewport,suz2.color, opacity, line_width);
-        draw(grid,grid1.transform, viewport, grid1.color, opacity, line_width);
-        draw(box,box1.transform, viewport, box1.color, opacity, line_width);
-        draw(coil,coil1.transform, viewport ,coil1.color, opacity, line_width);
-        draw(helix,helix1.transform, viewport, helix1.color, opacity, line_width);
+        for (u32 i = 0; i < counts.geometries; i++) {
+            Geometry &geo{geometries[i]};
+            Transform &transform{geo.transform};
+            Color color{geo.color};
+            switch (geo.type) {
+                case GeometryType_Grid: {
+                    viewport.drawGrid(grid, transform, color, opacity);
+                } break;
+                case GeometryType_Box: {
+                    viewport.drawBox(box, transform, color, opacity);
+                } break;
+                case GeometryType_Curve: {
+                    Curve &curve{curves[geo.id]};
+                    viewport.drawCurve(curve, transform, color, opacity);
+                } break;
+                case GeometryType_Mesh: {
+                    Mesh &mesh{meshes[geo.id]};
+                    viewport.drawMesh(mesh, transform, draw_normals, color, opacity);
+                } break;
+            }
+        }
+
         if (controls::is_pressed::alt)
-            draw(selection, viewport, scene);
+            drawSelection(selection, viewport, scene);
         drawMessage();
+        if (hud.enabled)
+            canvas.drawHUD(hud);
+        canvas.drawToWindow();
     }
+
     void drawMessage() const {
         f64 now = (f64) time::getTicks();
         f64 tps = (f64) time::ticks_per_second;
@@ -70,30 +116,36 @@ struct SceneApp : SlimApp {
             char *text;
             Color color;
             if (scene.last_io_is_save) {
-                text = (char *) "Scene saved to: this.scene";
+                text = (char*)"Scene saved to: this.scene";
                 color = Yellow;
             } else {
-                text = (char *) "Scene loaded from: this.scene";
+                text = (char*)"Scene loaded from: this.scene";
                 color = Cyan;
             }
-            draw(text, 50, 20,
-                 viewport.canvas, color);
+            canvas.drawText(text, 50, 20, color);
         }
     }
     void OnKeyChanged(u8 key, bool is_pressed) override {
-        if (controls::is_pressed::ctrl &&
-            !is_pressed && key == 'S' || key == 'Z') {
-            scene.last_io_is_save = key == 'S';
-            if (scene.last_io_is_save)
-                save(scene, scene_file.char_ptr);
-            else
-                load(scene, scene_file.char_ptr);
-            scene.last_io_ticks = time::getTicks();
+        if (!is_pressed) {
+            if (key == controls::key_map::tab)
+                hud.enabled = !hud.enabled;
+            else if (key == 'Q') {
+                canvas.antialias = canvas.antialias == NoAA ? SSAA : NoAA;
+                antialias = canvas.antialias == SSAA;
+            } else if (controls::is_pressed::ctrl &&
+                       (key == 'Z' || key == 'S')) {
+                scene.last_io_is_save = key == 'S';
+                if (scene.last_io_is_save)
+                    save(scene, scene_file.char_ptr);
+                else
+                    load(scene, scene_file.char_ptr);
+                scene.last_io_ticks = time::getTicks();
+            }
         }
         Move &move = viewport.navigation.move;
         Turn &turn = viewport.navigation.turn;
-        if (key == 'Q') turn.left     = is_pressed;
-        if (key == 'E') turn.right    = is_pressed;
+        if (key == 'X') turn.left     = is_pressed;
+        if (key == 'C') turn.right    = is_pressed;
         if (key == 'R') move.up       = is_pressed;
         if (key == 'F') move.down     = is_pressed;
         if (key == 'W') move.forward  = is_pressed;
@@ -103,6 +155,7 @@ struct SceneApp : SlimApp {
     }
     void OnWindowResize(u16 width, u16 height) override {
         viewport.updateDimensions(width, height);
+        canvas.dimensions.update(width, height);
     }
     void OnMouseButtonDown(mouse::Button &mouse_button) override {
         mouse::pos_raw_diff_x = mouse::pos_raw_diff_y = 0;

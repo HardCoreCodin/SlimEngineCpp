@@ -35,9 +35,9 @@ struct vec3 {
     }
 
     INLINE bool operator == (const vec3 &other) const {
-        return other.x == x &&
-               other.y == y &&
-               other.z == z;
+        return (other.x == x) &&
+               (other.y == y) &&
+               (other.z == z);
     }
 
     INLINE bool operator ! () const {
@@ -249,11 +249,11 @@ struct vec3 {
         };
     }
 
-    INLINE f32 min() const {
+    INLINE f32 minimum() const {
         return x < y ? (x < z ? x : z) : (y < z ? y : z);
     }
 
-    INLINE f32 max() const {
+    INLINE f32 maximum() const {
         return x > y ? (x > z ? x : z) : (y > z ? y : z);
     }
 
@@ -281,7 +281,7 @@ struct vec3 {
         return *this / length();
     }
 
-    INLINE vec3 reflectAround(const vec3 &N) const {
+    INLINE vec3 reflectedAround(const vec3 &N) const {
         return N.scaleAdd(-2 * dot(N), *this);
     }
 
@@ -350,7 +350,7 @@ vec3 vec3::X{1, 0, 0};
 vec3 vec3::Y{0, 1, 0};
 vec3 vec3::Z{0, 0, 1};
 
-INLINE vec3 min(const vec3 &a, const vec3 &b) {
+INLINE vec3 minimum(const vec3 &a, const vec3 &b) {
     return {
         a.x < b.x ? a.x : b.x,
         a.y < b.y ? a.y : b.y,
@@ -358,7 +358,7 @@ INLINE vec3 min(const vec3 &a, const vec3 &b) {
     };
 }
 
-INLINE vec3 max(const vec3 &a, const vec3 &b) {
+INLINE vec3 maximum(const vec3 &a, const vec3 &b) {
     return {
         a.x > b.x ? a.x : b.x,
         a.y > b.y ? a.y : b.y,
@@ -407,7 +407,8 @@ struct Edge {
 };
 
 struct AABB {
-    vec3 min{-1}, max{1};
+    vec3 min = -1;
+    vec3 max = +1;
 
     AABB(f32 min_x, f32 min_y, f32 min_z,
          f32 max_x, f32 max_y, f32 max_z) : AABB{
@@ -420,16 +421,16 @@ struct AABB {
 };
 
 struct RayHit {
-    vec3 position{}, normal{};
-    f32 distance{}, distance_squared{};
-    u32 geo_id{};
-    enum GeometryType geo_type{GeometryType_None};
-    bool from_behind{false};
+    vec3 position, normal;
+    f32 distance, distance_squared;
+    u32 geo_id;
+    enum GeometryType geo_type = GeometryType_None;
+    bool from_behind = false;
 };
 
 struct Ray {
-    vec3 origin{}, direction{};
-    RayHit hit{};
+    vec3 origin, direction;
+    RayHit hit;
 
     INLINE vec3 at(f32 t) const { return origin + t*direction; }
     INLINE vec3 operator [](f32 t) const { return at(t); }

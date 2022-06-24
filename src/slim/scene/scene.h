@@ -51,7 +51,8 @@ struct Scene {
         meshes{meshes}
     {
         if (meshes && mesh_files && counts.meshes) {
-            meshes = new(meshes) Mesh[counts.meshes];
+            for (u32 i = 0; i < counts.meshes; i++)
+                meshes[i] = Mesh{};
             memory::MonotonicAllocator temp_allocator;
             if (!memory_allocator) {
                 u32 capacity = getTotalMemoryForMeshes(mesh_files, 2);

@@ -42,18 +42,18 @@ Additional features include facilities for interactive 3D applications:<br><br>
 * Scene selection with interactive transformations (moving, rotating and scaling)<br>
 * Customizable Heads Up Display (HUD)<br>
 * 3D Viewport with rich mouse/keyboard navigation<br>
-* 3D Line drawing for wireframe rendering (optionally multi-sampled for very clean lines)<br>
+* 3D Line drawing for wireframe rendering (optionally super-sampled for extra clean lines)<br>
 <br>
-<img src="src/examples/MSAA.gif" alt="MSAA"><br><br>
+<img src="src/examples/SSAA.gif"><br><br>
 
 Well documented example applications cover the features:<br><br>
 
 * <b><u>Viewport:</b></u><br><br>
-  <img src="src/examples/1_viewport_HUD.gif"><br><br>
+  <img src="src/examples/1_viewport.gif"><br><br>
   Binds to a Canvas and a Camera:<br><br> 
   <img src="src/examples/1_viewport_setup.png"><br><br>
   Used for all 3D geometry drawing:<br><br>
-  <img src="src/examples/1_viewport_drawing.png"><br><br>
+  <img src="src/examples/1_viewport_render.png"><br><br>
   Can be made to resize with the window:<br><br>
   <img src="src/examples/1_viewport_resize.png"><br><br>
   <br>
@@ -83,17 +83,17 @@ Well documented example applications cover the features:<br><br>
   Different cameras can be (re)bound to any viewport at runtime:<br><br>
   <img src="src/examples/3_cameras_binding.png"><br><br>
   Cameras can also be drawn to a viewport:<br><br>
-  <img src="src/examples/3_cameras_drawing.png"><br><br>
+  <img src="src/examples/3_cameras_render.png"><br><br>
   <br>
 
 * <b><u>Shapes</b>:</u><br><br>
-  <img src="src/examples/4_shapes_rotating.gif"><br>
+  <img src="src/examples/4_shapes.gif"><br>
   Grids, Boxes and Curves contain their parameters, transforms are kept separately:<br><br>
   <img src="src/examples/4_shapes_setup.png"><br><br>
   Transforms can be modified with ease:<br><br>
   <img src="src/examples/4_shapes_update.png"><br><br>
   Wireframe viewport drawing is provided with transforms explicitly:<br><br>
-  <img src="src/examples/4_shapes_drawing.png"><br><br>
+  <img src="src/examples/4_shapes_render.png"><br><br>
   <br>
   
 * <b><u>Scene Selection and Manipulation</b>:</u><br><br>
@@ -108,7 +108,7 @@ Well documented example applications cover the features:<br><br>
   <br>
 
 * <b><u>Mesh</b>:</u><br><br>
-  <img src="src/examples/6_mesh_with_normals.gif"><br><br>
+  <img src="src/examples/6_mesh_normals.gif"><br><br>
   Triangular meshes can be loaded from `.mesh` files containing vertex positions, normals and uvs.<br><br>
   <img src="src/examples/6_mesh_setup.png"><br><br>
   Meshes bind to Geometry objects with Transforms and are part of a Scene like any other geometry type.<br>
@@ -117,17 +117,18 @@ Well documented example applications cover the features:<br><br>
   Meshes are instanced by having different Geometry objects bound to the same Mesh.<br><br>
   <img src="src/examples/6_mesh_instancing.gif"><br><br>
   They can then be drawn in different colors and with different transforms:<br><br>
-  <img src="src/examples/6_mesh_drawing.png"><br><br>
+  <img src="src/examples/6_mesh_render.png"><br><br>
   <br>
 
 * <b><u>Scene Save/Load</b>:</u><br><br>
   <img src="src/examples/7_scene.gif"><br><br>
-  A Scene can be associated with a `.scene` file:<br><br>
-  <img src="src/examples/7_scene_setup.png"><br><br>
+  A Scene can be associated with a `.scene` file.<br><br>
   It can then be saved to and loaded back from that file (in-place):<br><br>
-  <img src="src/examples/7_scene_update.png"><br><br>
+  <img src="src/examples/7_scene_setup.png"><br><br>
   Saving and loading times are tracked for notification:<br><br>
-  <img src="src/examples/7_scene_drawing.png"><br><br>
+  <img src="src/examples/7_scene_update.png"><br><br>
+  Drawing of the scene can be generalized using geometries based on their types:<br><br>
+  <img src="src/examples/7_scene_render.png"><br><br>
   <br>
 
 * <b><u>obj2mesh</b>:</u> Also privided is a separate CLI tool for converting `.obj` files to `.mesh` files.<br>
@@ -137,6 +138,7 @@ Well documented example applications cover the features:<br><br>
   - rotY:\<float\>: Apply an embedded rotation around the Y axis<br>
   
 <b>SlimEngine</b> does not come with any GUI functionality at this point.<br>
+Super Sampled Anti-Aliasing can be toggled on or off in all examples using the `Q` key.<br>
 Some example apps have an optional HUD that shows additional information.<br>
 It can be toggled on or off using the`tab` key.<br>
 
@@ -157,6 +159,8 @@ Hold `A` to move left<br>
 Hold `D` to move right<br>
 Hold `R` to move up<br>
 Hold `F` to move down<br>
+Hold `X` to Turn left<br>
+Hold `C` to Turn right<br>
 
 Exit this mode by double clicking the `left mouse button`.
 

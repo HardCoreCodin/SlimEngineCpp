@@ -3,11 +3,8 @@
 #include "./vec4.h"
 
 struct mat4 {
-    union {
-        f32 components[16];
-        vec4 axis[4];
-        struct { vec4 X, Y, Z, W; };
-    };
+    vec4 X, Y, Z, W;
+
     static mat4 Identity;
 
     mat4() noexcept :

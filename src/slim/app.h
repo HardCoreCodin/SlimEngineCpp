@@ -1,14 +1,7 @@
 #pragma once
 
-#include "core/canvas.h"
+#include "./core/base.h"
 
-namespace window {
-    u16 width{DEFAULT_WIDTH};
-    u16 height{DEFAULT_HEIGHT};
-    char* title{(char*)""};
-    u32 *content{nullptr};
-    Canvas canvas{nullptr, nullptr};
-}
 
 struct SlimApp {
     time::Timer update_timer, render_timer;
@@ -30,19 +23,14 @@ struct SlimApp {
         OnUpdate(update_timer.delta_time);
         update_timer.endFrame();
 
-        window::canvas.clear();
         render_timer.beginFrame();
         OnRender();
         render_timer.endFrame();
-        window::canvas.renderToContent(window::content);
-        mouse::resetChanges();
     };
 
     void resize(u16 width, u16 height) {
         window::width = width;
         window::height = height;
-        window::canvas.dimensions.update(width, height);
-
         OnWindowResize(width, height);
         OnWindowRedraw();
     }

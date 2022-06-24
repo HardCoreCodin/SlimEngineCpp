@@ -31,11 +31,8 @@ struct GridAxisVertices {
     }
 };
 
-union GridVertices {
-    vec3 buffer[2][2][GRID__MAX_SEGMENTS];
-    struct {
-        GridAxisVertices u, v;
-    };
+struct GridVertices {
+    GridAxisVertices u, v;
 
     GridVertices(u8 U_segments = GRID__MAX_SEGMENTS, u8 V_segments = GRID__MAX_SEGMENTS) : u{U_segments, true}, v{V_segments, false} {}
 
@@ -63,14 +60,13 @@ struct GridAxisEdges {
     }
 };
 
-union GridEdges {
-    Edge buffer[2][GRID__MAX_SEGMENTS];
+struct GridEdges {
+    GridAxisEdges u, v;
 
-    struct {
-        GridAxisEdges u, v;
-    };
-
-    GridEdges(const GridVertices &vertices, u8 u_segments, u8 v_segments) {
+    GridEdges(const GridVertices &vertices, u8 u_segments, u8 v_segments) :
+        u{vertices.u, u_segments},
+        v{vertices.v, v_segments}
+   {
         update(vertices, u_segments, v_segments);
     }
 

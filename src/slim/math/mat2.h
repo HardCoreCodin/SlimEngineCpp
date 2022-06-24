@@ -3,12 +3,7 @@
 #include "./vec2.h"
 
 struct mat2 {
-    union {
-        f32 components[4];
-        vec2 axis[2];
-        struct { vec2 X, Y; };
-        struct { vec2 right, up; };
-    };
+    vec2 X, Y;
 
     static mat2 Identity;
 

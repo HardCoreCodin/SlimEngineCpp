@@ -3,12 +3,7 @@
 #include "./vec3.h"
 
 struct mat3 {
-    union {
-        f32 components[9];
-        vec3 axis[3];
-        struct { vec3 X, Y, Z; };
-        struct { vec3 right, up, forward; };
-    };
+    vec3 X, Y, Z;
 
     static mat3 Identity;
 
@@ -298,3 +293,12 @@ INLINE mat3 outerVec3(const vec3 &lhs, const vec3 &rhs) {
             lhs * rhs.z
     };
 }
+
+struct OrientationUsing3x3Matrix : Orientation<mat3> {
+    vec3 &right{rotation.X};
+    vec3 &up{rotation.Y};
+    vec3 &forward{rotation.Z};
+
+    OrientationUsing3x3Matrix(f32 x_radians = 0.0f, f32 y_radians = 0.0f, f32 z_radians = 0.0f) :
+        Orientation<mat3>{x_radians, y_radians, z_radians} {}
+};

@@ -2,14 +2,18 @@
 
 #include "../math/quat.h"
 
-struct Transform : public Orientation<quat> {
+struct Transform : OrientationUsingQuaternion {
     vec3 position{0.0f};
     vec3 scale{1.0f};
 
-    Transform() : Orientation<quat>{}, position{0.0f}, scale{1.0f} {}
-    Transform(const vec3 &position) : Orientation<quat>{}, position{position}, scale{1.0f} {}
+    Transform() : OrientationUsingQuaternion{}, position{0.0f}, scale{1.0f} {}
+    Transform(const vec3 &position) : OrientationUsingQuaternion{}, position{position}, scale{1.0f} {}
     Transform(const vec3 &position, const vec3 &orientation, const vec3 &scale = vec3{1.0f}) :
-            Orientation{orientation.x, orientation.y, orientation.z}, position{position}, scale{scale} {}
+            OrientationUsingQuaternion{
+        orientation.x,
+        orientation.y,
+        orientation.z
+        }, position{position}, scale{scale} {}
 
     void externPosAndDir(const vec3 &pos, const vec3 &dir, vec3 &out_pos, vec3 &out_dir) const {
         out_pos = position + (rotation * (scale * position));

@@ -59,8 +59,68 @@ typedef signed   long int  i32;
 typedef float  f32;
 typedef double f64;
 
-#define FONT_WIDTH 18
-#define FONT_HEIGHT 24
+#ifndef SLIM_DISABLE_ALL_CANVAS_DRAWING
+    #ifndef SLIM_ENABLE_CANVAS_TEXT_DRAWING
+        #define SLIM_ENABLE_CANVAS_TEXT_DRAWING
+    #endif
+
+    #ifndef SLIM_ENABLE_CANVAS_NUMBER_DRAWING
+        #define SLIM_ENABLE_CANVAS_NUMBER_DRAWING
+    #endif
+
+    #ifndef SLIM_ENABLE_CANVAS_HUD_DRAWING
+        #define SLIM_ENABLE_CANVAS_HUD_DRAWING
+    #endif
+
+    #ifndef SLIM_ENABLE_CANVAS_LINE_DRAWING
+        #define SLIM_ENABLE_CANVAS_LINE_DRAWING
+    #endif
+
+    #ifndef SLIM_ENABLE_CANVAS_RECTANGLE_DRAWING
+        #define SLIM_ENABLE_CANVAS_RECTANGLE_DRAWING
+    #endif
+
+    #ifndef SLIM_ENABLE_CANVAS_TRIANGLE_DRAWING
+        #define SLIM_ENABLE_CANVAS_TRIANGLE_DRAWING
+    #endif
+
+    #ifndef SLIM_ENABLE_CANVAS_CIRCLE_DRAWING
+        #define SLIM_ENABLE_CANVAS_CIRCLE_DRAWING
+    #endif
+#endif
+
+#ifndef SLIM_DISABLE_ALL_VIEWPORT_DRAWING
+    #ifndef SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
+        #define SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
+    #endif
+
+    #ifndef SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
+        #define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
+    #endif
+
+    #ifndef SLIM_ENABLE_VIEWPORT_BOX_DRAWING
+        #define SLIM_ENABLE_VIEWPORT_BOX_DRAWING
+    #endif
+
+    #ifndef SLIM_ENABLE_VIEWPORT_MESH_DRAWING
+        #define SLIM_ENABLE_VIEWPORT_MESH_DRAWING
+    #endif
+
+    #ifndef SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
+        #define SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
+    #endif
+
+    #ifndef SLIM_ENABLE_VIEWPORT_GRID_DRAWING
+        #define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
+    #endif
+#endif
+
+#ifndef CANVAS_COUNT
+#define CANVAS_COUNT 2
+#endif
+
+#define FONT_WIDTH 9
+#define FONT_HEIGHT 12
 
 #define TAU 6.28f
 #define COLOR_COMPONENT_TO_FLOAT 0.00392156862f
@@ -91,6 +151,8 @@ typedef double f64;
 #define BOX__VERTEX_COUNT 8
 #define BOX__EDGE_COUNT 12
 #define GRID__MAX_SEGMENTS 101
+
+#define CURVE_STEPS 360
 
 #define CUBE_UV_COUNT 4
 #define CUBE_NORMAL_COUNT 6
@@ -143,6 +205,11 @@ INLINE i32 clampedValue(i32 value) {
     return mn > 0 ? mn : 0;
 }
 
+f32 smoothstep(f32 from, f32 to, f32 t) {
+    t = (t - from) / (to - from);
+    return t * t * (3 - 2 * t);
+}
+
 template <typename T>
 INLINE void swap(T *a, T *b) {
     T t = *a;
@@ -158,8 +225,8 @@ struct RangeOf {
     RangeOf(T first, T last) : first{first}, last{last} {}
     RangeOf(const RangeOf<T> &other) : RangeOf{other.first, other.last} {}
 
-    INLINE bool contains(i32 v) const { return first <= v && v <= last; }
-    INLINE bool bounds(i32 v) const { return first < v && v < last; }
+    INLINE bool contains(i32 v) const { return (first <= v) && (v <= last); }
+    INLINE bool bounds(i32 v) const { return (first < v) && (v < last); }
     INLINE bool operator!() const { return last < first; }
     INLINE bool operator[](T v) const { return contains(v); }
     INLINE bool operator()(T v) const { return bounds(v); }
@@ -214,8 +281,8 @@ struct RectOf {
     INLINE bool operator!() const { return !x_range || !y_range; }
     INLINE bool isOutsideOf(const RectOf<T> &other) {
         return (
-            other.right < left || right < other.left ||
-            other.bottom < top || bottom < other.top
+                other.right < left || right < other.left ||
+                other.bottom < top || bottom < other.top
         );
     }
     INLINE void operator+=(T offset) {x_range += offset; y_range += offset;}
@@ -507,10 +574,27 @@ struct Color {
         }
     }
 
-    INLINE void toGamma() {
+    INLINE Color& gammaCorrect() {
         r *= r;
         g *= g;
         b *= b;
+        return *this;
+    }
+
+    INLINE Color operator + (const Color &rhs) const {
+        return {
+                r + rhs.r,
+                g + rhs.g,
+                b + rhs.b
+        };
+    }
+
+    INLINE Color operator + (f32 scalar) const {
+        return {
+                r + scalar,
+                g + scalar,
+                b + scalar
+        };
     }
 
     INLINE Color& operator += (const Color &rhs) {
@@ -520,11 +604,114 @@ struct Color {
         return *this;
     }
 
-    INLINE Color operator * (f32 factor) const {
+    INLINE Color& operator += (f32 scalar) {
+        r += scalar;
+        g += scalar;
+        b += scalar;
+        return *this;
+    }
+
+    INLINE Color operator - (const Color &rhs) const {
         return {
-            r * factor,
-            g * factor,
-            b * factor
+            r - rhs.r,
+            g - rhs.g,
+            b - rhs.b
+        };
+    }
+
+    INLINE Color operator - (f32 scalar) const {
+        return {
+                r - scalar,
+                g - scalar,
+                b - scalar
+        };
+    }
+
+    INLINE Color& operator -= (const Color &rhs) {
+        r -= rhs.r;
+        g -= rhs.g;
+        b -= rhs.b;
+        return *this;
+    }
+
+    INLINE Color& operator -= (f32 scalar) {
+        r -= scalar;
+        g -= scalar;
+        b -= scalar;
+        return *this;
+    }
+
+    INLINE Color operator * (const Color &rhs) const {
+        return {
+                r * rhs.r,
+                g * rhs.g,
+                b * rhs.b
+        };
+    }
+
+    INLINE Color operator * (f32 scalar) const {
+        return {
+            r * scalar,
+            g * scalar,
+            b * scalar
+        };
+    }
+
+    INLINE Color& operator *= (const Color &rhs) {
+        r *= rhs.r;
+        g *= rhs.g;
+        b *= rhs.b;
+        return *this;
+    }
+
+    INLINE Color& operator *= (f32 scalar) {
+        r *= scalar;
+        g *= scalar;
+        b *= scalar;
+        return *this;
+    }
+
+    INLINE Color operator / (const Color &rhs) const {
+        return {
+                r / rhs.r,
+                g / rhs.g,
+                b / rhs.b
+        };
+    }
+
+    INLINE Color operator / (f32 scalar) const {
+        scalar = 1.0f / scalar;
+        return {
+                r * scalar,
+                g * scalar,
+                b * scalar
+        };
+    }
+
+    INLINE Color& operator /= (const Color &rhs) {
+        r /= rhs.r;
+        g /= rhs.g;
+        b /= rhs.b;
+        return *this;
+    }
+
+    INLINE Color& operator /= (f32 scalar) {
+        scalar = 1.0f / scalar;
+        r *= scalar;
+        g *= scalar;
+        b *= scalar;
+        return *this;
+    }
+
+    INLINE Color lerpTo(const Color &to, f32 by) const {
+        return (to - *this).scaleAdd(by, *this);
+    }
+
+    INLINE Color scaleAdd(f32 factor, const Color &to_be_added) const {
+        return {
+            fast_mul_add(r, factor, to_be_added.r),
+            fast_mul_add(g, factor, to_be_added.g),
+            fast_mul_add(b, factor, to_be_added.b)
         };
     }
 
@@ -558,10 +745,14 @@ struct Pixel {
         return *this;
     }
 
-    INLINE Pixel alphaBlendOver(const Pixel &background) const {
-        f32 background_opacity = background.opacity * (1.0f - opacity);
-        f32 new_opacity = background_opacity + opacity;
-        f32 one_over_opacity = new_opacity == 0 ? 1.0f : 1.0f / new_opacity;
+    INLINE Pixel alphaBlendOver(const Pixel &background, bool premultiplied) const {
+        const f32 one_minus_opacity = 1.0f - opacity;
+        const f32 background_opacity = background.opacity * one_minus_opacity;
+        const f32 new_opacity = background_opacity + opacity;
+        if (premultiplied)
+            return {color + (background.color * one_minus_opacity), new_opacity};
+
+        f32 one_over_opacity = new_opacity == 0 ? 0.0f : 1.0f / new_opacity;
         return {
                 color.blendWith(
                     background.color,
@@ -572,13 +763,20 @@ struct Pixel {
         };
     }
 
-    INLINE u32 asContent(bool premultiply = false) const {
-        u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(premultiply ? color.r * opacity : color.r)));
-        u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(premultiply ? color.g * opacity : color.g)));
-        u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(premultiply ? color.b * opacity : color.b)));
-        return R << 16 | G << 8 | B;
+    INLINE u32 asContent(bool premultiplied) const {
+        if (premultiplied) {
+            f32 one_over_opacity = 1.0f / opacity;
+            u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.r)));
+            u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.g)));
+            u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.b)));
+            return R << 16 | G << 8 | B;
+        } else {
+            u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.r * opacity)));
+            u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.g * opacity)));
+            u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.b * opacity)));
+            return R << 16 | G << 8 | B;
+        }
     }
-
 };
 
 #define PIXEL_SIZE (sizeof(Pixel))
@@ -740,11 +938,10 @@ namespace mouse {
     struct Button {
         i32 down_pos_x, down_pos_y, up_pos_x, up_pos_y, double_click_pos_x, double_click_pos_y;
 
-        bool is_pressed{false}, is_handled{false}, double_clicked{false};
+        bool is_pressed{false}, double_clicked{false};
 
         void down(i32 x, i32 y) {
             is_pressed = true;
-            is_handled = false;
 
             down_pos_x = x;
             down_pos_y = y;
@@ -752,7 +949,6 @@ namespace mouse {
 
         void up(i32 x, i32 y) {
             is_pressed = false;
-            is_handled = false;
 
             up_pos_x = x;
             up_pos_y = y;
@@ -766,37 +962,25 @@ namespace mouse {
     };
 
     Button middle_button, right_button, left_button;
+
     i32 pos_x, pos_y, pos_raw_diff_x, pos_raw_diff_y, movement_x, movement_y;
     f32 wheel_scroll_amount{0};
 
     bool moved{false};
     bool is_captured{false};
-    bool move_handled{false};
     bool double_clicked{false};
-    bool double_clicked_handled{false};
     bool wheel_scrolled{false};
-    bool wheel_scroll_handled{false};
-    bool raw_movement_handled{false};
 
     void resetChanges() {
-        if (move_handled) {
-            move_handled = false;
-            moved = false;
-        }
-        if (double_clicked_handled) {
-            double_clicked_handled = false;
-            double_clicked = false;
-        }
-        if (raw_movement_handled) {
-            raw_movement_handled = false;
-            pos_raw_diff_x = 0;
-            pos_raw_diff_y = 0;
-        }
-        if (wheel_scroll_handled) {
-            wheel_scroll_handled = false;
-            wheel_scrolled = false;
-            wheel_scroll_amount = 0;
-        }
+        moved = false;
+        double_clicked = false;
+        wheel_scrolled = false;
+        wheel_scroll_amount = 0;
+        pos_raw_diff_x = 0;
+        pos_raw_diff_y = 0;
+        right_button.double_clicked = false;
+        left_button.double_clicked = false;
+        middle_button.double_clicked = false;
     }
 
     void scroll(f32 amount) {
@@ -835,6 +1019,9 @@ namespace os {
 }
 
 namespace memory {
+    u8 *canvas_memory{nullptr};
+    u64 canvas_memory_capacity = CANVAS_SIZE * CANVAS_COUNT;
+
     typedef void* (*AllocateMemory)(u64 size);
 
     struct MonotonicAllocator {
@@ -859,4 +1046,11 @@ namespace memory {
             return current_address;
         }
     };
+}
+
+namespace window {
+    u16 width{DEFAULT_WIDTH};
+    u16 height{DEFAULT_HEIGHT};
+    char* title{(char*)""};
+    u32 *content{nullptr};
 }

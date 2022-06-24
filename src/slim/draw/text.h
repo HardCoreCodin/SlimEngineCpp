@@ -1,10 +1,12 @@
 #pragma once
 
-#include "../core/canvas.h"
+#include "canvas.h"
 
-#define LINE_HEIGHT 30
+#define LINE_HEIGHT 14
 #define FIRST_CHARACTER_CODE 32
 #define LAST_CHARACTER_CODE 126
+#define INTERNAL_FONT_WIDTH (FONT_WIDTH * 2)
+#define INTERNAL_FONT_HEIGHT (FONT_HEIGHT * 2)
 
 // Header File for SSD1306 characters
 // Generated with TTF2BMH
@@ -109,30 +111,32 @@ u8 *char_addr[] = {bitmap_32,bitmap_33,bitmap_34,bitmap_35,bitmap_36,bitmap_37,b
 
 
 
-void draw(char *str, i32 x, i32 y, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
-    RectI bounds{0, canvas.dimensions.width - 1, 0, canvas.dimensions.height - 1};
+void _drawText(char *str, i32 x, i32 y, const Canvas &canvas, const Color &color, f32 opacity, const RectI *viewport_bounds) {
+    RectI bounds{
+        0, canvas.dimensions.width - 1,
+        0, canvas.dimensions.height - 1
+    };
     if (viewport_bounds) {
         x += viewport_bounds->left;
         y += viewport_bounds->top;
         bounds -= *viewport_bounds;
     }
 
-    if (x < bounds.left || x > (bounds.right - FONT_WIDTH) ||
-        y < bounds.top || y > (bounds.bottom - FONT_HEIGHT))
+    if (x + FONT_WIDTH < bounds.left || x - FONT_WIDTH > bounds.right ||
+        y + FONT_HEIGHT < bounds.top || y - FONT_HEIGHT > bounds.bottom)
         return;
 
-    color.toGamma();
-
+    f32 pixel_opacity;
     u16 current_x = (u16)x;
     u16 current_y = (u16)y;
     u16 pixel_x, sub_pixel_x;
     u16 pixel_y, sub_pixel_y;
     u16 t_offset;
-    u8* byte;
+    u8 *byte_ptr, byte, next_column_byte;
     char character = *str;
     while (character) {
         if (character == '\n') {
-            if (current_y + FONT_HEIGHT > bounds.bottom)
+            if (current_y > bounds.bottom)
                 break;
 
             current_x = (u16)x;
@@ -140,47 +144,87 @@ void draw(char *str, i32 x, i32 y, const Canvas &canvas, Color color = White, f3
         } else if (character == '\t') {
             t_offset = FONT_WIDTH * (4 - ((current_x / FONT_WIDTH) & 3));
             current_x += t_offset;
-        } else if (character >= FIRST_CHARACTER_CODE &&
-                   character <= LAST_CHARACTER_CODE) {
-            byte = char_addr[character - FIRST_CHARACTER_CODE];
+        } else if ((character >= FIRST_CHARACTER_CODE) &&
+                   (character <= LAST_CHARACTER_CODE)) {
+            byte_ptr = char_addr[character - FIRST_CHARACTER_CODE];
+            byte = *byte_ptr;
+            next_column_byte = *(byte_ptr + 1);
             for (int i = 1; i < 4; i++) {
                 pixel_x = current_x;
                 pixel_y = current_y + i * FONT_HEIGHT / 3;
-                for (int w = 0; w < FONT_WIDTH ; w++) {
-                    for (int h = 0; h < FONT_HEIGHT/3; h++) {
+                for (int w = 0; w < INTERNAL_FONT_WIDTH ; w += 2) {
+                    for (int h = 0; h < 8; h += 2) {
                         /* skip background bits */
-                        if (*byte & (0x80  >> h)) {
+                        if (bounds.contains(pixel_x, pixel_y)) {
                             if (canvas.antialias == SSAA) {
                                 sub_pixel_x = pixel_x << 1;
                                 sub_pixel_y = pixel_y << 1;
-                                canvas.setPixel(sub_pixel_x + 0, sub_pixel_y + 0, color, opacity);
-                                canvas.setPixel(sub_pixel_x + 1, sub_pixel_y + 0, color, opacity);
-                                canvas.setPixel(sub_pixel_x + 0, sub_pixel_y + 1, color, opacity);
-                                canvas.setPixel(sub_pixel_x + 1, sub_pixel_y + 1, color, opacity);
-                            } else
-                                canvas.setPixel(pixel_x, pixel_y, color, opacity);
+
+                                if (byte & (0x80 >> h)) canvas.setPixel(sub_pixel_x, sub_pixel_y + 1, color, opacity);
+                                if (byte & (0x80 >> (h+1))) canvas.setPixel(sub_pixel_x, sub_pixel_y, color, opacity);
+                                if (next_column_byte & (0x80 >> h)) canvas.setPixel(sub_pixel_x+1, sub_pixel_y + 1, color, opacity);
+                                if (next_column_byte & (0x80 >> (h+1))) canvas.setPixel(sub_pixel_x+1, sub_pixel_y, color, opacity);
+                            } else {
+                                pixel_opacity = (byte & (0x80 >> h)) ? 0.25f : 0;
+                                if (byte & (0x80 >> (h+1))) pixel_opacity += 0.25f;
+                                if (next_column_byte & (0x80 >> h)) pixel_opacity += 0.25f;
+                                if (next_column_byte & (0x80 >> (h+1))) pixel_opacity += 0.25f;
+                                if (pixel_opacity != 0.0f) canvas.setPixel(pixel_x, pixel_y, color, pixel_opacity);
+                            }
                         }
 
                         pixel_y--;
                     }
-                    byte++;
+                    byte_ptr += 2;
+                    byte = *byte_ptr;
+                    next_column_byte = *(byte_ptr + 1);
+
                     pixel_y += FONT_HEIGHT / 3;
                     pixel_x++;
                 }
             }
+
             current_x += FONT_WIDTH;
-            if (current_x + FONT_WIDTH > bounds.right)
-                return;
+            if (current_x > bounds.right) {
+                if (current_y > bounds.bottom)
+                    break;
+
+                while (character && (character != '\n')) character = *++str;
+                if (!character)
+                    break;
+
+                current_x = (u16)x;
+                current_y += LINE_HEIGHT;
+            }
         }
         character = *++str;
     }
 }
 
-#ifdef SLIM_VEC2
-void draw(char *str, vec2i position, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
-    draw(str, position.x, position.y, canvas, color, opacity, viewport_bounds);
+#ifdef SLIM_ENABLE_CANVAS_TEXT_DRAWING
+INLINE void Canvas::drawText(char *str, i32 x, i32 y, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
+    _drawText(str, x, y, *this, color, opacity, viewport_bounds);
 }
-void draw(char *str, vec2 position, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, RectI *viewport_bounds = nullptr) {
-    draw(str, (i32)position.x, (i32)position.y, canvas, color, opacity, viewport_bounds);
+#ifdef SLIM_VEC2
+INLINE void Canvas::drawText(char *str, vec2i position, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
+    _drawText(str, position.x, position.y, *this, color, opacity, viewport_bounds);
+}
+INLINE void Canvas::drawText(char *str, vec2 position, const Color &color, f32 opacity, const RectI *viewport_bounds) const  {
+    _drawText(str, (i32)position.x, (i32)position.y, *this, color, opacity, viewport_bounds);
+}
+#endif
+#endif
+
+
+INLINE void drawText(char *str, i32 x, i32 y, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+    _drawText(str, x, y, canvas, color, opacity, viewport_bounds);
+}
+
+#ifdef SLIM_VEC2
+INLINE void drawText(char *str, vec2i position, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+    _drawText(str, position.x, position.y, canvas, color, opacity, viewport_bounds);
+}
+INLINE void drawText(char *str, vec2 position, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+    _drawText(str, (i32)position.x, (i32)position.y, canvas, color, opacity, viewport_bounds);
 }
 #endif

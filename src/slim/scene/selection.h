@@ -15,26 +15,25 @@ struct Selection {
          world_offset,
          *world_position{nullptr};
     Geometry *geometry{nullptr};
-    f32 object_distance{0};
-    u32 geo_id{0};
-    GeometryType geo_type{GeometryType_None};
-    BoxSide box_side{NoSide};
-    bool changed{false};
+    f32 object_distance = 0;
+    u32 geo_id = 0;
+    GeometryType geo_type = GeometryType_None;
+    BoxSide box_side = NoSide;
+    bool changed = false;
+    bool left_mouse_button_was_pressed = false;
 
     void manipulate(const Viewport &viewport, const Scene &scene) {
         static Ray ray, local_ray;
 
         const Dimensions &dimensions = viewport.dimensions;
         Camera &camera = *viewport.camera;
-        vec2i mouse_pos{mouse::pos_x - viewport.bounds.left,
-                        mouse::pos_y - viewport.bounds.top};
+        f32 x = (f32)(mouse::pos_x - viewport.bounds.left);
+        f32 y = (f32)(mouse::pos_y - viewport.bounds.top);
 
-        if (mouse::left_button.is_pressed && !mouse::left_button.is_handled) {
+        if (mouse::left_button.is_pressed && !left_mouse_button_was_pressed) {
             // This is the first frame after the left mouse button went down:
-            mouse::left_button.is_handled = true;
-
             // Cast a ray onto the scene to find the closest object behind the hovered pixel:
-            ray = viewport.getRayAt(mouse_pos);
+            ray = camera.getRayAt(x, y, dimensions.h_width, dimensions.h_height);
 
             ray.hit.distance_squared = INFINITY;
             if (scene.castRay(ray)) {
@@ -63,6 +62,7 @@ struct Selection {
                 geo_type = GeometryType_None;
             }
         }
+        left_mouse_button_was_pressed = mouse::left_button.is_pressed;
         if (geo_type) {
             if (controls::is_pressed::alt) {
                 bool any_mouse_button_is_pressed = (
@@ -71,7 +71,7 @@ struct Selection {
                         mouse::right_button.is_pressed);
                 if (geometry && !any_mouse_button_is_pressed) {
                     // Cast a ray onto the bounding box of the currently selected object:
-                    ray = viewport.getRayAt(mouse_pos);
+                    ray = camera.getRayAt(x, y, dimensions.h_width, dimensions.h_height);
 
                     xform = geometry->transform;
                     if (geometry->type == GeometryType_Mesh)
@@ -94,7 +94,7 @@ struct Selection {
                 if (box_side) {
                     if (geometry) {
                         if (any_mouse_button_is_pressed) {
-                            ray = viewport.getRayAt(mouse_pos);
+                            ray = camera.getRayAt(x, y, dimensions.h_width, dimensions.h_height);
                             if (rayHitsPlane(ray, transformation_plane_origin, transformation_plane_normal)) {
                                 xform = geometry->transform;
                                 if (geometry->type == GeometryType_Mesh)
@@ -122,8 +122,8 @@ struct Selection {
                     // Back-project the new mouse position onto a quad at a distance of the selected-object away from the camera
 
                     // Screen -> NDC:
-                    f32 x = ((f32)mouse_pos.x + 0.5f) / dimensions.h_width  - 1;
-                    f32 y = ((f32)mouse_pos.y + 0.5f) / dimensions.h_height - 1;
+                    x = (x + 0.5f) / dimensions.h_width  - 1;
+                    y = (y + 0.5f) / dimensions.h_height - 1;
 
                     // NDC -> View:
                     x *= object_distance / (camera.focal_length * dimensions.height_over_width);

@@ -17,10 +17,10 @@ struct vec4 {
     explicit vec4(f32 value) noexcept : vec4{value, value, value, value} {}
 
     INLINE bool operator == (const vec4 &other) const {
-        return other.x == x &&
-               other.y == y &&
-               other.z == z &&
-               other.w == w;
+        return (other.x == x) &&
+               (other.y == y) &&
+               (other.z == z) &&
+               (other.w == w);
     }
 
     INLINE vec4& operator = (f32 value) {
@@ -261,14 +261,14 @@ struct vec4 {
                w != 0.0f;
     }
 
-    INLINE f32 min() const {
+    INLINE f32 minimum() const {
         f32 mn = x < y ? x : y;
         mn = mn < z ? mn : z;
         mn = mn < w ? mn : w;
         return mn;
     }
 
-    INLINE f32 max() const {
+    INLINE f32 maximum() const {
         f32 mx = x > y ? x : y;
         mx = mx > z ? mx : z;
         mx = mx > w ? mx : w;
@@ -291,7 +291,7 @@ struct vec4 {
         return *this / length();
     }
 
-    INLINE vec4 reflectAround(const vec4 &N) const {
+    INLINE vec4 reflectedAround(const vec4 &N) const {
         return N.scaleAdd(-2 * dot(N), *this);
     }
 
@@ -368,7 +368,7 @@ vec4 vec4::Y{0, 1, 0, 0};
 vec4 vec4::Z{0, 0, 1, 0};
 vec4 vec4::W{0, 0, 0, 1};
 
-INLINE vec4 min(const vec4 &a, const vec4 &b) {
+INLINE vec4 minimum(const vec4 &a, const vec4 &b) {
     return {
         a.x < b.x ? a.x : b.x,
         a.y < b.y ? a.y : b.y,
@@ -377,7 +377,7 @@ INLINE vec4 min(const vec4 &a, const vec4 &b) {
     };
 }
 
-INLINE vec4 max(const vec4 &a, const vec4 &b) {
+INLINE vec4 maximum(const vec4 &a, const vec4 &b) {
     return {
         a.x > b.x ? a.x : b.x,
         a.y > b.y ? a.y : b.y,

@@ -109,3 +109,8 @@ struct quat {
     }
 };
 quat quat::Identity = {};
+
+struct OrientationUsingQuaternion : Orientation<quat> {
+    OrientationUsingQuaternion(f32 x_radians = 0.0f, f32 y_radians = 0.0f, f32 z_radians = 0.0f) :
+        Orientation<quat>{x_radians, y_radians, z_radians} {}
+};

@@ -2,33 +2,18 @@
 
 #include "./line.h"
 
-void drawTriangle(f32 x1, f32 y1,
-                  f32 x2, f32 y2,
-                  f32 x3, f32 y3,
-                  const Canvas &canvas,
-                  Color color = White, f32 opacity = 1.0f, u8 line_width = 1,
-                  const RectI *viewport_bounds = nullptr) {
-
+INLINE void _drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3,
+                         const Canvas &canvas, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) {
     drawLine(x1, y1, 0, x2, y2, 0, canvas, color, opacity, line_width, viewport_bounds);
     drawLine(x2, y2, 0, x3, y3, 0, canvas, color, opacity, line_width, viewport_bounds);
     drawLine(x3, y3, 0, x1, y1, 0, canvas, color, opacity, line_width, viewport_bounds);
 }
-void drawTriangle(i32 x1, i32 y1,
-                  i32 x2, i32 y2,
-                  i32 x3, i32 y3,
-                  const Canvas &canvas,
-                  Color color = White, f32 opacity = 1.0f, u8 line_width = 1,
-                  const RectI *viewport_bounds = nullptr) {
-    drawTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, canvas, color, opacity, line_width, viewport_bounds);
-}
 
 
-void fillTriangle(f32 x1, f32 y1,
-                  f32 x2, f32 y2,
-                  f32 x3, f32 y3,
-                  const Canvas &canvas,
-                  Color color = White, f32 opacity = 1.0f,
-                  const RectI *viewport_bounds = nullptr) {
+void _fillTriangle(f32 x1, f32 y1,
+                   f32 x2, f32 y2,
+                   f32 x3, f32 y3,
+                   const Canvas &canvas, const Color &color, f32 opacity, const RectI *viewport_bounds) {
     // Cull this triangle against the edges of the viewport:
     Rect bounds{0, canvas.dimensions.f_width - 1.0f, 0, canvas.dimensions.f_height - 1.0f};
     Rect rect{
@@ -138,8 +123,8 @@ void fillTriangle(f32 x1, f32 y1,
         C = C_start;
 
         for (u32 x = first_x; x <= last_x; x++, B += Bdx, C += Cdx) {
-            if (Bdx < 0 && B < 0 ||
-                Cdx < 0 && C < 0)
+            if (((Bdx < 0) && (B < 0)) ||
+                ((Cdx < 0) && (C < 0)))
                 break;
 
             A = 1 - B - C;
@@ -153,41 +138,97 @@ void fillTriangle(f32 x1, f32 y1,
     }
 }
 
-void fillTriangle(i32 x1, i32 y1,
-                  i32 x2, i32 y2,
-                  i32 x3, i32 y3,
-                  const Canvas &canvas,
-                  Color color = White, f32 opacity = 1.0f,
-                  const RectI *viewport_bounds = nullptr) {
-    fillTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, canvas, color, opacity, viewport_bounds);
+
+#ifdef SLIM_ENABLE_CANVAS_TRIANGLE_DRAWING
+INLINE void Canvas::drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
+    _drawTriangle(x1, y1, x2, y2, x3, y3, *this, color, opacity, line_width, viewport_bounds);
+}
+
+INLINE void Canvas::drawTriangle(i32 x1, i32 y1, i32 x2, i32 y2, i32 x3, i32 y3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
+    _drawTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, *this, color, opacity, line_width, viewport_bounds);
+}
+
+INLINE void Canvas::fillTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
+    _fillTriangle(x1, y1, x2, y2, x3, y3, *this, color, opacity, viewport_bounds);
+}
+
+INLINE void Canvas::fillTriangle(i32 x1, i32 y1, i32 x2, i32 y2, i32 x3, i32 y3, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
+    _fillTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, *this, color, opacity, viewport_bounds);
 }
 
 #ifdef SLIM_VEC2
-void drawTriangle(vec2 p1, vec2 p2, vec2 p3,
-                  const Canvas &canvas,
-                  Color color = White, f32 opacity = 1.0f, u8 line_width = 1,
-                  const RectI *viewport_bounds = nullptr) {
-    drawTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, canvas, color, opacity, line_width, viewport_bounds);
+INLINE void Canvas::drawTriangle(vec2 p1, vec2 p2, vec2 p3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
+    _drawTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, *this, color, opacity, line_width, viewport_bounds);
 }
 
-void fillTriangle(vec2 p1, vec2 p2, vec2 p3,
-                  const Canvas &canvas,
-                  Color color = White, f32 opacity = 1.0f,
-                  const RectI *viewport_bounds = nullptr) {
-    fillTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, canvas, color, opacity, viewport_bounds);
+INLINE void Canvas::fillTriangle(vec2 p1, vec2 p2, vec2 p3, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
+    _fillTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, *this, color, opacity, viewport_bounds);
 }
 
-void drawTriangle(vec2i p1, vec2i p2, vec2i p3,
-                  const Canvas &canvas,
-                  Color color = White, f32 opacity = 1.0f, u8 line_width = 1,
+INLINE void Canvas::drawTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
+    _drawTriangle((f32)p1.x, (f32)p1.y, (f32)p2.x, (f32)p2.y, (f32)p3.x, (f32)p3.y, *this, color, opacity, line_width, viewport_bounds);
+}
+
+INLINE void Canvas::fillTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
+    _fillTriangle((f32)p1.x, (f32)p1.y, (f32)p2.x, (f32)p2.y, (f32)p3.x, (f32)p3.y, *this, color, opacity, viewport_bounds);
+}
+#endif
+#endif
+
+
+
+INLINE void drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Canvas &canvas,
+                         Color color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) {
+    _drawTriangle(x1, y1, x2, y2, x3, y3, canvas, color, opacity, line_width, viewport_bounds);
+}
+
+INLINE void drawTriangle(i32 x1, i32 y1,
+                         i32 x2, i32 y2,
+                         i32 x3, i32 y3,
+                         const Canvas &canvas,
+                         Color color = White, f32 opacity = 0.5f, u8 line_width = 0,
+                         const RectI *viewport_bounds = nullptr) {
+    _drawTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, canvas, color, opacity, line_width, viewport_bounds);
+}
+
+
+INLINE void fillTriangle(f32 x1, f32 y1,
+                         f32 x2, f32 y2,
+                         f32 x3, f32 y3,
+                         const Canvas &canvas, Color color = White, f32 opacity = 1.0f,
+                         const RectI *viewport_bounds = nullptr) {
+    _fillTriangle(x1, y1, x2, y2, x3, y3, canvas, color, opacity, viewport_bounds);
+}
+
+INLINE void fillTriangle(i32 x1, i32 y1,
+                         i32 x2, i32 y2,
+                         i32 x3, i32 y3,
+                         const Canvas &canvas, Color color = White, f32 opacity = 1.0f,
+                         const RectI *viewport_bounds = nullptr) {
+    _fillTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, canvas, color, opacity, viewport_bounds);
+}
+
+#ifdef SLIM_VEC2
+void drawTriangle(vec2 p1, vec2 p2, vec2 p3, const Canvas &canvas,
+                  Color color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) {
+    _drawTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, canvas, color, opacity, line_width, viewport_bounds);
+}
+
+void fillTriangle(vec2 p1, vec2 p2, vec2 p3, const Canvas &canvas,
+                  Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+    _fillTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, canvas, color, opacity, viewport_bounds);
+}
+
+void drawTriangle(vec2i p1, vec2i p2, vec2i p3, const Canvas &canvas,
+                  Color color = White, f32 opacity = 0.5f, u8 line_width = 0,
                   const RectI *viewport_bounds = nullptr) {
-    drawTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, canvas, color, opacity, line_width, viewport_bounds);
+    _drawTriangle((f32)p1.x, (f32)p1.y, (f32)p2.x, (f32)p2.y, (f32)p3.x, (f32)p3.y, canvas, color, opacity, line_width, viewport_bounds);
 }
 
 void fillTriangle(vec2i p1, vec2i p2, vec2i p3,
                   const Canvas &canvas,
                   Color color = White, f32 opacity = 1.0f,
                   const RectI *viewport_bounds = nullptr) {
-    fillTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, canvas, color, opacity, viewport_bounds);
+    _fillTriangle((f32)p1.x, (f32)p1.y, (f32)p2.x, (f32)p2.y, (f32)p3.x, (f32)p3.y, canvas, color, opacity, viewport_bounds);
 }
 #endif
