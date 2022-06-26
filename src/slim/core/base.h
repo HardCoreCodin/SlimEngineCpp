@@ -763,17 +763,16 @@ struct Pixel {
         };
     }
 
-    INLINE u32 asContent(bool premultiplied) const {
+    INLINE u32 asContent(bool premultiplied, bool gamma_corrected = false) const {
         if (premultiplied) {
-            f32 one_over_opacity = 1.0f / opacity;
-            u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.r)));
-            u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.g)));
-            u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.b)));
+            u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? color.r : sqrtf(color.r))));
+            u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? color.g : sqrtf(color.g))));
+            u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? color.b : sqrtf(color.b))));
             return R << 16 | G << 8 | B;
         } else {
-            u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.r * opacity)));
-            u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.g * opacity)));
-            u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.b * opacity)));
+            u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? (color.r * opacity) : sqrtf(color.r * opacity))));
+            u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? (color.g * opacity) : sqrtf(color.g * opacity))));
+            u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? (color.b * opacity) : sqrtf(color.b * opacity))));
             return R << 16 | G << 8 | B;
         }
     }

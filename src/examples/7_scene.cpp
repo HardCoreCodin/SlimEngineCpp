@@ -98,6 +98,7 @@ struct SceneApp : SlimApp {
                     Mesh &mesh{meshes[geo.id]};
                     viewport.drawMesh(mesh, transform, draw_normals, color, opacity);
                 } break;
+                default: break;
             }
         }
 

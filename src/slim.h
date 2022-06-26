@@ -763,17 +763,16 @@ struct Pixel {
         };
     }
 
-    INLINE u32 asContent(bool premultiplied) const {
+    INLINE u32 asContent(bool premultiplied, bool gamma_corrected = false) const {
         if (premultiplied) {
-            f32 one_over_opacity = 1.0f / opacity;
-            u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.r)));
-            u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.g)));
-            u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.b)));
+            u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? color.r : sqrtf(color.r))));
+            u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? color.g : sqrtf(color.g))));
+            u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? color.b : sqrtf(color.b))));
             return R << 16 | G << 8 | B;
         } else {
-            u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.r * opacity)));
-            u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.g * opacity)));
-            u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.b * opacity)));
+            u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? (color.r * opacity) : sqrtf(color.r * opacity))));
+            u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? (color.g * opacity) : sqrtf(color.g * opacity))));
+            u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? (color.b * opacity) : sqrtf(color.b * opacity))));
             return R << 16 | G << 8 | B;
         }
     }
@@ -4404,18 +4403,6 @@ struct Camera : OrientationUsing3x3Matrix {
         position += up * up_amount + right * right_amount;
     }
 
-    INLINE Ray getRayAt(f32 x, f32 y, f32 half_width, f32 half_height) const {
-        vec3 start = (
-                up * (half_height - 0.5f) +
-                forward * (half_height * focal_length) +
-                right * (0.5f - half_width)
-        );
-        return {
-                position,
-                up.scaleAdd(-y,right.scaleAdd(x,start)).normalized()
-        };
-    }
-
     INLINE vec3 internPos(const vec3 &pos) const { return _unrotate(_untranslate(pos)); }
     INLINE vec3 internDir(const vec3 &dir) const { return _unrotate(dir); }
     INLINE vec3 externPos(const vec3 &pos) const { return _translate(_rotate(pos)); }
@@ -6745,6 +6732,19 @@ struct Selection {
     bool changed = false;
     bool left_mouse_button_was_pressed = false;
 
+
+    INLINE Ray getRayAt(const Camera &camera, f32 x, f32 y, f32 half_width, f32 half_height) const {
+        vec3 start = (
+                camera.up * (half_height - 0.5f) +
+                camera.forward * (half_height * camera.focal_length) +
+                camera.right * (0.5f - half_width)
+        );
+        return {
+                camera.position,
+                camera.up.scaleAdd(-y,camera.right.scaleAdd(x,start)).normalized()
+        };
+    }
+
     void manipulate(const Viewport &viewport, const Scene &scene) {
         static Ray ray, local_ray;
 
@@ -6756,7 +6756,7 @@ struct Selection {
         if (mouse::left_button.is_pressed && !left_mouse_button_was_pressed) {
             // This is the first frame after the left mouse button went down:
             // Cast a ray onto the scene to find the closest object behind the hovered pixel:
-            ray = camera.getRayAt(x, y, dimensions.h_width, dimensions.h_height);
+            ray = getRayAt(camera, x, y, dimensions.h_width, dimensions.h_height);
 
             ray.hit.distance_squared = INFINITY;
             if (scene.castRay(ray)) {
@@ -6794,7 +6794,7 @@ struct Selection {
                         mouse::right_button.is_pressed);
                 if (geometry && !any_mouse_button_is_pressed) {
                     // Cast a ray onto the bounding box of the currently selected object:
-                    ray = camera.getRayAt(x, y, dimensions.h_width, dimensions.h_height);
+                    ray = getRayAt(camera, x, y, dimensions.h_width, dimensions.h_height);
 
                     xform = geometry->transform;
                     if (geometry->type == GeometryType_Mesh)
@@ -6817,7 +6817,7 @@ struct Selection {
                 if (box_side) {
                     if (geometry) {
                         if (any_mouse_button_is_pressed) {
-                            ray = camera.getRayAt(x, y, dimensions.h_width, dimensions.h_height);
+                            ray = getRayAt(camera, x, y, dimensions.h_width, dimensions.h_height);
                             if (rayHitsPlane(ray, transformation_plane_origin, transformation_plane_normal)) {
                                 xform = geometry->transform;
                                 if (geometry->type == GeometryType_Mesh)

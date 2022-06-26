@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../math/mat3.h"
-#include "../core/ray.h"
 
 
 struct Camera : OrientationUsing3x3Matrix {
@@ -48,18 +47,6 @@ struct Camera : OrientationUsing3x3Matrix {
 
     void pan(f32 right_amount, f32 up_amount) {
         position += up * up_amount + right * right_amount;
-    }
-
-    INLINE Ray getRayAt(f32 x, f32 y, f32 half_width, f32 half_height) const {
-        vec3 start = (
-            up * (half_height - 0.5f) +
-            forward * (half_height * focal_length) +
-            right * (0.5f - half_width)
-        );
-        return {
-            position,
-            up.scaleAdd(-y,right.scaleAdd(x,start)).normalized()
-        };
     }
 
     INLINE vec3 internPos(const vec3 &pos) const { return _unrotate(_untranslate(pos)); }
