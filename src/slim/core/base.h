@@ -365,6 +365,16 @@ enum BoxSide {
     Back   = 32
 };
 
+INLINE BoxSide getBoxSide(f32 x, f32 y, f32 z, u8 axis) {
+    switch (axis) {
+        case 0 : return x > 0 ? Right : Left;
+        case 3 : return x > 0 ? Left : Right;
+        case 1 : return y > 0 ? Top : Bottom;
+        case 4 : return y > 0 ? Bottom : Top;
+        case 2 : return z > 0 ? Front : Back;
+        default: return z > 0 ? Back : Front;
+    }
+}
 
 template <class T>
 struct Orientation {

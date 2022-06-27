@@ -79,7 +79,7 @@ struct Scene {
 
             xform.internPosAndDir(ray.origin, ray.direction, local_ray.origin, local_ray.direction);
 
-            current_found = rayHitsCube(local_ray);
+            current_found = local_ray.hitsCube();
             if (current_found) {
                 local_ray.hit.position         = xform.externPos(local_ray.hit.position);
                 local_ray.hit.distance_squared = (local_ray.hit.position - ray.origin).squaredLength();

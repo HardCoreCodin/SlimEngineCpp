@@ -420,18 +420,18 @@ struct AABB {
     AABB() : AABB{0, 0} {}
 };
 
-struct RayHit {
-    vec3 position, normal;
-    f32 distance, distance_squared;
-    u32 geo_id;
-    enum GeometryType geo_type = GeometryType_None;
-    bool from_behind = false;
-};
+INLINE Color vec3ToColor(const vec3 &v) {
+    return {v.r, v.g, v.b};
+}
 
-struct Ray {
-    vec3 origin, direction;
-    RayHit hit;
+INLINE Color directionToColor(const vec3 &v) {
+    return {
+        fast_mul_add(v.r, 0.5f, 0.5f),
+        fast_mul_add(v.g, 0.5f, 0.5f),
+        fast_mul_add(v.b, 0.5f, 0.5f)
+    };
+}
 
-    INLINE vec3 at(f32 t) const { return origin + t*direction; }
-    INLINE vec3 operator [](f32 t) const { return at(t); }
-};
+INLINE vec3 colorToVec3(const Color &color) {
+    return {color.r, color.g, color.b};
+}

@@ -365,6 +365,16 @@ enum BoxSide {
     Back   = 32
 };
 
+INLINE BoxSide getBoxSide(f32 x, f32 y, f32 z, u8 axis) {
+    switch (axis) {
+        case 0 : return x > 0 ? Right : Left;
+        case 3 : return x > 0 ? Left : Right;
+        case 1 : return y > 0 ? Top : Bottom;
+        case 4 : return y > 0 ? Bottom : Top;
+        case 2 : return z > 0 ? Front : Back;
+        default: return z > 0 ? Back : Front;
+    }
+}
 
 template <class T>
 struct Orientation {
@@ -2462,6 +2472,7 @@ INLINE vec3 lerp(const vec3 &from, const vec3 &to, f32 by) {
     return (to - from).scaleAdd(by, from);
 }
 
+
 struct Edge {
     vec3 from, to;
 };
@@ -2480,21 +2491,21 @@ struct AABB {
     AABB() : AABB{0, 0} {}
 };
 
-struct RayHit {
-    vec3 position, normal;
-    f32 distance, distance_squared;
-    u32 geo_id;
-    enum GeometryType geo_type = GeometryType_None;
-    bool from_behind = false;
-};
+INLINE Color vec3ToColor(const vec3 &v) {
+    return {v.r, v.g, v.b};
+}
 
-struct Ray {
-    vec3 origin, direction;
-    RayHit hit;
+INLINE Color directionToColor(const vec3 &v) {
+    return {
+            fast_mul_add(v.r, 0.5f, 0.5f),
+            fast_mul_add(v.g, 0.5f, 0.5f),
+            fast_mul_add(v.b, 0.5f, 0.5f)
+    };
+}
 
-    INLINE vec3 at(f32 t) const { return origin + t*direction; }
-    INLINE vec3 operator [](f32 t) const { return at(t); }
-};
+INLINE vec3 colorToVec3(const Color &color) {
+    return {color.r, color.g, color.b};
+}
 
 
 struct vec4 {
@@ -3362,25 +3373,25 @@ struct mat3 {
         };
     }
 
-//    INLINE mat3 inverted() const {
-//        return mat3{
-//                +(Y.y * Z.z - Z.y * Y.z),
-//                -(Y.x * Z.z - Z.x * Y.z),
-//                +(Y.x * Z.y - Z.x * Y.y),
-//
-//                -(X.y * Z.z - Z.y * X.z),
-//                +(X.x * Z.z - Z.x * X.z),
-//                -(X.x * Z.y - Z.x * X.y),
-//
-//                +(X.y * Y.z - Y.y * X.z),
-//                -(X.x * Y.z - Y.x * X.z),
-//                +(X.x * Y.y - Y.x * X.y)
-//        } / det();
-//    }
+    INLINE mat3 inverted() const {
+        return mat3{
+                +(Y.y * Z.z - Z.y * Y.z),
+                -(Y.x * Z.z - Z.x * Y.z),
+                +(Y.x * Z.y - Z.x * Y.y),
 
-//    INLINE mat3 operator ! () const {
-//        return inverted();
-//    }
+                -(X.y * Z.z - Z.y * X.z),
+                +(X.x * Z.z - Z.x * X.z),
+                -(X.x * Z.y - Z.x * X.y),
+
+                +(X.y * Y.z - Y.y * X.z),
+                -(X.x * Y.z - Y.x * X.z),
+                +(X.x * Y.y - Y.x * X.y)
+        } / det();
+    }
+
+    INLINE mat3 operator ! () const {
+        return inverted();
+    }
 
     INLINE mat3 operator ~ () const {
         return transposed();
@@ -4064,82 +4075,92 @@ AABB operator * (const AABB &aabb, const Transform &transform) {
     return {min, max};
 }
 
-INLINE BoxSide getBoxSide(const vec3 &octant, u8 axis) {
-    switch (axis) {
-        case 0 : return octant.x > 0 ? Right : Left;
-        case 3 : return octant.x > 0 ? Left : Right;
-        case 1 : return octant.y > 0 ? Top : Bottom;
-        case 4 : return octant.y > 0 ? Bottom : Top;
-        case 2 : return octant.z > 0 ? Front : Back;
-        default: return octant.z > 0 ? Back : Front;
-    }
-}
+struct RayHit {
+    vec3 position, normal;
+    f32 distance, distance_squared;
+    u32 geo_id;
+    enum GeometryType geo_type = GeometryType_None;
+    bool from_behind = false;
+};
 
-INLINE BoxSide rayHitsCube(Ray &ray) {
-    vec3 octant, RD_rcp = 1.0f / ray.direction;
-    octant.x = signbit(ray.direction.x) ? 1.0f : -1.0f;
-    octant.y = signbit(ray.direction.y) ? 1.0f : -1.0f;
-    octant.z = signbit(ray.direction.z) ? 1.0f : -1.0f;
+struct Ray {
+    vec3 origin, direction;
+    RayHit hit;
 
-    f32 t[6];
-    t[0] = (+octant.x - ray.origin.x) * RD_rcp.x;
-    t[1] = (+octant.y - ray.origin.y) * RD_rcp.y;
-    t[2] = (+octant.z - ray.origin.z) * RD_rcp.z;
-    t[3] = (-octant.x - ray.origin.x) * RD_rcp.x;
-    t[4] = (-octant.y - ray.origin.y) * RD_rcp.y;
-    t[5] = (-octant.z - ray.origin.z) * RD_rcp.z;
+    INLINE vec3 at(f32 t) const { return origin + t*direction; }
+    INLINE vec3 operator [](f32 t) const { return at(t); }
 
-    u8 max_axis = t[3] < t[4] ? 3 : 4; if (t[5] < t[max_axis]) max_axis = 5;
-    f32 max_t = t[max_axis];
-    if (max_t < 0) // Further-away hit is behind the ray - intersection can not occur.
-        return NoSide;
-
-    u8 min_axis = t[0] > t[1] ? 0 : 1; if (t[2] > t[min_axis]) min_axis = 2;
-    f32 min_t = t[min_axis];
-    if (max_t < (min_t > 0 ? min_t : 0))
-        return NoSide;
-
-    ray.hit.from_behind = min_t < 0; // Further-away hit is in front of the ray, closer one is behind it.
-    if (ray.hit.from_behind) {
-        min_t = max_t;
-        min_axis = max_axis;
+    INLINE void setDirectionAt(f32 x, f32 y, f32 half_width, f32 half_height, f32 focal_length, const vec3 &right, const vec3 &up, const vec3 &forward) {
+        vec3 start = (up * (half_height - 0.5f) + forward * (half_height * focal_length) + right * (0.5f - half_width));
+        direction = up.scaleAdd(-y,right.scaleAdd(x,start)).normalized();
     }
 
-    BoxSide side = getBoxSide(octant, min_axis);
-    ray.hit.position = ray.direction.scaleAdd(min_t, ray.origin);
-    ray.hit.normal = 0.0f;
-    switch (side) {
-        case Left:   ray.hit.normal.x = ray.hit.from_behind ? +1.0f : -1.0f; break;
-        case Right:  ray.hit.normal.x = ray.hit.from_behind ? -1.0f : +1.0f; break;
-        case Bottom: ray.hit.normal.y = ray.hit.from_behind ? +1.0f : -1.0f; break;
-        case Top:    ray.hit.normal.y = ray.hit.from_behind ? -1.0f : +1.0f; break;
-        case Back:   ray.hit.normal.z = ray.hit.from_behind ? +1.0f : -1.0f; break;
-        case Front:  ray.hit.normal.z = ray.hit.from_behind ? -1.0f : +1.0f; break;
-        default: return NoSide;
+    INLINE BoxSide hitsCube() {
+        vec3 octant, RD_rcp = 1.0f / direction;
+        f32 x = signbit(direction.x) ? 1.0f : -1.0f;
+        f32 y = signbit(direction.y) ? 1.0f : -1.0f;
+        f32 z = signbit(direction.z) ? 1.0f : -1.0f;
+
+        f32 t[6];
+        t[0] = (+x - origin.x) * RD_rcp.x;
+        t[1] = (+y - origin.y) * RD_rcp.y;
+        t[2] = (+z - origin.z) * RD_rcp.z;
+        t[3] = (-x - origin.x) * RD_rcp.x;
+        t[4] = (-y - origin.y) * RD_rcp.y;
+        t[5] = (-z - origin.z) * RD_rcp.z;
+
+        u8 max_axis = t[3] < t[4] ? 3 : 4; if (t[5] < t[max_axis]) max_axis = 5;
+        f32 max_t = t[max_axis];
+        if (max_t < 0) // Further-away hit is behind the ray - intersection can not occur.
+            return NoSide;
+
+        u8 min_axis = t[0] > t[1] ? 0 : 1; if (t[2] > t[min_axis]) min_axis = 2;
+        f32 min_t = t[min_axis];
+        if (max_t < (min_t > 0 ? min_t : 0))
+            return NoSide;
+
+        hit.from_behind = min_t < 0; // Further-away hit is in front of the ray, closer one is behind it.
+        if (hit.from_behind) {
+            min_t = max_t;
+            min_axis = max_axis;
+        }
+
+        BoxSide side = getBoxSide(x, y, z, min_axis);
+        hit.position = direction.scaleAdd(min_t, origin);
+        hit.normal = 0.0f;
+        switch (side) {
+            case Left:   hit.normal.x = hit.from_behind ? +1.0f : -1.0f; break;
+            case Right:  hit.normal.x = hit.from_behind ? -1.0f : +1.0f; break;
+            case Bottom: hit.normal.y = hit.from_behind ? +1.0f : -1.0f; break;
+            case Top:    hit.normal.y = hit.from_behind ? -1.0f : +1.0f; break;
+            case Back:   hit.normal.z = hit.from_behind ? +1.0f : -1.0f; break;
+            case Front:  hit.normal.z = hit.from_behind ? -1.0f : +1.0f; break;
+            default: return NoSide;
+        }
+
+        return side;
     }
 
-    return side;
-}
+    INLINE bool hitsPlane(const vec3 &P, const vec3 &N) {
+        f32 NdotRd = N.dot(direction);
+        if (NdotRd == 0) // The ray is parallel to the plane
+            return false;
 
-INLINE bool rayHitsPlane(Ray &ray, const vec3 &P, const vec3 &N) {
-    f32 NdotRd = N.dot(ray.direction);
-    if (NdotRd == 0) // The ray is parallel to the plane
-        return false;
+        f32 NdotRoP = N.dot(P - origin);
+        if (NdotRoP == 0) return false; // The ray originated within the plane
 
-    f32 NdotRoP = N.dot(P - ray.origin);
-    if (NdotRoP == 0) return false; // The ray originated within the plane
+        bool ray_is_facing_the_plane = NdotRd < 0;
+        hit.from_behind = NdotRoP > 0;
+        if (hit.from_behind == ray_is_facing_the_plane) // The ray can't hit the plane
+            return false;
 
-    bool ray_is_facing_the_plane = NdotRd < 0;
-    ray.hit.from_behind = NdotRoP > 0;
-    if (ray.hit.from_behind == ray_is_facing_the_plane) // The ray can't hit the plane
-        return false;
+        hit.distance = NdotRoP / NdotRd;
+        hit.position = at(hit.distance);
+        hit.normal = N;
 
-    ray.hit.distance = NdotRoP / NdotRd;
-    ray.hit.position = ray.origin + ray.direction*ray.hit.distance;
-    ray.hit.normal = N;
-
-    return true;
-}
+        return true;
+    }
+};
 
 
 struct BoxCorners {
@@ -4794,7 +4815,7 @@ struct Scene {
 
             xform.internPosAndDir(ray.origin, ray.direction, local_ray.origin, local_ray.direction);
 
-            current_found = rayHitsCube(local_ray);
+            current_found = local_ray.hitsCube();
             if (current_found) {
                 local_ray.hit.position         = xform.externPos(local_ray.hit.position);
                 local_ray.hit.distance_squared = (local_ray.hit.position - ray.origin).squaredLength();
@@ -6732,17 +6753,11 @@ struct Selection {
     bool changed = false;
     bool left_mouse_button_was_pressed = false;
 
-
-    INLINE Ray getRayAt(const Camera &camera, f32 x, f32 y, f32 half_width, f32 half_height) const {
-        vec3 start = (
-                camera.up * (half_height - 0.5f) +
-                camera.forward * (half_height * camera.focal_length) +
-                camera.right * (0.5f - half_width)
-        );
-        return {
-                camera.position,
-                camera.up.scaleAdd(-y,camera.right.scaleAdd(x,start)).normalized()
-        };
+    INLINE Ray getRayAt(f32 x, f32 y, const Dimensions &dimensions, const Camera &camera) const {
+        Ray ray{camera.position};
+        ray.setDirectionAt(x, y, dimensions.h_width, dimensions.h_height,
+                           camera.focal_length, camera.right, camera.up, camera.forward);
+        return ray;
     }
 
     void manipulate(const Viewport &viewport, const Scene &scene) {
@@ -6756,7 +6771,7 @@ struct Selection {
         if (mouse::left_button.is_pressed && !left_mouse_button_was_pressed) {
             // This is the first frame after the left mouse button went down:
             // Cast a ray onto the scene to find the closest object behind the hovered pixel:
-            ray = getRayAt(camera, x, y, dimensions.h_width, dimensions.h_height);
+            ray = getRayAt(x, y, dimensions, camera);
 
             ray.hit.distance_squared = INFINITY;
             if (scene.castRay(ray)) {
@@ -6794,7 +6809,7 @@ struct Selection {
                         mouse::right_button.is_pressed);
                 if (geometry && !any_mouse_button_is_pressed) {
                     // Cast a ray onto the bounding box of the currently selected object:
-                    ray = getRayAt(camera, x, y, dimensions.h_width, dimensions.h_height);
+                    ray = getRayAt(x, y, dimensions, camera);
 
                     xform = geometry->transform;
                     if (geometry->type == GeometryType_Mesh)
@@ -6802,7 +6817,7 @@ struct Selection {
 
                     xform.internPosAndDir(ray.origin, ray.direction, local_ray.origin, local_ray.direction);
 
-                    box_side = rayHitsCube(local_ray);
+                    box_side = local_ray.hitsCube();
                     if (box_side) {
                         transformation_plane_center = xform.externPos(local_ray.hit.normal);
                         transformation_plane_origin = xform.externPos(local_ray.hit.position);
@@ -6817,8 +6832,8 @@ struct Selection {
                 if (box_side) {
                     if (geometry) {
                         if (any_mouse_button_is_pressed) {
-                            ray = getRayAt(camera, x, y, dimensions.h_width, dimensions.h_height);
-                            if (rayHitsPlane(ray, transformation_plane_origin, transformation_plane_normal)) {
+                            ray = getRayAt(x, y, dimensions, camera);
+                            if (ray.hitsPlane(transformation_plane_origin, transformation_plane_normal)) {
                                 xform = geometry->transform;
                                 if (geometry->type == GeometryType_Mesh)
                                     xform.scale *= scene.meshes[geometry->id].aabb.max;

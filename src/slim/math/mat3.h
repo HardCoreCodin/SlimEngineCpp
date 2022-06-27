@@ -127,25 +127,25 @@ struct mat3 {
         };
     }
 
-//    INLINE mat3 inverted() const {
-//        return mat3{
-//                +(Y.y * Z.z - Z.y * Y.z),
-//                -(Y.x * Z.z - Z.x * Y.z),
-//                +(Y.x * Z.y - Z.x * Y.y),
-//
-//                -(X.y * Z.z - Z.y * X.z),
-//                +(X.x * Z.z - Z.x * X.z),
-//                -(X.x * Z.y - Z.x * X.y),
-//
-//                +(X.y * Y.z - Y.y * X.z),
-//                -(X.x * Y.z - Y.x * X.z),
-//                +(X.x * Y.y - Y.x * X.y)
-//        } / det();
-//    }
+    INLINE mat3 inverted() const {
+        return mat3{
+                +(Y.y * Z.z - Z.y * Y.z),
+                -(Y.x * Z.z - Z.x * Y.z),
+                +(Y.x * Z.y - Z.x * Y.y),
 
-//    INLINE mat3 operator ! () const {
-//        return inverted();
-//    }
+                -(X.y * Z.z - Z.y * X.z),
+                +(X.x * Z.z - Z.x * X.z),
+                -(X.x * Z.y - Z.x * X.y),
+
+                +(X.y * Y.z - Y.y * X.z),
+                -(X.x * Y.z - Y.x * X.z),
+                +(X.x * Y.y - Y.x * X.y)
+        } / det();
+    }
+
+    INLINE mat3 operator ! () const {
+        return inverted();
+    }
 
     INLINE mat3 operator ~ () const {
         return transposed();
