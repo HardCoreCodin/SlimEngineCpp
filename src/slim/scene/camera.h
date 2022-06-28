@@ -49,6 +49,11 @@ struct Camera : OrientationUsing3x3Matrix {
         position += up * up_amount + right * right_amount;
     }
 
+    INLINE vec3 getRayDirectionAt(f32 x, f32 y, f32 width, f32 height) const {
+        vec3 start{forward.scaleAdd(focal_length * height,up.scaleAdd(height,right * -width))};
+        return right.scaleAdd(x * 2.0f + 1,up.scaleAdd(1 - 2.0f * y, start)).normalized();
+    }
+
     INLINE vec3 internPos(const vec3 &pos) const { return _unrotate(_untranslate(pos)); }
     INLINE vec3 internDir(const vec3 &dir) const { return _unrotate(dir); }
     INLINE vec3 externPos(const vec3 &pos) const { return _translate(_rotate(pos)); }

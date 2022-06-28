@@ -17,11 +17,6 @@ struct Ray {
     INLINE vec3 at(f32 t) const { return origin + t*direction; }
     INLINE vec3 operator [](f32 t) const { return at(t); }
 
-    INLINE void setDirectionAt(f32 x, f32 y, f32 half_width, f32 half_height, f32 focal_length, const vec3 &right, const vec3 &up, const vec3 &forward) {
-        vec3 start = (up * (half_height - 0.5f) + forward * (half_height * focal_length) + right * (0.5f - half_width));
-        direction = up.scaleAdd(-y,right.scaleAdd(x,start)).normalized();
-    }
-
     INLINE BoxSide hitsCube() {
         vec3 octant, RD_rcp = 1.0f / direction;
         f32 x = signbit(direction.x) ? 1.0f : -1.0f;

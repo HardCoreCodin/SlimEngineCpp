@@ -11,15 +11,15 @@
 #define SLIM_ENABLE_VIEWPORT_BOX_DRAWING
 #endif
 
-#include "../slim/scene/selection.h"
-#include "../slim/draw/hud.h"
-#include "../slim/draw/grid.h"
-#include "../slim/draw/curve.h"
-#include "../slim/draw/box.h"
-#include "../slim/draw/selection.h"
-#include "../slim/app.h"
+//#include "../slim/scene/selection.h"
+//#include "../slim/draw/hud.h"
+//#include "../slim/draw/grid.h"
+//#include "../slim/draw/curve.h"
+//#include "../slim/draw/box.h"
+//#include "../slim/draw/selection.h"
+//#include "../slim/app.h"
 // Or using the single-header file:
-//#include "../slim.h"
+#include "../slim.h"
 
 #include "./_common.h"
 

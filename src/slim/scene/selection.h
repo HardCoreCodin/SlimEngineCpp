@@ -22,13 +22,6 @@ struct Selection {
     bool changed = false;
     bool left_mouse_button_was_pressed = false;
 
-    INLINE Ray getRayAt(f32 x, f32 y, const Dimensions &dimensions, const Camera &camera) const {
-        Ray ray{camera.position};
-        ray.setDirectionAt(x, y, dimensions.h_width, dimensions.h_height,
-                           camera.focal_length, camera.right, camera.up, camera.forward);
-        return ray;
-    }
-
     void manipulate(const Viewport &viewport, const Scene &scene) {
         static Ray ray, local_ray;
 
@@ -37,12 +30,13 @@ struct Selection {
         f32 x = (f32)(mouse::pos_x - viewport.bounds.left);
         f32 y = (f32)(mouse::pos_y - viewport.bounds.top);
 
+        ray.origin = camera.position;
+        ray.direction = camera.getRayDirectionAt(x, y, dimensions.f_width, dimensions.f_height);
+        ray.hit.distance_squared = INFINITY;
+
         if (mouse::left_button.is_pressed && !left_mouse_button_was_pressed) {
             // This is the first frame after the left mouse button went down:
             // Cast a ray onto the scene to find the closest object behind the hovered pixel:
-            ray = getRayAt(x, y, dimensions, camera);
-
-            ray.hit.distance_squared = INFINITY;
             if (scene.castRay(ray)) {
                 // Detect if object scene->selection has changed:
                 changed = (
@@ -78,8 +72,6 @@ struct Selection {
                         mouse::right_button.is_pressed);
                 if (geometry && !any_mouse_button_is_pressed) {
                     // Cast a ray onto the bounding box of the currently selected object:
-                    ray = getRayAt(x, y, dimensions, camera);
-
                     xform = geometry->transform;
                     if (geometry->type == GeometryType_Mesh)
                         xform.scale *= scene.meshes[geometry->id].aabb.max;
@@ -101,7 +93,6 @@ struct Selection {
                 if (box_side) {
                     if (geometry) {
                         if (any_mouse_button_is_pressed) {
-                            ray = getRayAt(x, y, dimensions, camera);
                             if (ray.hitsPlane(transformation_plane_origin, transformation_plane_normal)) {
                                 xform = geometry->transform;
                                 if (geometry->type == GeometryType_Mesh)
