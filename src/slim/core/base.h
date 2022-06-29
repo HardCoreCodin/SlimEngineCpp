@@ -147,7 +147,7 @@ typedef double f64;
 #define WINDOW_CONTENT_PIXEL_SIZE 4
 #define WINDOW_CONTENT_SIZE (MAX_WINDOW_SIZE * WINDOW_CONTENT_PIXEL_SIZE)
 
-#define BOX__ALL_SIDES (Top | Bottom | Left | Right | Front | Back)
+#define BOX__ALL_SIDES (BoxSide_Top | BoxSide_Bottom | BoxSide_Left | BoxSide_Right | BoxSide_Front | BoxSide_Back)
 #define BOX__VERTEX_COUNT 8
 #define BOX__EDGE_COUNT 12
 #define GRID__MAX_SEGMENTS 101
@@ -330,17 +330,16 @@ INLINE f32 approach(f32 src, f32 trg, f32 diff) {
 
     return trg;
 }
+enum CurveType {
+    CurveType_None = 0,
 
-enum class CurveType {
-    None = 0,
+    CurveType_Helix,
+    CurveType_Coil,
 
-    Helix,
-    Coil,
-
-    Count
+    CurveType_Count
 };
 struct Curve {
-    CurveType type{CurveType::None};
+    CurveType type{CurveType_None};
     f32 revolution_count{1}, thickness{0.1f};
 };
 
@@ -355,26 +354,22 @@ enum GeometryType {
     GeometryType_Count
 };
 
-enum BoxSide {
-    NoSide = 0,
-    Top    = 1,
-    Bottom = 2,
-    Left   = 4,
-    Right  = 8,
-    Front  = 16,
-    Back   = 32
+
+enum Axis {
+    Axis_X = 1,
+    Axis_Y = 2,
+    Axis_Z = 4
 };
 
-INLINE BoxSide getBoxSide(f32 x, f32 y, f32 z, u8 axis) {
-    switch (axis) {
-        case 0 : return x > 0 ? Right : Left;
-        case 3 : return x > 0 ? Left : Right;
-        case 1 : return y > 0 ? Top : Bottom;
-        case 4 : return y > 0 ? Bottom : Top;
-        case 2 : return z > 0 ? Front : Back;
-        default: return z > 0 ? Back : Front;
-    }
-}
+enum BoxSide {
+    BoxSide_None = 0,
+    BoxSide_Top  = 1,
+    BoxSide_Bottom = 2,
+    BoxSide_Left   = 4,
+    BoxSide_Right  = 8,
+    BoxSide_Front  = 16,
+    BoxSide_Back   = 32
+};
 
 template <class T>
 struct Orientation {

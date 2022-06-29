@@ -249,12 +249,38 @@ struct vec3 {
         };
     }
 
-    INLINE f32 minimum() const {
-        return x < y ? (x < z ? x : z) : (y < z ? y : z);
+    INLINE f32 minimum(Axis *axis = nullptr) const {
+        if (axis) {
+            *axis = Axis_X;
+            f32 result = x;
+            if (y < result) {
+                result = y;
+                *axis = Axis_Y;
+            }
+            if (z < result) {
+                result = z;
+                *axis = Axis_Z;
+            }
+            return result;
+        } else
+            return x < y ? (x < z ? x : z) : (y < z ? y : z);
     }
 
-    INLINE f32 maximum() const {
-        return x > y ? (x > z ? x : z) : (y > z ? y : z);
+    INLINE f32 maximum(Axis *axis = nullptr) const {
+        if (axis) {
+            *axis = Axis_X;
+            f32 result = x;
+            if (y > result) {
+                result = y;
+                *axis = Axis_Y;
+            }
+            if (z > result) {
+                result = z;
+                *axis = Axis_Z;
+            }
+            return result;
+        } else
+            return x > y ? (x > z ? x : z) : (y > z ? y : z);
     }
 
     INLINE f32 dot(const vec3 &rhs) const {

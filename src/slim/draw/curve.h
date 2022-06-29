@@ -1,5 +1,9 @@
 #pragma once
 
+#if defined(SLIM_ENABLE_VIEWPORT_CURVE_DRAWING) & !defined(SLIM_ENABLE_VIEWPORT_EDGE_DRAWING)
+#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
+#endif
+
 #include "../draw/edge.h"
 #include "../core/transform.h"
 #include "../viewport/viewport.h"
@@ -12,7 +16,7 @@ void _drawCurve(const Curve &curve, const Transform &transform, const Viewport &
     f32 rotation_step = one_over_step_count * TAU;
     f32 rotation_step_times_rev_count = rotation_step * (f32)curve.revolution_count;
 
-    if (curve.type == CurveType::Helix)
+    if (curve.type == CurveType_Helix)
         rotation_step = rotation_step_times_rev_count;
 
     vec3 center_to_orbit;
@@ -31,7 +35,7 @@ void _drawCurve(const Curve &curve, const Transform &transform, const Viewport &
     rotation.Y.y = 1;
 
     mat3 orbit_to_curve_rotation;
-    if (curve.type == CurveType::Coil) {
+    if (curve.type == CurveType_Coil) {
         orbit_to_curve_rotation.X.x = orbit_to_curve_rotation.Y.y = cosf(rotation_step_times_rev_count);
         orbit_to_curve_rotation.X.y = sinf(rotation_step_times_rev_count);
         orbit_to_curve_rotation.Y.x = -orbit_to_curve_rotation.X.y;
@@ -48,11 +52,11 @@ void _drawCurve(const Curve &curve, const Transform &transform, const Viewport &
         center_to_orbit = rotation * center_to_orbit;
 
         switch (curve.type) {
-            case CurveType::Helix:
+            case CurveType_Helix:
                 current_position = center_to_orbit;
                 current_position.y -= 1;
                 break;
-            case CurveType::Coil:
+            case CurveType_Coil:
                 orbit_to_curve  = orbit_to_curve_rotation * orbit_to_curve;
                 current_position = accumulated_orbit_rotation * orbit_to_curve;
                 current_position += center_to_orbit;
@@ -66,14 +70,14 @@ void _drawCurve(const Curve &curve, const Transform &transform, const Viewport &
         if (i) {
             edge.from = previous_position;
             edge.to   = current_position;
-            drawEdge(edge, viewport, color, opacity, line_width);
+            viewport.drawEdge(edge, color, opacity, line_width);
         }
 
         switch (curve.type) {
-            case CurveType::Helix:
+            case CurveType_Helix:
                 center_to_orbit.y += 2 * one_over_step_count;
                 break;
-            case CurveType::Coil:
+            case CurveType_Coil:
                 accumulated_orbit_rotation *= rotation;
                 break;
             default:

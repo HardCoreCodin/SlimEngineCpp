@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef SLIM_ENABLE_VIEWPORT_BOX_DRAWING
+#define SLIM_ENABLE_VIEWPORT_BOX_DRAWING
+#endif
+
 #include "./box.h"
 #include "../scene/scene.h"
 #include "../scene/selection.h"
@@ -13,17 +17,17 @@ void drawSelection(Selection &selection, const Viewport &viewport, const Scene &
         if (selection.geometry->type == GeometryType_Mesh)
             selection.xform.scale *= scene.meshes[selection.geometry->id].aabb.max;
 
-        drawBox(box, selection.xform, viewport, Yellow, 0.5f, 0);
+        viewport.drawBox(box, selection.xform, Yellow, 0.5f, 0);
         if (selection.box_side) {
             ColorID color = White;
             switch (selection.box_side) {
-                case Left:  case Right:  color = Red;   break;
-                case Top:   case Bottom: color = Green; break;
-                case Front: case Back:   color = Blue;  break;
-                case NoSide: break;
+                case BoxSide_Left:  case BoxSide_Right: color = Red;   break;
+                case BoxSide_Top:   case BoxSide_Bottom: color = Green; break;
+                case BoxSide_Front: case BoxSide_Back: color = Blue;  break;
+                case BoxSide_None: break;
             }
 
-            drawBox(box, selection.xform, viewport, color, 0.5f, 1, selection.box_side);
+            viewport.drawBox(box, selection.xform, color, 0.5f, 1, selection.box_side);
         }
     }
 }

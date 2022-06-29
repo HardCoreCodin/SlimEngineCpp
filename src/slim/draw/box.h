@@ -1,5 +1,9 @@
 #pragma once
 
+#if defined(SLIM_ENABLE_VIEWPORT_BOX_DRAWING) & !defined(SLIM_ENABLE_VIEWPORT_EDGE_DRAWING)
+#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
+#endif
+
 #include "./edge.h"
 #include "../core/transform.h"
 #include "../scene/box.h"
@@ -16,21 +20,21 @@ void _drawBox(const Box &box, const Transform &transform, const Viewport &viewpo
     view_space_box.edges.setFrom(view_space_box.vertices);
 
     if (sides == BOX__ALL_SIDES) for (const auto &edge : view_space_box.edges.buffer)
-            drawEdge(edge, viewport, color, opacity, line_width);
+        viewport.drawEdge(edge, color, opacity, line_width);
     else {
         BoxEdgeSides &box_edges = view_space_box.edges.sides;
-        if (sides & Front | sides & Top   ) drawEdge(box_edges.front_top, viewport, color, opacity, line_width);
-        if (sides & Front | sides & Bottom) drawEdge(box_edges.front_bottom, viewport, color, opacity, line_width);
-        if (sides & Front | sides & Left  ) drawEdge(box_edges.front_left, viewport, color, opacity, line_width);
-        if (sides & Front | sides & Right ) drawEdge(box_edges.front_right, viewport, color, opacity, line_width);
-        if (sides & Back  | sides & Top   ) drawEdge(box_edges.back_top, viewport, color, opacity, line_width);
-        if (sides & Back  | sides & Bottom) drawEdge(box_edges.back_bottom, viewport, color, opacity, line_width);
-        if (sides & Back  | sides & Left  ) drawEdge(box_edges.back_left, viewport, color, opacity, line_width);
-        if (sides & Back  | sides & Right ) drawEdge(box_edges.back_right, viewport, color, opacity, line_width);
-        if (sides & Left  | sides & Top   ) drawEdge(box_edges.left_top, viewport, color, opacity, line_width);
-        if (sides & Left  | sides & Bottom) drawEdge(box_edges.left_bottom, viewport, color, opacity, line_width);
-        if (sides & Right | sides & Top   ) drawEdge(box_edges.right_top, viewport, color, opacity, line_width);
-        if (sides & Right | sides & Bottom) drawEdge(box_edges.right_bottom, viewport, color, opacity, line_width);
+        if (sides & BoxSide_Front | sides & BoxSide_Top   ) viewport.drawEdge(box_edges.front_top,    color, opacity, line_width);
+        if (sides & BoxSide_Front | sides & BoxSide_Bottom) viewport.drawEdge(box_edges.front_bottom, color, opacity, line_width);
+        if (sides & BoxSide_Front | sides & BoxSide_Left  ) viewport.drawEdge(box_edges.front_left,   color, opacity, line_width);
+        if (sides & BoxSide_Front | sides & BoxSide_Right ) viewport.drawEdge(box_edges.front_right,  color, opacity, line_width);
+        if (sides & BoxSide_Back  | sides & BoxSide_Top   ) viewport.drawEdge(box_edges.back_top,     color, opacity, line_width);
+        if (sides & BoxSide_Back  | sides & BoxSide_Bottom) viewport.drawEdge(box_edges.back_bottom,  color, opacity, line_width);
+        if (sides & BoxSide_Back  | sides & BoxSide_Left  ) viewport.drawEdge(box_edges.back_left,    color, opacity, line_width);
+        if (sides & BoxSide_Back  | sides & BoxSide_Right ) viewport.drawEdge(box_edges.back_right,   color, opacity, line_width);
+        if (sides & BoxSide_Left  | sides & BoxSide_Top   ) viewport.drawEdge(box_edges.left_top,     color, opacity, line_width);
+        if (sides & BoxSide_Left  | sides & BoxSide_Bottom) viewport.drawEdge(box_edges.left_bottom,  color, opacity, line_width);
+        if (sides & BoxSide_Right | sides & BoxSide_Top   ) viewport.drawEdge(box_edges.right_top,    color, opacity, line_width);
+        if (sides & BoxSide_Right | sides & BoxSide_Bottom) viewport.drawEdge(box_edges.right_bottom, color, opacity, line_width);
     }
 }
 

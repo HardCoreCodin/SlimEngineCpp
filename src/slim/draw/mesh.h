@@ -1,5 +1,9 @@
 #pragma once
 
+#if defined(SLIM_ENABLE_VIEWPORT_MESH_DRAWING) & !defined(SLIM_ENABLE_VIEWPORT_EDGE_DRAWING)
+#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
+#endif
+
 #include "./edge.h"
 #include "../scene/mesh.h"
 #include "../viewport/viewport.h"
@@ -13,7 +17,7 @@ void _drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, 
     for (u32 i = 0; i < mesh.edge_count; i++, edge_index++) {
         edge.from = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->from]));
         edge.to   = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->to]));
-        drawEdge(edge, viewport, color, opacity, line_width);
+        viewport.drawEdge(edge, color, opacity, line_width);
     }
 
     if (draw_normals && mesh.normals_count && mesh.vertex_normals && mesh.vertex_normal_indices) {
@@ -25,7 +29,7 @@ void _drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, 
                 edge.to = mesh.vertex_normals[normal_index->ids[i]] * 0.1f + pos;
                 edge.from = cam.internPos(transform.externPos(pos));
                 edge.to = cam.internPos(transform.externPos(edge.to));
-                drawEdge(edge, viewport, Red, opacity * 0.5f, line_width);
+                viewport.drawEdge(edge, Red, opacity * 0.5f, line_width);
             }
         }
     }

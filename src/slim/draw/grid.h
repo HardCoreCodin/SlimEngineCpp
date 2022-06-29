@@ -1,5 +1,9 @@
 #pragma once
 
+#if defined(SLIM_ENABLE_VIEWPORT_GRID_DRAWING) & !defined(SLIM_ENABLE_VIEWPORT_EDGE_DRAWING)
+#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
+#endif
+
 #include "./edge.h"
 #include "../core/transform.h"
 #include "../scene/grid.h"
@@ -21,8 +25,8 @@ void _drawGrid(const Grid &grid, const Transform &transform, const Viewport &vie
     // Distribute transformed vertices positions to edges:
     view_space_grid.edges.update(view_space_grid.vertices, grid.u_segments, grid.v_segments);
 
-    for (u8 u = 0; u < grid.u_segments; u++) drawEdge(view_space_grid.edges.u.edges[u], viewport, color, opacity, line_width);
-    for (u8 v = 0; v < grid.v_segments; v++) drawEdge(view_space_grid.edges.v.edges[v], viewport, color, opacity, line_width);
+    for (u8 u = 0; u < grid.u_segments; u++) viewport.drawEdge(view_space_grid.edges.u.edges[u], color, opacity, line_width);
+    for (u8 v = 0; v < grid.v_segments; v++) viewport.drawEdge(view_space_grid.edges.v.edges[v], color, opacity, line_width);
 }
 
 #ifdef SLIM_ENABLE_VIEWPORT_GRID_DRAWING

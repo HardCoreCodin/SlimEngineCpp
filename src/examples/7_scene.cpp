@@ -4,6 +4,7 @@
 #define SLIM_ENABLE_CANVAS_TEXT_DRAWING
 
 #define SLIM_DISABLE_ALL_VIEWPORT_DRAWING
+#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
 #define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
 #define SLIM_ENABLE_VIEWPORT_MESH_DRAWING
 #define SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
@@ -45,8 +46,8 @@ struct SceneApp : SlimApp {
     // Scene:
     Box box, *boxes{&box};
     Grid grid{11, 11}, *grids{&grid};
-    Curve helix{CurveType::Helix, 10};
-    Curve coil{ CurveType::Coil,  30}, *curves{&helix};
+    Curve helix{CurveType_Helix, 10};
+    Curve coil{ CurveType_Coil,  30}, *curves{&helix};
 
     Geometry grid_geo{{{0, 0, 0}, {0, 45 * DEG_TO_RAD, 0}, {5, 1, 5}}, GeometryType_Grid, Green};
     Geometry helix_geo{{{-3, 4, 2}}, GeometryType_Curve, Cyan};

@@ -9,9 +9,9 @@
 #define COMPILER_CLANG_OR_GCC 1
 #elif defined(__GNUC__) || defined(__GNUG__)
 #define COMPILER_GCC 1
-#define COMPILER_CLANG_OR_GCC 1
+    #define COMPILER_CLANG_OR_GCC 1
 #elif defined(_MSC_VER)
-#define COMPILER_MSVC 1
+    #define COMPILER_MSVC 1
 #endif
 
 #if (defined(SLIMMER) || !defined(NDEBUG))
@@ -61,62 +61,6 @@ typedef signed   long int  i32;
 typedef float  f32;
 typedef double f64;
 
-#ifndef SLIM_DISABLE_ALL_CANVAS_DRAWING
-#ifndef SLIM_ENABLE_CANVAS_TEXT_DRAWING
-#define SLIM_ENABLE_CANVAS_TEXT_DRAWING
-#endif
-
-#ifndef SLIM_ENABLE_CANVAS_NUMBER_DRAWING
-#define SLIM_ENABLE_CANVAS_NUMBER_DRAWING
-#endif
-
-#ifndef SLIM_ENABLE_CANVAS_HUD_DRAWING
-#define SLIM_ENABLE_CANVAS_HUD_DRAWING
-#endif
-
-#ifndef SLIM_ENABLE_CANVAS_LINE_DRAWING
-#define SLIM_ENABLE_CANVAS_LINE_DRAWING
-#endif
-
-#ifndef SLIM_ENABLE_CANVAS_RECTANGLE_DRAWING
-#define SLIM_ENABLE_CANVAS_RECTANGLE_DRAWING
-#endif
-
-#ifndef SLIM_ENABLE_CANVAS_TRIANGLE_DRAWING
-#define SLIM_ENABLE_CANVAS_TRIANGLE_DRAWING
-#endif
-
-#ifndef SLIM_ENABLE_CANVAS_CIRCLE_DRAWING
-#define SLIM_ENABLE_CANVAS_CIRCLE_DRAWING
-#endif
-#endif
-
-#ifndef SLIM_DISABLE_ALL_VIEWPORT_DRAWING
-#ifndef SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
-#define SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
-#endif
-
-#ifndef SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
-#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
-#endif
-
-#ifndef SLIM_ENABLE_VIEWPORT_BOX_DRAWING
-#define SLIM_ENABLE_VIEWPORT_BOX_DRAWING
-#endif
-
-#ifndef SLIM_ENABLE_VIEWPORT_MESH_DRAWING
-#define SLIM_ENABLE_VIEWPORT_MESH_DRAWING
-#endif
-
-#ifndef SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
-#define SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
-#endif
-
-#ifndef SLIM_ENABLE_VIEWPORT_GRID_DRAWING
-#define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
-#endif
-#endif
-
 #ifndef CANVAS_COUNT
 #define CANVAS_COUNT 2
 #endif
@@ -149,7 +93,7 @@ typedef double f64;
 #define WINDOW_CONTENT_PIXEL_SIZE 4
 #define WINDOW_CONTENT_SIZE (MAX_WINDOW_SIZE * WINDOW_CONTENT_PIXEL_SIZE)
 
-#define BOX__ALL_SIDES (Top | Bottom | Left | Right | Front | Back)
+#define BOX__ALL_SIDES (BoxSide_Top | BoxSide_Bottom | BoxSide_Left | BoxSide_Right | BoxSide_Front | BoxSide_Back)
 #define BOX__VERTEX_COUNT 8
 #define BOX__EDGE_COUNT 12
 #define GRID__MAX_SEGMENTS 101
@@ -333,16 +277,22 @@ INLINE f32 approach(f32 src, f32 trg, f32 diff) {
     return trg;
 }
 
-enum class CurveType {
-    None = 0,
+enum Axis {
+    Axis_X = 1,
+    Axis_Y = 2,
+    Axis_Z = 4
+};
 
-    Helix,
-    Coil,
+enum CurveType {
+    CurveType_None = 0,
 
-    Count
+    CurveType_Helix,
+    CurveType_Coil,
+
+    CurveType_Count
 };
 struct Curve {
-    CurveType type{CurveType::None};
+    CurveType type{CurveType_None};
     f32 revolution_count{1}, thickness{0.1f};
 };
 
@@ -358,25 +308,14 @@ enum GeometryType {
 };
 
 enum BoxSide {
-    NoSide = 0,
-    Top    = 1,
-    Bottom = 2,
-    Left   = 4,
-    Right  = 8,
-    Front  = 16,
-    Back   = 32
+    BoxSide_None = 0,
+    BoxSide_Top  = 1,
+    BoxSide_Bottom = 2,
+    BoxSide_Left   = 4,
+    BoxSide_Right  = 8,
+    BoxSide_Front  = 16,
+    BoxSide_Back   = 32
 };
-
-INLINE BoxSide getBoxSide(f32 x, f32 y, f32 z, u8 axis) {
-    switch (axis) {
-        case 0 : return x > 0 ? Right : Left;
-        case 3 : return x > 0 ? Left : Right;
-        case 1 : return y > 0 ? Top : Bottom;
-        case 4 : return y > 0 ? Bottom : Top;
-        case 2 : return z > 0 ? Front : Back;
-        default: return z > 0 ? Back : Front;
-    }
-}
 
 template <class T>
 struct Orientation {
@@ -2321,12 +2260,38 @@ struct vec3 {
         };
     }
 
-    INLINE f32 minimum() const {
-        return x < y ? (x < z ? x : z) : (y < z ? y : z);
+    INLINE f32 minimum(Axis *axis = nullptr) const {
+        if (axis) {
+            *axis = Axis_X;
+            f32 result = x;
+            if (y < result) {
+                result = y;
+                *axis = Axis_Y;
+            }
+            if (z < result) {
+                result = z;
+                *axis = Axis_Z;
+            }
+            return result;
+        } else
+            return x < y ? (x < z ? x : z) : (y < z ? y : z);
     }
 
-    INLINE f32 maximum() const {
-        return x > y ? (x > z ? x : z) : (y > z ? y : z);
+    INLINE f32 maximum(Axis *axis = nullptr) const {
+        if (axis) {
+            *axis = Axis_X;
+            f32 result = x;
+            if (y > result) {
+                result = y;
+                *axis = Axis_Y;
+            }
+            if (z > result) {
+                result = z;
+                *axis = Axis_Z;
+            }
+            return result;
+        } else
+            return x > y ? (x > z ? x : z) : (y > z ? y : z);
     }
 
     INLINE f32 dot(const vec3 &rhs) const {
@@ -4077,6 +4042,13 @@ AABB operator * (const AABB &aabb, const Transform &transform) {
     return {min, max};
 }
 
+
+enum RayIsFacing {
+    RayIsFacing_Left = 1,
+    RayIsFacing_Down = 2,
+    RayIsFacing_Back = 4
+};
+
 struct RayHit {
     vec3 position, normal;
     f32 distance, distance_squared;
@@ -4089,50 +4061,66 @@ struct Ray {
     vec3 origin, direction;
     RayHit hit;
 
-    INLINE vec3 at(f32 t) const { return origin + t*direction; }
+    INLINE vec3 at(f32 t) const { return direction.scaleAdd(t, origin);; }
     INLINE vec3 operator [](f32 t) const { return at(t); }
 
     INLINE BoxSide hitsCube() {
-        vec3 octant, RD_rcp = 1.0f / direction;
-        f32 x = signbit(direction.x) ? 1.0f : -1.0f;
-        f32 y = signbit(direction.y) ? 1.0f : -1.0f;
-        f32 z = signbit(direction.z) ? 1.0f : -1.0f;
+        u8 ray_is_facing = 0;
 
-        f32 t[6];
-        t[0] = (+x - origin.x) * RD_rcp.x;
-        t[1] = (+y - origin.y) * RD_rcp.y;
-        t[2] = (+z - origin.z) * RD_rcp.z;
-        t[3] = (-x - origin.x) * RD_rcp.x;
-        t[4] = (-y - origin.y) * RD_rcp.y;
-        t[5] = (-z - origin.z) * RD_rcp.z;
+        if (signbit(direction.x)) ray_is_facing |= RayIsFacing_Left;
+        if (signbit(direction.y)) ray_is_facing |= RayIsFacing_Down;
+        if (signbit(direction.z)) ray_is_facing |= RayIsFacing_Back;
 
-        u8 max_axis = t[3] < t[4] ? 3 : 4; if (t[5] < t[max_axis]) max_axis = 5;
-        f32 max_t = t[max_axis];
-        if (max_t < 0) // Further-away hit is behind the ray - intersection can not occur.
-            return NoSide;
+        f32 x = ray_is_facing & RayIsFacing_Left ? 1.0f : -1.0f;
+        f32 y = ray_is_facing & RayIsFacing_Down ? 1.0f : -1.0f;
+        f32 z = ray_is_facing & RayIsFacing_Back ? 1.0f : -1.0f;
 
-        u8 min_axis = t[0] > t[1] ? 0 : 1; if (t[2] > t[min_axis]) min_axis = 2;
-        f32 min_t = t[min_axis];
-        if (max_t < (min_t > 0 ? min_t : 0))
-            return NoSide;
+        vec3 RD_rcp = 1.0f / direction;
+        vec3 near{(x - origin.x) * RD_rcp.x,
+                  (y - origin.y) * RD_rcp.y,
+                  (z - origin.z) * RD_rcp.z};
+        vec3 far{(-x - origin.x) * RD_rcp.x,
+                 (-y - origin.y) * RD_rcp.y,
+                 (-z - origin.z) * RD_rcp.z};
 
-        hit.from_behind = min_t < 0; // Further-away hit is in front of the ray, closer one is behind it.
+        Axis far_hit_axis;
+        f32 far_hit_t = far.minimum(&far_hit_axis);
+        if (far_hit_t < 0) // Further-away hit is behind the ray - intersection can not occur.
+            return BoxSide_None;
+
+        Axis near_hit_axis;
+        f32 near_hit_t = near.maximum(&near_hit_axis);
+        if (far_hit_t < (near_hit_t > 0 ? near_hit_t : 0))
+            return BoxSide_None;
+
+        BoxSide side;
+        f32 t = near_hit_t;
+        hit.from_behind = t < 0; // Near hit is behind the ray, far hit is in front of it: hit is from behind
         if (hit.from_behind) {
-            min_t = max_t;
-            min_axis = max_axis;
+            t = far_hit_t;
+            switch (far_hit_axis) {
+                case Axis_X : side = ray_is_facing & RayIsFacing_Left ? BoxSide_Left : BoxSide_Right; break;
+                case Axis_Y : side = ray_is_facing & RayIsFacing_Down ? BoxSide_Bottom : BoxSide_Top; break;
+                case Axis_Z : side = ray_is_facing & RayIsFacing_Back ? BoxSide_Back : BoxSide_Front; break;
+            }
+        } else {
+            switch (near_hit_axis) {
+                case Axis_X: side = ray_is_facing & RayIsFacing_Left ? BoxSide_Right : BoxSide_Left; break;
+                case Axis_Y: side = ray_is_facing & RayIsFacing_Down ? BoxSide_Top : BoxSide_Bottom; break;
+                case Axis_Z: side = ray_is_facing & RayIsFacing_Back ? BoxSide_Front : BoxSide_Back; break;
+            }
         }
 
-        BoxSide side = getBoxSide(x, y, z, min_axis);
-        hit.position = direction.scaleAdd(min_t, origin);
+        hit.position = at(t);
         hit.normal = 0.0f;
         switch (side) {
-            case Left:   hit.normal.x = hit.from_behind ? +1.0f : -1.0f; break;
-            case Right:  hit.normal.x = hit.from_behind ? -1.0f : +1.0f; break;
-            case Bottom: hit.normal.y = hit.from_behind ? +1.0f : -1.0f; break;
-            case Top:    hit.normal.y = hit.from_behind ? -1.0f : +1.0f; break;
-            case Back:   hit.normal.z = hit.from_behind ? +1.0f : -1.0f; break;
-            case Front:  hit.normal.z = hit.from_behind ? -1.0f : +1.0f; break;
-            default: return NoSide;
+            case BoxSide_Left  : hit.normal.x = hit.from_behind ?  1.0f : -1.0f; break;
+            case BoxSide_Right : hit.normal.x = hit.from_behind ? -1.0f :  1.0f; break;
+            case BoxSide_Bottom: hit.normal.y = hit.from_behind ?  1.0f : -1.0f; break;
+            case BoxSide_Top   : hit.normal.y = hit.from_behind ? -1.0f :  1.0f; break;
+            case BoxSide_Back  : hit.normal.z = hit.from_behind ?  1.0f : -1.0f; break;
+            case BoxSide_Front : hit.normal.z = hit.from_behind ? -1.0f :  1.0f; break;
+            default: return BoxSide_None;
         }
 
         return side;
@@ -5367,27 +5355,16 @@ struct Canvas {
                pixel->opacity ? pixel->asContent(premultiply) : 0;
     }
 
-#ifdef SLIM_ENABLE_CANVAS_TEXT_DRAWING
     INLINE void drawText(char *str, i32 x, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#ifdef SLIM_VEC2
     INLINE void drawText(char *str, vec2i position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawText(char *str, vec2 position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#endif
-#endif
 
-#ifdef SLIM_ENABLE_CANVAS_NUMBER_DRAWING
     INLINE void drawNumber(i32 number, i32 x, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#ifdef SLIM_VEC2
     INLINE void drawNumber(i32 number, vec2i position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawNumber(i32 number, vec2 position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#endif
-#endif
 
-#ifdef SLIM_ENABLE_CANVAS_HUD_DRAWING
     INLINE void drawHUD(const HUD &hud, const RectI *viewport_bounds = nullptr) const;
-#endif
 
-#ifdef SLIM_ENABLE_CANVAS_LINE_DRAWING
     INLINE void drawHLine(RangeI x_range, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawHLine(i32 x_start, i32 x_end, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawVLine(RangeI y_range, i32 x, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
@@ -5395,43 +5372,30 @@ struct Canvas {
     INLINE void drawLine(f32 x1, f32 y1, f32 z1, f32 x2, f32 y2, f32 z2, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawLine(f32 x1, f32 y1, f32 x2, f32 y2, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
 
-#ifdef SLIM_VEC2
     INLINE void drawLine(vec2 from, vec2 to, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawLine(vec2i from, vec2i to, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
-#endif
-#endif
 
-#ifdef SLIM_ENABLE_CANVAS_RECTANGLE_DRAWING
     INLINE void drawRect(RectI rect, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawRect(Rect rect, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillRect(RectI rect, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillRect(Rect rect, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#endif
 
-#ifdef SLIM_ENABLE_CANVAS_TRIANGLE_DRAWING
     INLINE void drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawTriangle(i32 x1, i32 y1, i32 x2, i32 y2, i32 x3, i32 y3, const Color &color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillTriangle(i32 x1, i32 y1, i32 x2, i32 y2, i32 x3, i32 y3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
 
-#ifdef SLIM_VEC2
     INLINE void drawTriangle(vec2 p1, vec2 p2, vec2 p3, const Color &color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillTriangle(vec2 p1, vec2 p2, vec2 p3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#endif
-#endif
 
-#ifdef SLIM_ENABLE_CANVAS_CIRCLE_DRAWING
     INLINE void fillCircle(i32 center_x, i32 center_y, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawCircle(i32 center_x, i32 center_y, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#ifdef SLIM_VEC2
     INLINE void drawCircle(vec2i center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillCircle(vec2i center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawCircle(vec2 center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillCircle(vec2 center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#endif
-#endif
 
 private:
     static INLINE bool _isTransparentPixelQuad(Pixel *pixel_quad) {
@@ -5748,7 +5712,6 @@ void _drawLine(f32 x1, f32 y1, f32 z1, f32 x2, f32 y2, f32 z2, const Canvas &can
 }
 
 
-#ifdef SLIM_ENABLE_CANVAS_LINE_DRAWING
 INLINE void Canvas::drawHLine(RangeI x_range, i32 y, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawHLine(x_range, y, *this, color, opacity, viewport_bounds);
 }
@@ -5772,15 +5735,12 @@ INLINE void Canvas::drawLine(f32 x1, f32 y1, f32 x2, f32 y2, const Color &color,
     _drawLine(x1, y1, 0, x2, y2, 0, *this, color, opacity, line_width, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 INLINE void Canvas::drawLine(vec2 from, vec2 to, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
     _drawLine(from.x, from.y, 0, to.x, to.y, 0, *this, color, opacity, line_width, viewport_bounds);
 }
 INLINE void Canvas::drawLine(vec2i from, vec2i to, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
     _drawLine((f32)from.x, (f32)from.y, 0, (f32)to.x, (f32)to.y, 0, *this, color, opacity, line_width, viewport_bounds);
 }
-#endif
-#endif
 
 
 
@@ -5807,11 +5767,9 @@ INLINE void drawLine(f32 x1, f32 y1, f32 x2, f32 y2, const Canvas &canvas, const
     _drawLine(x1, y1, 0, x2, y2, 0, canvas, color, opacity, line_width, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 void drawLine(vec2 from, vec2 to, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) {
     _drawLine(from.x, from.y, 0, to.x, to.y, 0, canvas, color, opacity, line_width, viewport_bounds);
 }
-#endif
 
 
 
@@ -5924,7 +5882,6 @@ void _fillRect(RectI rect, const Canvas &canvas, const Color &color, f32 opacity
 }
 
 
-#ifdef SLIM_ENABLE_CANVAS_RECTANGLE_DRAWING
 INLINE void Canvas::drawRect(RectI rect, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawRect(rect, *this, color, opacity, viewport_bounds);
 }
@@ -5942,7 +5899,6 @@ INLINE void Canvas::fillRect(Rect rect, const Color &color, f32 opacity, const R
     RectI rectI{(i32)rect.left, (i32)rect.right, (i32)rect.top, (i32)rect.bottom};
     _fillRect(rectI, *this, color, opacity, viewport_bounds);
 }
-#endif
 
 
 INLINE void drawRect(RectI rect, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
@@ -6066,7 +6022,6 @@ void _paintCircle(bool fill, i32 center_x, i32 center_y, i32 radius, const Canva
 }
 
 
-#ifdef SLIM_ENABLE_CANVAS_CIRCLE_DRAWING
 INLINE void Canvas::fillCircle(i32 center_x, i32 center_y, i32 radius, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _paintCircle(true, center_x, center_y, radius, *this, color, opacity, viewport_bounds);
 }
@@ -6075,7 +6030,6 @@ INLINE void Canvas::drawCircle(i32 center_x, i32 center_y, i32 radius, const Col
     _paintCircle(false, center_x, center_y, radius, *this, color, opacity, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 INLINE void Canvas::drawCircle(vec2i center, i32 radius, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _paintCircle(false, center.x, center.y, radius, *this, color, opacity, viewport_bounds);
 }
@@ -6089,10 +6043,6 @@ INLINE void Canvas::drawCircle(vec2 center, i32 radius, const Color &color, f32 
 INLINE void Canvas::fillCircle(vec2 center, i32 radius, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _paintCircle(true, (i32)center.x, (i32)center.y, radius, *this, color, opacity, viewport_bounds);
 }
-#endif
-#endif
-
-
 
 INLINE void fillCircle(i32 center_x, i32 center_y, i32 radius, const Canvas &canvas,
                        Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
@@ -6104,7 +6054,6 @@ INLINE void drawCircle(i32 center_x, i32 center_y, i32 radius, const Canvas &can
     _paintCircle(false, center_x, center_y, radius, canvas, color, opacity, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 INLINE void drawCircle(vec2i center, i32 radius, const Canvas &canvas,
                        Color color = White, f32 opacity = 1.0f,
                        const RectI *viewport_bounds = nullptr) {
@@ -6129,7 +6078,6 @@ INLINE void fillCircle(vec2 center, i32 radius,
                        const RectI *viewport_bounds = nullptr) {
     _paintCircle(true, (i32)center.x, (i32)center.y, radius, canvas, color, opacity, viewport_bounds);
 }
-#endif
 
 
 INLINE void _drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3,
@@ -6269,7 +6217,6 @@ void _fillTriangle(f32 x1, f32 y1,
 }
 
 
-#ifdef SLIM_ENABLE_CANVAS_TRIANGLE_DRAWING
 INLINE void Canvas::drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
     _drawTriangle(x1, y1, x2, y2, x3, y3, *this, color, opacity, line_width, viewport_bounds);
 }
@@ -6286,7 +6233,6 @@ INLINE void Canvas::fillTriangle(i32 x1, i32 y1, i32 x2, i32 y2, i32 x3, i32 y3,
     _fillTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, *this, color, opacity, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 INLINE void Canvas::drawTriangle(vec2 p1, vec2 p2, vec2 p3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
     _drawTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, *this, color, opacity, line_width, viewport_bounds);
 }
@@ -6302,8 +6248,6 @@ INLINE void Canvas::drawTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &colo
 INLINE void Canvas::fillTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _fillTriangle((f32)p1.x, (f32)p1.y, (f32)p2.x, (f32)p2.y, (f32)p3.x, (f32)p3.y, *this, color, opacity, viewport_bounds);
 }
-#endif
-#endif
 
 
 
@@ -6338,7 +6282,6 @@ INLINE void fillTriangle(i32 x1, i32 y1,
     _fillTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, canvas, color, opacity, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 void drawTriangle(vec2 p1, vec2 p2, vec2 p3, const Canvas &canvas,
                   Color color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) {
     _drawTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, canvas, color, opacity, line_width, viewport_bounds);
@@ -6361,7 +6304,6 @@ void fillTriangle(vec2i p1, vec2i p2, vec2i p3,
                   const RectI *viewport_bounds = nullptr) {
     _fillTriangle((f32)p1.x, (f32)p1.y, (f32)p2.x, (f32)p2.y, (f32)p3.x, (f32)p3.y, canvas, color, opacity, viewport_bounds);
 }
-#endif
 
 
 #define LINE_HEIGHT 14
@@ -6563,33 +6505,26 @@ void _drawText(char *str, i32 x, i32 y, const Canvas &canvas, const Color &color
     }
 }
 
-#ifdef SLIM_ENABLE_CANVAS_TEXT_DRAWING
 INLINE void Canvas::drawText(char *str, i32 x, i32 y, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawText(str, x, y, *this, color, opacity, viewport_bounds);
 }
-#ifdef SLIM_VEC2
 INLINE void Canvas::drawText(char *str, vec2i position, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawText(str, position.x, position.y, *this, color, opacity, viewport_bounds);
 }
 INLINE void Canvas::drawText(char *str, vec2 position, const Color &color, f32 opacity, const RectI *viewport_bounds) const  {
     _drawText(str, (i32)position.x, (i32)position.y, *this, color, opacity, viewport_bounds);
 }
-#endif
-#endif
-
 
 INLINE void drawText(char *str, i32 x, i32 y, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawText(str, x, y, canvas, color, opacity, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 INLINE void drawText(char *str, vec2i position, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawText(str, position.x, position.y, canvas, color, opacity, viewport_bounds);
 }
 INLINE void drawText(char *str, vec2 position, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawText(str, (i32)position.x, (i32)position.y, canvas, color, opacity, viewport_bounds);
 }
-#endif
 
 void _drawNumber(i32 number, i32 x, i32 y, const Canvas &canvas, const Color &color, f32 opacity, const RectI *viewport_bounds) {
     static NumberString number_string;
@@ -6597,35 +6532,27 @@ void _drawNumber(i32 number, i32 x, i32 y, const Canvas &canvas, const Color &co
     _drawText(number_string.string.char_ptr, x - (i32)number_string.string.length * FONT_WIDTH, y, canvas, color, opacity, viewport_bounds);
 }
 
-
-#ifdef SLIM_ENABLE_CANVAS_NUMBER_DRAWING
 INLINE void Canvas::drawNumber(i32 number, i32 x, i32 y, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawNumber(number, x, y, *this, color, opacity, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 INLINE void Canvas::drawNumber(i32 number, vec2i position, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawNumber(number, position.x, position.y, *this, color, opacity, viewport_bounds);
 }
 INLINE void Canvas::drawNumber(i32 number, vec2 position, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawNumber(number, (i32)position.x, (i32)position.y, *this, color, opacity, viewport_bounds);
 }
-#endif
-#endif
 
 
 INLINE void drawNumber(i32 number, i32 x, i32 y, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawNumber(number, x, y, canvas, color, opacity, viewport_bounds);
 }
-
-#ifdef SLIM_VEC2
 INLINE void drawNumber(i32 number, vec2i position, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawNumber(number, position.x, position.y, canvas, color, opacity, viewport_bounds);
 }
 INLINE void drawNumber(i32 number, vec2 position, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawNumber(number, (i32)position.x, (i32)position.y, canvas, color, opacity, viewport_bounds);
 }
-#endif
 
 
 void _drawHUD(const HUD &hud, const Canvas &canvas, const RectI *viewport_bounds) {
@@ -6650,17 +6577,12 @@ void _drawHUD(const HUD &hud, const Canvas &canvas, const RectI *viewport_bounds
     }
 }
 
-#ifdef SLIM_ENABLE_CANVAS_HUD_DRAWING
 INLINE void Canvas::drawHUD(const HUD &hud, const RectI *viewport_bounds) const {
     _drawHUD(hud, *this, viewport_bounds);
 }
-#endif
-
 INLINE void drawHUD(const HUD &hud, const Canvas &canvas, const RectI *viewport_bounds = nullptr) {
     _drawHUD(hud, canvas, viewport_bounds);
 }
-
-
 
 struct Viewport {
     Canvas &canvas;
@@ -6710,30 +6632,13 @@ struct Viewport {
         return frustum.cullAndClipEdge(edge, camera->focal_length, dimensions.width_over_height);
     }
 
-#ifdef SLIM_ENABLE_VIEWPORT_BOX_DRAWING
     INLINE void drawBox(const Box &box, const Transform &transform, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, u8 sides = BOX__ALL_SIDES) const;
-#endif
-
-#ifdef SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
     INLINE void drawCamera(const Camera &camera, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) const;
-#endif
-
-#ifdef SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
     INLINE void drawCurve(const Curve &curve, const Transform &transform, const Color &color = White,
                           f32 opacity = 1.0f, u8 line_width = 0, u32 step_count = CURVE_STEPS) const;
-#endif
-
-#ifdef SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
     INLINE void drawEdge(Edge edge, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) const;
-#endif
-
-#ifdef SLIM_ENABLE_VIEWPORT_GRID_DRAWING
     INLINE void drawGrid(const Grid &grid, const Transform &transform, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) const;
-#endif
-
-#ifdef SLIM_ENABLE_VIEWPORT_MESH_DRAWING
     INLINE void drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) const;
-#endif
 };
 
 
@@ -6751,7 +6656,7 @@ struct Selection {
     f32 object_distance = 0;
     u32 geo_id = 0;
     GeometryType geo_type = GeometryType_None;
-    BoxSide box_side = NoSide;
+    BoxSide box_side = BoxSide_None;
     bool changed = false;
     bool left_mouse_button_was_pressed = false;
 
@@ -6848,9 +6753,9 @@ struct Selection {
                     }
                 }
             } else {
-                box_side = NoSide;
+                box_side = BoxSide_None;
                 if (mouse::left_button.is_pressed && mouse::moved) {
-                    // Back-project the new mouse position onto a quad at a distance of the selected-object away from the camera
+                    // BoxSide_Back-project the new mouse position onto a quad at a distance of the selected-object away from the camera
 
                     // Screen -> NDC:
                     x = (x + 0.5f) / dimensions.h_width  - 1;
@@ -6860,7 +6765,7 @@ struct Selection {
                     x *= object_distance / (camera.focal_length * dimensions.height_over_width);
                     y *= object_distance / camera.focal_length;
 
-                    // View -> World (Back-track by the world offset from the hit position back to the selected-object's center):
+                    // View -> World (BoxSide_Back-track by the world offset from the hit position back to the selected-object's center):
                     *world_position = camera.rotation * vec3{x, -y, object_distance} + camera.position - world_offset;
                 }
             }
@@ -6881,11 +6786,9 @@ void _drawEdge(Edge edge, const Viewport &viewport, const Color &color, f32 opac
              viewport.canvas, color, opacity, line_width, &viewport.bounds);
 }
 
-#ifdef SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
 INLINE void Viewport::drawEdge(Edge edge, const Color &color, f32 opacity, u8 line_width) const {
     _drawEdge(edge, *this, color, opacity, line_width);
 }
-#endif
 
 INLINE void drawEdge(Edge edge, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     _drawEdge(edge, viewport, color, opacity, line_width);
@@ -6903,29 +6806,27 @@ void _drawBox(const Box &box, const Transform &transform, const Viewport &viewpo
     view_space_box.edges.setFrom(view_space_box.vertices);
 
     if (sides == BOX__ALL_SIDES) for (const auto &edge : view_space_box.edges.buffer)
-            drawEdge(edge, viewport, color, opacity, line_width);
+            viewport.drawEdge(edge, color, opacity, line_width);
     else {
         BoxEdgeSides &box_edges = view_space_box.edges.sides;
-        if (sides & Front | sides & Top   ) drawEdge(box_edges.front_top, viewport, color, opacity, line_width);
-        if (sides & Front | sides & Bottom) drawEdge(box_edges.front_bottom, viewport, color, opacity, line_width);
-        if (sides & Front | sides & Left  ) drawEdge(box_edges.front_left, viewport, color, opacity, line_width);
-        if (sides & Front | sides & Right ) drawEdge(box_edges.front_right, viewport, color, opacity, line_width);
-        if (sides & Back  | sides & Top   ) drawEdge(box_edges.back_top, viewport, color, opacity, line_width);
-        if (sides & Back  | sides & Bottom) drawEdge(box_edges.back_bottom, viewport, color, opacity, line_width);
-        if (sides & Back  | sides & Left  ) drawEdge(box_edges.back_left, viewport, color, opacity, line_width);
-        if (sides & Back  | sides & Right ) drawEdge(box_edges.back_right, viewport, color, opacity, line_width);
-        if (sides & Left  | sides & Top   ) drawEdge(box_edges.left_top, viewport, color, opacity, line_width);
-        if (sides & Left  | sides & Bottom) drawEdge(box_edges.left_bottom, viewport, color, opacity, line_width);
-        if (sides & Right | sides & Top   ) drawEdge(box_edges.right_top, viewport, color, opacity, line_width);
-        if (sides & Right | sides & Bottom) drawEdge(box_edges.right_bottom, viewport, color, opacity, line_width);
+        if (sides & BoxSide_Front | sides & BoxSide_Top   ) viewport.drawEdge(box_edges.front_top,    color, opacity, line_width);
+        if (sides & BoxSide_Front | sides & BoxSide_Bottom) viewport.drawEdge(box_edges.front_bottom, color, opacity, line_width);
+        if (sides & BoxSide_Front | sides & BoxSide_Left  ) viewport.drawEdge(box_edges.front_left,   color, opacity, line_width);
+        if (sides & BoxSide_Front | sides & BoxSide_Right ) viewport.drawEdge(box_edges.front_right,  color, opacity, line_width);
+        if (sides & BoxSide_Back  | sides & BoxSide_Top   ) viewport.drawEdge(box_edges.back_top,     color, opacity, line_width);
+        if (sides & BoxSide_Back  | sides & BoxSide_Bottom) viewport.drawEdge(box_edges.back_bottom,  color, opacity, line_width);
+        if (sides & BoxSide_Back  | sides & BoxSide_Left  ) viewport.drawEdge(box_edges.back_left,    color, opacity, line_width);
+        if (sides & BoxSide_Back  | sides & BoxSide_Right ) viewport.drawEdge(box_edges.back_right,   color, opacity, line_width);
+        if (sides & BoxSide_Left  | sides & BoxSide_Top   ) viewport.drawEdge(box_edges.left_top,     color, opacity, line_width);
+        if (sides & BoxSide_Left  | sides & BoxSide_Bottom) viewport.drawEdge(box_edges.left_bottom,  color, opacity, line_width);
+        if (sides & BoxSide_Right | sides & BoxSide_Top   ) viewport.drawEdge(box_edges.right_top,    color, opacity, line_width);
+        if (sides & BoxSide_Right | sides & BoxSide_Bottom) viewport.drawEdge(box_edges.right_bottom, color, opacity, line_width);
     }
 }
 
-#ifdef SLIM_ENABLE_VIEWPORT_BOX_DRAWING
 INLINE void Viewport::drawBox(const Box &box, const Transform &transform, const Color &color, f32 opacity, u8 line_width, u8 sides) const {
     _drawBox(box, transform, *this, color, opacity, line_width, sides);
 }
-#endif
 
 INLINE void drawBox(const Box &box, const Transform &transform, const Viewport &viewport,
                     const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, u8 sides = BOX__ALL_SIDES) {
@@ -6942,7 +6843,7 @@ void _drawCamera(const Camera &camera, const Viewport &viewport, const Color &co
     transform.scale = 1.0f;
 
     box = Box{};
-    drawBox(box, transform, viewport, color, opacity, line_width, BOX__ALL_SIDES);
+    viewport.drawBox(box, transform, color, opacity, line_width, BOX__ALL_SIDES);
 
     box.vertices.corners.back_bottom_left   *= 0.5f;
     box.vertices.corners.back_bottom_right  *= 0.5f;
@@ -6956,14 +6857,12 @@ void _drawCamera(const Camera &camera, const Viewport &viewport, const Color &co
     for (auto &vertex : box.vertices.buffer)
         vertex.z += 1.5f;
 
-    drawBox(box, transform, viewport, color, opacity, line_width, BOX__ALL_SIDES);
+    viewport.drawBox(box, transform, color, opacity, line_width, BOX__ALL_SIDES);
 }
 
-#ifdef SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
 INLINE void Viewport::drawCamera(const Camera &camera, const Color &color, f32 opacity, u8 line_width) const {
     _drawCamera(camera, *this, color, opacity, line_width);
 }
-#endif
 
 INLINE void drawCamera(const Camera &camera, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     _drawCamera(camera, viewport, color, opacity, line_width);
@@ -6978,7 +6877,7 @@ void _drawCurve(const Curve &curve, const Transform &transform, const Viewport &
     f32 rotation_step = one_over_step_count * TAU;
     f32 rotation_step_times_rev_count = rotation_step * (f32)curve.revolution_count;
 
-    if (curve.type == CurveType::Helix)
+    if (curve.type == CurveType_Helix)
         rotation_step = rotation_step_times_rev_count;
 
     vec3 center_to_orbit;
@@ -6997,7 +6896,7 @@ void _drawCurve(const Curve &curve, const Transform &transform, const Viewport &
     rotation.Y.y = 1;
 
     mat3 orbit_to_curve_rotation;
-    if (curve.type == CurveType::Coil) {
+    if (curve.type == CurveType_Coil) {
         orbit_to_curve_rotation.X.x = orbit_to_curve_rotation.Y.y = cosf(rotation_step_times_rev_count);
         orbit_to_curve_rotation.X.y = sinf(rotation_step_times_rev_count);
         orbit_to_curve_rotation.Y.x = -orbit_to_curve_rotation.X.y;
@@ -7014,11 +6913,11 @@ void _drawCurve(const Curve &curve, const Transform &transform, const Viewport &
         center_to_orbit = rotation * center_to_orbit;
 
         switch (curve.type) {
-            case CurveType::Helix:
+            case CurveType_Helix:
                 current_position = center_to_orbit;
                 current_position.y -= 1;
                 break;
-            case CurveType::Coil:
+            case CurveType_Coil:
                 orbit_to_curve  = orbit_to_curve_rotation * orbit_to_curve;
                 current_position = accumulated_orbit_rotation * orbit_to_curve;
                 current_position += center_to_orbit;
@@ -7032,14 +6931,14 @@ void _drawCurve(const Curve &curve, const Transform &transform, const Viewport &
         if (i) {
             edge.from = previous_position;
             edge.to   = current_position;
-            drawEdge(edge, viewport, color, opacity, line_width);
+            viewport.drawEdge(edge, color, opacity, line_width);
         }
 
         switch (curve.type) {
-            case CurveType::Helix:
+            case CurveType_Helix:
                 center_to_orbit.y += 2 * one_over_step_count;
                 break;
-            case CurveType::Coil:
+            case CurveType_Coil:
                 accumulated_orbit_rotation *= rotation;
                 break;
             default:
@@ -7050,13 +6949,10 @@ void _drawCurve(const Curve &curve, const Transform &transform, const Viewport &
     }
 }
 
-#ifdef SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
 INLINE void Viewport::drawCurve(const Curve &curve, const Transform &transform,
                                 const Color &color, f32 opacity, u8 line_width, u32 step_count) const {
     _drawCurve(curve, transform, *this, color, opacity, line_width, step_count);
 }
-#endif
-
 INLINE void drawCurve(const Curve &curve, const Transform &transform, const Viewport &viewport,
                       const Color &color = White, f32 opacity = 1.0f, u8 line_width = 0, u32 step_count = CURVE_STEPS) {
     _drawCurve(curve, transform, viewport, color, opacity, line_width, step_count);
@@ -7080,16 +6976,12 @@ void _drawGrid(const Grid &grid, const Transform &transform, const Viewport &vie
     // Distribute transformed vertices positions to edges:
     view_space_grid.edges.update(view_space_grid.vertices, grid.u_segments, grid.v_segments);
 
-    for (u8 u = 0; u < grid.u_segments; u++) drawEdge(view_space_grid.edges.u.edges[u], viewport, color, opacity, line_width);
-    for (u8 v = 0; v < grid.v_segments; v++) drawEdge(view_space_grid.edges.v.edges[v], viewport, color, opacity, line_width);
+    for (u8 u = 0; u < grid.u_segments; u++) viewport.drawEdge(view_space_grid.edges.u.edges[u], color, opacity, line_width);
+    for (u8 v = 0; v < grid.v_segments; v++) viewport.drawEdge(view_space_grid.edges.v.edges[v], color, opacity, line_width);
 }
-
-#ifdef SLIM_ENABLE_VIEWPORT_GRID_DRAWING
 INLINE void Viewport::drawGrid(const Grid &grid, const Transform &transform, const Color &color, f32 opacity, u8 line_width) const {
     _drawGrid(grid, transform, *this, color, opacity, line_width);
 }
-#endif
-
 INLINE void drawGrid(const Grid &grid, const Transform &transform, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     _drawGrid(grid, transform, viewport, color, opacity, line_width);
 }
@@ -7103,7 +6995,7 @@ void _drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, 
     for (u32 i = 0; i < mesh.edge_count; i++, edge_index++) {
         edge.from = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->from]));
         edge.to   = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->to]));
-        drawEdge(edge, viewport, color, opacity, line_width);
+        viewport.drawEdge(edge, color, opacity, line_width);
     }
 
     if (draw_normals && mesh.normals_count && mesh.vertex_normals && mesh.vertex_normal_indices) {
@@ -7115,19 +7007,16 @@ void _drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, 
                 edge.to = mesh.vertex_normals[normal_index->ids[i]] * 0.1f + pos;
                 edge.from = cam.internPos(transform.externPos(pos));
                 edge.to = cam.internPos(transform.externPos(edge.to));
-                drawEdge(edge, viewport, Red, opacity * 0.5f, line_width);
+                viewport.drawEdge(edge, Red, opacity * 0.5f, line_width);
             }
         }
     }
 }
 
-#ifdef SLIM_ENABLE_VIEWPORT_MESH_DRAWING
 INLINE void Viewport::drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Color &color,
                                f32 opacity, u8 line_width) const {
     _drawMesh(mesh, transform, draw_normals, *this, color, opacity, line_width);
 }
-#endif
-
 INLINE void drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport,
                      const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     _drawMesh(mesh, transform, draw_normals, viewport, color, opacity, line_width);
@@ -7141,17 +7030,17 @@ void drawSelection(Selection &selection, const Viewport &viewport, const Scene &
         if (selection.geometry->type == GeometryType_Mesh)
             selection.xform.scale *= scene.meshes[selection.geometry->id].aabb.max;
 
-        drawBox(box, selection.xform, viewport, Yellow, 0.5f, 0);
+        viewport.drawBox(box, selection.xform, Yellow, 0.5f, 0);
         if (selection.box_side) {
             ColorID color = White;
             switch (selection.box_side) {
-                case Left:  case Right:  color = Red;   break;
-                case Top:   case Bottom: color = Green; break;
-                case Front: case Back:   color = Blue;  break;
-                case NoSide: break;
+                case BoxSide_Left:  case BoxSide_Right: color = Red;   break;
+                case BoxSide_Top:   case BoxSide_Bottom: color = Green; break;
+                case BoxSide_Front: case BoxSide_Back: color = Blue;  break;
+                case BoxSide_None: break;
             }
 
-            drawBox(box, selection.xform, viewport, color, 0.5f, 1, selection.box_side);
+            viewport.drawBox(box, selection.xform, color, 0.5f, 1, selection.box_side);
         }
     }
 }

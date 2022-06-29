@@ -3,6 +3,7 @@
 #define SLIM_ENABLE_CANVAS_HUD_DRAWING
 
 #define SLIM_DISABLE_ALL_VIEWPORT_DRAWING
+#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
 #define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
 #define SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
 #define SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
@@ -40,8 +41,8 @@ struct ShapesApp : SlimApp {
     Box box{};
     Grid grid{11,
               11};
-    Curve helix{CurveType::Helix, 10};
-    Curve coil{ CurveType::Coil,  30};
+    Curve helix{CurveType_Helix, 10};
+    Curve coil{ CurveType_Coil,  30};
 
     Transform box_transform;
     Transform helix_transform{{-3, 4, 2}};

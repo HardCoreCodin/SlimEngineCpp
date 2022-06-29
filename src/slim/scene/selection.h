@@ -18,7 +18,7 @@ struct Selection {
     f32 object_distance = 0;
     u32 geo_id = 0;
     GeometryType geo_type = GeometryType_None;
-    BoxSide box_side = NoSide;
+    BoxSide box_side = BoxSide_None;
     bool changed = false;
     bool left_mouse_button_was_pressed = false;
 
@@ -115,9 +115,9 @@ struct Selection {
                     }
                 }
             } else {
-                box_side = NoSide;
+                box_side = BoxSide_None;
                 if (mouse::left_button.is_pressed && mouse::moved) {
-                    // Back-project the new mouse position onto a quad at a distance of the selected-object away from the camera
+                    // BoxSide_Back-project the new mouse position onto a quad at a distance of the selected-object away from the camera
 
                     // Screen -> NDC:
                     x = (x + 0.5f) / dimensions.h_width  - 1;
@@ -127,7 +127,7 @@ struct Selection {
                     x *= object_distance / (camera.focal_length * dimensions.height_over_width);
                     y *= object_distance / camera.focal_length;
 
-                    // View -> World (Back-track by the world offset from the hit position back to the selected-object's center):
+                    // View -> World (BoxSide_Back-track by the world offset from the hit position back to the selected-object's center):
                     *world_position = camera.rotation * vec3{x, -y, object_distance} + camera.position - world_offset;
                 }
             }

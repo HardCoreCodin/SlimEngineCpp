@@ -2,6 +2,12 @@
 
 #include "../math/vec3.h"
 
+enum RayIsFacing {
+    RayIsFacing_Left = 1,
+    RayIsFacing_Down = 2,
+    RayIsFacing_Back = 4
+};
+
 struct RayHit {
     vec3 position, normal;
     f32 distance, distance_squared;
@@ -14,50 +20,66 @@ struct Ray {
     vec3 origin, direction;
     RayHit hit;
 
-    INLINE vec3 at(f32 t) const { return origin + t*direction; }
+    INLINE vec3 at(f32 t) const { return direction.scaleAdd(t, origin);; }
     INLINE vec3 operator [](f32 t) const { return at(t); }
 
     INLINE BoxSide hitsCube() {
-        vec3 octant, RD_rcp = 1.0f / direction;
-        f32 x = signbit(direction.x) ? 1.0f : -1.0f;
-        f32 y = signbit(direction.y) ? 1.0f : -1.0f;
-        f32 z = signbit(direction.z) ? 1.0f : -1.0f;
+        u8 ray_is_facing = 0;
 
-        f32 t[6];
-        t[0] = (+x - origin.x) * RD_rcp.x;
-        t[1] = (+y - origin.y) * RD_rcp.y;
-        t[2] = (+z - origin.z) * RD_rcp.z;
-        t[3] = (-x - origin.x) * RD_rcp.x;
-        t[4] = (-y - origin.y) * RD_rcp.y;
-        t[5] = (-z - origin.z) * RD_rcp.z;
+        if (signbit(direction.x)) ray_is_facing |= RayIsFacing_Left;
+        if (signbit(direction.y)) ray_is_facing |= RayIsFacing_Down;
+        if (signbit(direction.z)) ray_is_facing |= RayIsFacing_Back;
 
-        u8 max_axis = t[3] < t[4] ? 3 : 4; if (t[5] < t[max_axis]) max_axis = 5;
-        f32 max_t = t[max_axis];
-        if (max_t < 0) // Further-away hit is behind the ray - intersection can not occur.
-            return NoSide;
+        f32 x = ray_is_facing & RayIsFacing_Left ? 1.0f : -1.0f;
+        f32 y = ray_is_facing & RayIsFacing_Down ? 1.0f : -1.0f;
+        f32 z = ray_is_facing & RayIsFacing_Back ? 1.0f : -1.0f;
 
-        u8 min_axis = t[0] > t[1] ? 0 : 1; if (t[2] > t[min_axis]) min_axis = 2;
-        f32 min_t = t[min_axis];
-        if (max_t < (min_t > 0 ? min_t : 0))
-            return NoSide;
+        vec3 RD_rcp = 1.0f / direction;
+        vec3 near{(x - origin.x) * RD_rcp.x,
+                  (y - origin.y) * RD_rcp.y,
+                  (z - origin.z) * RD_rcp.z};
+        vec3 far{(-x - origin.x) * RD_rcp.x,
+                 (-y - origin.y) * RD_rcp.y,
+                 (-z - origin.z) * RD_rcp.z};
 
-        hit.from_behind = min_t < 0; // Further-away hit is in front of the ray, closer one is behind it.
+        Axis far_hit_axis;
+        f32 far_hit_t = far.minimum(&far_hit_axis);
+        if (far_hit_t < 0) // Further-away hit is behind the ray - intersection can not occur.
+            return BoxSide_None;
+
+        Axis near_hit_axis;
+        f32 near_hit_t = near.maximum(&near_hit_axis);
+        if (far_hit_t < (near_hit_t > 0 ? near_hit_t : 0))
+            return BoxSide_None;
+
+        BoxSide side;
+        f32 t = near_hit_t;
+        hit.from_behind = t < 0; // Near hit is behind the ray, far hit is in front of it: hit is from behind
         if (hit.from_behind) {
-            min_t = max_t;
-            min_axis = max_axis;
+            t = far_hit_t;
+            switch (far_hit_axis) {
+                case Axis_X : side = ray_is_facing & RayIsFacing_Left ? BoxSide_Left : BoxSide_Right; break;
+                case Axis_Y : side = ray_is_facing & RayIsFacing_Down ? BoxSide_Bottom : BoxSide_Top; break;
+                case Axis_Z : side = ray_is_facing & RayIsFacing_Back ? BoxSide_Back : BoxSide_Front; break;
+            }
+        } else {
+            switch (near_hit_axis) {
+                case Axis_X: side = ray_is_facing & RayIsFacing_Left ? BoxSide_Right : BoxSide_Left; break;
+                case Axis_Y: side = ray_is_facing & RayIsFacing_Down ? BoxSide_Top : BoxSide_Bottom; break;
+                case Axis_Z: side = ray_is_facing & RayIsFacing_Back ? BoxSide_Front : BoxSide_Back; break;
+            }
         }
 
-        BoxSide side = getBoxSide(x, y, z, min_axis);
-        hit.position = direction.scaleAdd(min_t, origin);
+        hit.position = at(t);
         hit.normal = 0.0f;
         switch (side) {
-            case Left:   hit.normal.x = hit.from_behind ? +1.0f : -1.0f; break;
-            case Right:  hit.normal.x = hit.from_behind ? -1.0f : +1.0f; break;
-            case Bottom: hit.normal.y = hit.from_behind ? +1.0f : -1.0f; break;
-            case Top:    hit.normal.y = hit.from_behind ? -1.0f : +1.0f; break;
-            case Back:   hit.normal.z = hit.from_behind ? +1.0f : -1.0f; break;
-            case Front:  hit.normal.z = hit.from_behind ? -1.0f : +1.0f; break;
-            default: return NoSide;
+            case BoxSide_Left  : hit.normal.x = hit.from_behind ?  1.0f : -1.0f; break;
+            case BoxSide_Right : hit.normal.x = hit.from_behind ? -1.0f :  1.0f; break;
+            case BoxSide_Bottom: hit.normal.y = hit.from_behind ?  1.0f : -1.0f; break;
+            case BoxSide_Top   : hit.normal.y = hit.from_behind ? -1.0f :  1.0f; break;
+            case BoxSide_Back  : hit.normal.z = hit.from_behind ?  1.0f : -1.0f; break;
+            case BoxSide_Front : hit.normal.z = hit.from_behind ? -1.0f :  1.0f; break;
+            default: return BoxSide_None;
         }
 
         return side;

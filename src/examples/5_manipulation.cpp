@@ -5,6 +5,7 @@
 #define SLIM_ENABLE_CANVAS_RECTANGLE_DRAWING
 
 #define SLIM_DISABLE_ALL_VIEWPORT_DRAWING
+#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
 #define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
 #define SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
 #define SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
@@ -45,8 +46,8 @@ struct ManipulationApp : SlimApp {
     // Scene:
     Box box, *boxes{&box};
     Grid grid{11, 11}, *grids{&grid};
-    Curve helix{CurveType::Helix, 10};
-    Curve coil{ CurveType::Coil,  30}, *curves{&helix};
+    Curve helix{CurveType_Helix, 10};
+    Curve coil{ CurveType_Coil,  30}, *curves{&helix};
 
     Geometry grid_geo{{
             {0, 0, 0},

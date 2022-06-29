@@ -1,5 +1,9 @@
 #pragma once
 
+#if defined(SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING) & !defined(SLIM_ENABLE_VIEWPORT_BOX_DRAWING)
+#define SLIM_ENABLE_VIEWPORT_BOX_DRAWING
+#endif
+
 #include "./box.h"
 #include "../math/utils.h"
 #include "../scene/box.h"
@@ -14,7 +18,7 @@ void _drawCamera(const Camera &camera, const Viewport &viewport, const Color &co
     transform.scale = 1.0f;
 
     box = Box{};
-    drawBox(box, transform, viewport, color, opacity, line_width, BOX__ALL_SIDES);
+    viewport.drawBox(box, transform, color, opacity, line_width, BOX__ALL_SIDES);
 
     box.vertices.corners.back_bottom_left   *= 0.5f;
     box.vertices.corners.back_bottom_right  *= 0.5f;
@@ -28,7 +32,7 @@ void _drawCamera(const Camera &camera, const Viewport &viewport, const Color &co
     for (auto &vertex : box.vertices.buffer)
         vertex.z += 1.5f;
 
-    drawBox(box, transform, viewport, color, opacity, line_width, BOX__ALL_SIDES);
+    viewport.drawBox(box, transform, color, opacity, line_width, BOX__ALL_SIDES);
 }
 
 #ifdef SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
