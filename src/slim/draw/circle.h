@@ -101,8 +101,6 @@ void _paintCircle(bool fill, i32 center_x, i32 center_y, i32 radius, const Canva
     }
 }
 
-
-#ifdef SLIM_ENABLE_CANVAS_CIRCLE_DRAWING
 INLINE void Canvas::fillCircle(i32 center_x, i32 center_y, i32 radius, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _paintCircle(true, center_x, center_y, radius, *this, color, opacity, viewport_bounds);
 }
@@ -126,8 +124,6 @@ INLINE void Canvas::fillCircle(vec2 center, i32 radius, const Color &color, f32 
     _paintCircle(true, (i32)center.x, (i32)center.y, radius, *this, color, opacity, viewport_bounds);
 }
 #endif
-#endif
-
 
 
 INLINE void fillCircle(i32 center_x, i32 center_y, i32 radius, const Canvas &canvas,

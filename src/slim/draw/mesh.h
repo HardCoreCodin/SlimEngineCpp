@@ -1,15 +1,11 @@
 #pragma once
 
-#if defined(SLIM_ENABLE_VIEWPORT_MESH_DRAWING) & !defined(SLIM_ENABLE_VIEWPORT_EDGE_DRAWING)
-#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
-#endif
-
 #include "./edge.h"
 #include "../scene/mesh.h"
-#include "../viewport/viewport.h"
 
 
-void _drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport, const Color &color, f32 opacity, u8 line_width) {
+void drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport,
+              const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     const Camera &cam = *viewport.camera;
     vec3 pos;
     Edge edge;
@@ -17,7 +13,7 @@ void _drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, 
     for (u32 i = 0; i < mesh.edge_count; i++, edge_index++) {
         edge.from = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->from]));
         edge.to   = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->to]));
-        viewport.drawEdge(edge, color, opacity, line_width);
+        drawEdge(edge, viewport, color, opacity, line_width);
     }
 
     if (draw_normals && mesh.normals_count && mesh.vertex_normals && mesh.vertex_normal_indices) {
@@ -29,20 +25,8 @@ void _drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, 
                 edge.to = mesh.vertex_normals[normal_index->ids[i]] * 0.1f + pos;
                 edge.from = cam.internPos(transform.externPos(pos));
                 edge.to = cam.internPos(transform.externPos(edge.to));
-                viewport.drawEdge(edge, Red, opacity * 0.5f, line_width);
+                drawEdge(edge, viewport, Red, opacity * 0.5f, line_width);
             }
         }
     }
-}
-
-#ifdef SLIM_ENABLE_VIEWPORT_MESH_DRAWING
-INLINE void Viewport::drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Color &color,
-                               f32 opacity, u8 line_width) const {
-    _drawMesh(mesh, transform, draw_normals, *this, color, opacity, line_width);
-}
-#endif
-
-INLINE void drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport,
-                     const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
-    _drawMesh(mesh, transform, draw_normals, viewport, color, opacity, line_width);
 }

@@ -1,15 +1,10 @@
 #pragma once
 
-#if defined(SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING) & !defined(SLIM_ENABLE_VIEWPORT_BOX_DRAWING)
-#define SLIM_ENABLE_VIEWPORT_BOX_DRAWING
-#endif
-
 #include "./box.h"
 #include "../math/utils.h"
 #include "../scene/box.h"
-#include "../viewport/viewport.h"
 
-void _drawCamera(const Camera &camera, const Viewport &viewport, const Color &color, f32 opacity, u8 line_width) {
+void drawCamera(const Camera &camera, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     static Transform transform;
     static Box box;
 
@@ -18,7 +13,7 @@ void _drawCamera(const Camera &camera, const Viewport &viewport, const Color &co
     transform.scale = 1.0f;
 
     box = Box{};
-    viewport.drawBox(box, transform, color, opacity, line_width, BOX__ALL_SIDES);
+    drawBox(box, transform, viewport, color, opacity, line_width, BOX__ALL_SIDES);
 
     box.vertices.corners.back_bottom_left   *= 0.5f;
     box.vertices.corners.back_bottom_right  *= 0.5f;
@@ -32,15 +27,5 @@ void _drawCamera(const Camera &camera, const Viewport &viewport, const Color &co
     for (auto &vertex : box.vertices.buffer)
         vertex.z += 1.5f;
 
-    viewport.drawBox(box, transform, color, opacity, line_width, BOX__ALL_SIDES);
-}
-
-#ifdef SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
-INLINE void Viewport::drawCamera(const Camera &camera, const Color &color, f32 opacity, u8 line_width) const {
-    _drawCamera(camera, *this, color, opacity, line_width);
-}
-#endif
-
-INLINE void drawCamera(const Camera &camera, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
-    _drawCamera(camera, viewport, color, opacity, line_width);
+    drawBox(box, transform, viewport, color, opacity, line_width, BOX__ALL_SIDES);
 }

@@ -139,7 +139,6 @@ void _fillTriangle(f32 x1, f32 y1,
 }
 
 
-#ifdef SLIM_ENABLE_CANVAS_TRIANGLE_DRAWING
 INLINE void Canvas::drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
     _drawTriangle(x1, y1, x2, y2, x3, y3, *this, color, opacity, line_width, viewport_bounds);
 }
@@ -173,8 +172,6 @@ INLINE void Canvas::fillTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &colo
     _fillTriangle((f32)p1.x, (f32)p1.y, (f32)p2.x, (f32)p2.y, (f32)p3.x, (f32)p3.y, *this, color, opacity, viewport_bounds);
 }
 #endif
-#endif
-
 
 
 INLINE void drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Canvas &canvas,

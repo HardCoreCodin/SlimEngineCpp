@@ -1,16 +1,3 @@
-#ifdef SLIMMER
-#define SLIM_DISABLE_ALL_CANVAS_DRAWING
-#define SLIM_ENABLE_CANVAS_HUD_DRAWING
-#define SLIM_ENABLE_CANVAS_TEXT_DRAWING
-
-#define SLIM_DISABLE_ALL_VIEWPORT_DRAWING
-#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
-#define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
-#define SLIM_ENABLE_VIEWPORT_MESH_DRAWING
-#define SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
-#define SLIM_ENABLE_VIEWPORT_BOX_DRAWING
-#endif
-
 #include "../slim/scene/selection.h"
 #include "../slim/draw/text.h"
 #include "../slim/draw/hud.h"
@@ -71,11 +58,6 @@ struct SceneApp : SlimApp {
     // Drawing:
     f32 opacity = 0.2f;
 
-    void OnUpdate(f32 delta_time) override {
-        if (!mouse::is_captured) selection.manipulate(viewport, scene);
-        if (!controls::is_pressed::alt) viewport.updateNavigation(delta_time);
-    }
-
     void OnRender() override {
         canvas.clear();
 
@@ -83,32 +65,32 @@ struct SceneApp : SlimApp {
         for (u32 i = 0; i < counts.geometries; i++) {
             Geometry &geo{geometries[i]};
             Transform &transform{geo.transform};
+            Curve &curve{curves[geo.id]};
+            Mesh &mesh{meshes[geo.id]};
             Color color{geo.color};
             switch (geo.type) {
-                case GeometryType_Grid: {
-                    viewport.drawGrid(grid, transform, color, opacity);
-                } break;
-                case GeometryType_Box: {
-                    viewport.drawBox(box, transform, color, opacity);
-                } break;
-                case GeometryType_Curve: {
-                    Curve &curve{curves[geo.id]};
-                    viewport.drawCurve(curve, transform, color, opacity);
-                } break;
-                case GeometryType_Mesh: {
-                    Mesh &mesh{meshes[geo.id]};
-                    viewport.drawMesh(mesh, transform, draw_normals, color, opacity);
-                } break;
+                case GeometryType_Grid : drawGrid(grid,   transform, viewport, color, opacity); break;
+                case GeometryType_Box  : drawBox(box,     transform, viewport, color, opacity); break;
+                case GeometryType_Curve: drawCurve(curve, transform, viewport, color, opacity); break;
+                case GeometryType_Mesh : drawMesh(mesh,   transform, draw_normals, viewport, color, opacity); break;
                 default: break;
             }
         }
 
         if (controls::is_pressed::alt)
             drawSelection(selection, viewport, scene);
+
         drawMessage();
+
         if (hud.enabled)
-            canvas.drawHUD(hud);
+            drawHUD(hud, canvas);
+
         canvas.drawToWindow();
+    }
+
+    void OnUpdate(f32 delta_time) override {
+        if (!mouse::is_captured) selection.manipulate(viewport, scene);
+        if (!controls::is_pressed::alt) viewport.updateNavigation(delta_time);
     }
 
     void drawMessage() const {

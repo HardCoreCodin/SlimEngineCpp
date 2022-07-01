@@ -111,7 +111,6 @@ void _fillRect(RectI rect, const Canvas &canvas, const Color &color, f32 opacity
 }
 
 
-#ifdef SLIM_ENABLE_CANVAS_RECTANGLE_DRAWING
 INLINE void Canvas::drawRect(RectI rect, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawRect(rect, *this, color, opacity, viewport_bounds);
 }
@@ -129,7 +128,6 @@ INLINE void Canvas::fillRect(Rect rect, const Color &color, f32 opacity, const R
     RectI rectI{(i32)rect.left, (i32)rect.right, (i32)rect.top, (i32)rect.bottom};
     _fillRect(rectI, *this, color, opacity, viewport_bounds);
 }
-#endif
 
 
 INLINE void drawRect(RectI rect, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {

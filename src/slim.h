@@ -1,6 +1,6 @@
 #pragma once
 
-#define SLIM_DINGLE_HEADER_FILE
+#define SLIM_SINGLE_HEADER_FILE
 
 #include <cmath>
 
@@ -149,11 +149,6 @@ INLINE f32 clampedValue(f32 value) {
 INLINE i32 clampedValue(i32 value) {
     i32 mn = value < 1 ? value : 1;
     return mn > 0 ? mn : 0;
-}
-
-f32 smoothstep(f32 from, f32 to, f32 t) {
-    t = (t - from) / (to - from);
-    return t * t * (3 - 2 * t);
 }
 
 template <typename T>
@@ -525,13 +520,6 @@ struct Color {
         }
     }
 
-    INLINE Color& gammaCorrect() {
-        r *= r;
-        g *= g;
-        b *= b;
-        return *this;
-    }
-
     INLINE Color operator + (const Color &rhs) const {
         return {
                 r + rhs.r,
@@ -665,14 +653,6 @@ struct Color {
                 fast_mul_add(b, factor, to_be_added.b)
         };
     }
-
-    INLINE Color blendWith(const Color &other_color, f32 factor, f32 other_factor) const {
-        return {
-                fast_mul_add(r, factor, other_color.r * other_factor),
-                fast_mul_add(g, factor, other_color.g * other_factor),
-                fast_mul_add(b, factor, other_color.b * other_factor)
-        };
-    }
 };
 
 struct Pixel {
@@ -690,42 +670,34 @@ struct Pixel {
         };
     }
 
+    INLINE Pixel operator + (const Pixel &rhs) const {
+        return {
+                color + rhs.color,
+                opacity + rhs.opacity
+        };
+    }
+
     INLINE Pixel& operator += (const Pixel &rhs) {
         color += rhs.color;
         opacity += rhs.opacity;
         return *this;
     }
 
-    INLINE Pixel alphaBlendOver(const Pixel &background, bool premultiplied) const {
-        const f32 one_minus_opacity = 1.0f - opacity;
-        const f32 background_opacity = background.opacity * one_minus_opacity;
-        const f32 new_opacity = background_opacity + opacity;
-        if (premultiplied)
-            return {color + (background.color * one_minus_opacity), new_opacity};
-
-        f32 one_over_opacity = new_opacity == 0 ? 0.0f : 1.0f / new_opacity;
-        return {
-                color.blendWith(
-                        background.color,
-                        one_over_opacity * opacity,
-                        one_over_opacity * background_opacity
-                ),
-                new_opacity
-        };
+    INLINE Pixel& operator *= (const Pixel &rhs) {
+        color *= rhs.color;
+        opacity *= rhs.opacity;
+        return *this;
     }
 
-    INLINE u32 asContent(bool premultiplied, bool gamma_corrected = false) const {
-        if (premultiplied) {
-            u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? color.r : sqrtf(color.r))));
-            u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? color.g : sqrtf(color.g))));
-            u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? color.b : sqrtf(color.b))));
-            return R << 16 | G << 8 | B;
-        } else {
-            u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? (color.r * opacity) : sqrtf(color.r * opacity))));
-            u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? (color.g * opacity) : sqrtf(color.g * opacity))));
-            u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? (color.b * opacity) : sqrtf(color.b * opacity))));
-            return R << 16 | G << 8 | B;
-        }
+    INLINE Pixel alphaBlendOver(const Pixel &background) const {
+        return *this + background * (1.0f - opacity);
+    }
+
+    INLINE u32 asContent() const {
+        u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.r)));
+        u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.g)));
+        u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.b)));
+        return R << 16 | G << 8 | B;
     }
 };
 
@@ -5190,9 +5162,8 @@ struct Canvas {
     f32 *depths{nullptr};
 
     AntiAliasing antialias;
-    bool premultiply = true;
 
-    Canvas(AntiAliasing antialiasing = NoAA) : antialias{antialiasing} {
+    Canvas(u16 width = MAX_WIDTH, u16 height = MAX_HEIGHT, AntiAliasing antialiasing = NoAA) : antialias{antialiasing} {
         if (memory::canvas_memory_capacity) {
             pixels = (Pixel*)memory::canvas_memory;
             memory::canvas_memory += CANVAS_PIXELS_SIZE;
@@ -5201,14 +5172,14 @@ struct Canvas {
             depths = (f32*)memory::canvas_memory;
             memory::canvas_memory += CANVAS_DEPTHS_SIZE;
             memory::canvas_memory_capacity -= CANVAS_DEPTHS_SIZE;
+
+            dimensions.update(MAX_WIDTH, MAX_HEIGHT);
+            clear();
+            dimensions.update(width, height);
         } else {
             pixels = nullptr;
             depths = nullptr;
         }
-    }
-
-    Canvas(u16 width, u16 height, AntiAliasing antialiasing = NoAA) : Canvas{antialiasing} {
-        dimensions.update(width, height);
     }
 
     Canvas(Pixel *pixels, f32 *depths) noexcept : pixels{pixels}, depths{depths} {}
@@ -5268,7 +5239,7 @@ struct Canvas {
                     depth = source_canvas.depths[src_offset];
 
                 if (blend) {
-                    setPixel(x, y, pixel.color, pixel.opacity, include_depths ? depth : 0.0f);
+                    setPixel(x, y, pixel.color / pixel.opacity, pixel.opacity, include_depths ? depth : 0.0f);
                 } else {
                     i32 trg_offset = antialias == SSAA ? (
                             (dimensions.stride * (y >> 1) + (x >> 1)) * 4 + (2 * (y & 1)) + (x & 1)
@@ -5298,11 +5269,21 @@ struct Canvas {
     }
 
     INLINE void setPixel(i32 x, i32 y, const Color &color, f32 opacity = 1.0f, f32 depth = 0, f32 z_top = 0, f32 z_bottom = 0, f32 z_right = 0) const {
-        u32 offset = antialias == SSAA ? ((dimensions.stride * (y >> 1) + (x >> 1)) * 4 + (2 * (y & 1)) + (x & 1)) : (dimensions.stride * y + x);
+        int w = dimensions.width;
+        int h = dimensions.height;
+        if (antialias == SSAA) {
+            w <<= 1;
+            h <<= 1;
+        }
+        if (x < 0 || y < 0 || x >= w || y >= h)
+            return;
+
+        opacity = clampedValue(opacity);
         Pixel pixel{color * color, opacity};
-        if (premultiply && opacity != 1.0f)
+        if (opacity != 1.0f)
             pixel.color *= pixel.opacity;
 
+        u32 offset = antialias == SSAA ? ((dimensions.stride * (y >> 1) + (x >> 1)) * 4 + (2 * (y & 1)) + (x & 1)) : (dimensions.stride * y + x);
         Pixel *out_pixel = pixels + offset;
         f32 *out_depth = depths ? (depths + (antialias == MSAA ? offset * 4 : offset)) : nullptr;
         if (
@@ -5339,31 +5320,32 @@ struct Canvas {
                     _sortPixelsByDepth(depth, &pixel, out_depth, out_pixel, &bg, &fg);
                     out_depth++;
                 }
-                accumulated_pixel += fg->opacity == 1 ? *fg : fg->alphaBlendOver(*bg, premultiply);
+                accumulated_pixel += fg->opacity == 1 ? *fg : fg->alphaBlendOver(*bg);
             }
             *out_pixel = accumulated_pixel * 0.25f;
         } else {
             if (depths)
                 _sortPixelsByDepth(depth, &pixel, out_depth, out_pixel, &bg, &fg);
-            *out_pixel = fg->opacity == 1 ? *fg : fg->alphaBlendOver(*bg, premultiply);
+            *out_pixel = fg->opacity == 1 ? *fg : fg->alphaBlendOver(*bg);
         }
     }
 
     INLINE u32 getPixelContent(Pixel *pixel) const {
-        return antialias == SSAA ?
-               _isTransparentPixelQuad(pixel) ? 0 : _blendPixelQuad(pixel).asContent(premultiply) :
-               pixel->opacity ? pixel->asContent(premultiply) : 0;
+        return antialias == SSAA ? _isTransparentPixelQuad(pixel) ? 0 : _blendPixelQuad(pixel).asContent() :
+               pixel->opacity == 0.0f ? 0 : pixel->asContent();
     }
 
     INLINE void drawText(char *str, i32 x, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
+#ifdef SLIM_VEC2
     INLINE void drawText(char *str, vec2i position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawText(char *str, vec2 position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
+#endif
 
     INLINE void drawNumber(i32 number, i32 x, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
+#ifdef SLIM_VEC2
     INLINE void drawNumber(i32 number, vec2i position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawNumber(i32 number, vec2 position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-
-    INLINE void drawHUD(const HUD &hud, const RectI *viewport_bounds = nullptr) const;
+#endif
 
     INLINE void drawHLine(RangeI x_range, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawHLine(i32 x_start, i32 x_end, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
@@ -5372,8 +5354,10 @@ struct Canvas {
     INLINE void drawLine(f32 x1, f32 y1, f32 z1, f32 x2, f32 y2, f32 z2, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawLine(f32 x1, f32 y1, f32 x2, f32 y2, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
 
+#ifdef SLIM_VEC2
     INLINE void drawLine(vec2 from, vec2 to, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawLine(vec2i from, vec2i to, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
+#endif
 
     INLINE void drawRect(RectI rect, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawRect(Rect rect, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
@@ -5385,17 +5369,21 @@ struct Canvas {
     INLINE void fillTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillTriangle(i32 x1, i32 y1, i32 x2, i32 y2, i32 x3, i32 y3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
 
+#ifdef SLIM_VEC2
     INLINE void drawTriangle(vec2 p1, vec2 p2, vec2 p3, const Color &color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillTriangle(vec2 p1, vec2 p2, vec2 p3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
+#endif
 
     INLINE void fillCircle(i32 center_x, i32 center_y, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawCircle(i32 center_x, i32 center_y, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
+#ifdef SLIM_VEC2
     INLINE void drawCircle(vec2i center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillCircle(vec2i center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawCircle(vec2 center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillCircle(vec2 center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
+#endif
 
 private:
     static INLINE bool _isTransparentPixelQuad(Pixel *pixel_quad) {
@@ -5408,45 +5396,7 @@ private:
     }
 
     INLINE Pixel _blendPixelQuad(Pixel *pixel_quad) const {
-        Pixel TL{pixel_quad[0]}, TR{pixel_quad[1]}, BL{pixel_quad[2]}, BR{pixel_quad[3]};
-        f32 TL_factor = 0.25f;
-        f32 TR_factor = 0.25f;
-        f32 BL_factor = 0.25f;
-        f32 BR_factor = 0.25f;
-        if (!premultiply) {
-            TL_factor *= TL.opacity;
-            TR_factor *= TR.opacity;
-            BL_factor *= BL.opacity;
-            BR_factor *= BR.opacity;
-        }
-        return {
-                {
-                        (
-                                (TL.color.r * TL_factor) +
-                                (TR.color.r * TR_factor) +
-                                (BL.color.r * BL_factor) +
-                                (BR.color.r * BR_factor)
-                        ),
-                        (
-                                (TL.color.g * TL_factor) +
-                                (TR.color.g * TR_factor) +
-                                (BL.color.g * BL_factor) +
-                                (BR.color.g * BR_factor)
-                        ),
-                        (
-                                (TL.color.b * TL_factor) +
-                                (TR.color.b * TR_factor) +
-                                (BL.color.b * BL_factor) +
-                                (BR.color.b * BR_factor)
-                        )
-                },
-                (
-                        TL_factor +
-                        TR_factor +
-                        BL_factor +
-                        BR_factor
-                )
-        };
+        return (pixel_quad[0] + pixel_quad[1] + pixel_quad[2] + pixel_quad[3]) * 0.25f;
     }
 
     static INLINE void _sortPixelsByDepth(f32 depth, Pixel *pixel, f32 *out_depth, Pixel *out_pixel, Pixel **background, Pixel **foreground) {
@@ -5460,7 +5410,6 @@ private:
         }
     }
 };
-
 
 
 void _drawHLine(RangeI x_range, i32 y, const Canvas &canvas, const Color &color, f32 opacity, const RectI *viewport_bounds) {
@@ -5735,13 +5684,14 @@ INLINE void Canvas::drawLine(f32 x1, f32 y1, f32 x2, f32 y2, const Color &color,
     _drawLine(x1, y1, 0, x2, y2, 0, *this, color, opacity, line_width, viewport_bounds);
 }
 
+#ifdef SLIM_VEC2
 INLINE void Canvas::drawLine(vec2 from, vec2 to, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
     _drawLine(from.x, from.y, 0, to.x, to.y, 0, *this, color, opacity, line_width, viewport_bounds);
 }
 INLINE void Canvas::drawLine(vec2i from, vec2i to, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
     _drawLine((f32)from.x, (f32)from.y, 0, (f32)to.x, (f32)to.y, 0, *this, color, opacity, line_width, viewport_bounds);
 }
-
+#endif
 
 
 INLINE void drawHLine(RangeI x_range, i32 y, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
@@ -5767,9 +5717,12 @@ INLINE void drawLine(f32 x1, f32 y1, f32 x2, f32 y2, const Canvas &canvas, const
     _drawLine(x1, y1, 0, x2, y2, 0, canvas, color, opacity, line_width, viewport_bounds);
 }
 
+#ifdef SLIM_VEC2
 void drawLine(vec2 from, vec2 to, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) {
     _drawLine(from.x, from.y, 0, to.x, to.y, 0, canvas, color, opacity, line_width, viewport_bounds);
 }
+#endif
+
 
 
 
@@ -5881,7 +5834,6 @@ void _fillRect(RectI rect, const Canvas &canvas, const Color &color, f32 opacity
                 canvas.setPixel(x, y, color, opacity);
 }
 
-
 INLINE void Canvas::drawRect(RectI rect, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawRect(rect, *this, color, opacity, viewport_bounds);
 }
@@ -5899,7 +5851,6 @@ INLINE void Canvas::fillRect(Rect rect, const Color &color, f32 opacity, const R
     RectI rectI{(i32)rect.left, (i32)rect.right, (i32)rect.top, (i32)rect.bottom};
     _fillRect(rectI, *this, color, opacity, viewport_bounds);
 }
-
 
 INLINE void drawRect(RectI rect, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawRect(rect, canvas, color, opacity, viewport_bounds);
@@ -6021,7 +5972,6 @@ void _paintCircle(bool fill, i32 center_x, i32 center_y, i32 radius, const Canva
     }
 }
 
-
 INLINE void Canvas::fillCircle(i32 center_x, i32 center_y, i32 radius, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _paintCircle(true, center_x, center_y, radius, *this, color, opacity, viewport_bounds);
 }
@@ -6030,6 +5980,7 @@ INLINE void Canvas::drawCircle(i32 center_x, i32 center_y, i32 radius, const Col
     _paintCircle(false, center_x, center_y, radius, *this, color, opacity, viewport_bounds);
 }
 
+#ifdef SLIM_VEC2
 INLINE void Canvas::drawCircle(vec2i center, i32 radius, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _paintCircle(false, center.x, center.y, radius, *this, color, opacity, viewport_bounds);
 }
@@ -6043,6 +5994,9 @@ INLINE void Canvas::drawCircle(vec2 center, i32 radius, const Color &color, f32 
 INLINE void Canvas::fillCircle(vec2 center, i32 radius, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _paintCircle(true, (i32)center.x, (i32)center.y, radius, *this, color, opacity, viewport_bounds);
 }
+#endif
+
+
 
 INLINE void fillCircle(i32 center_x, i32 center_y, i32 radius, const Canvas &canvas,
                        Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
@@ -6054,6 +6008,7 @@ INLINE void drawCircle(i32 center_x, i32 center_y, i32 radius, const Canvas &can
     _paintCircle(false, center_x, center_y, radius, canvas, color, opacity, viewport_bounds);
 }
 
+#ifdef SLIM_VEC2
 INLINE void drawCircle(vec2i center, i32 radius, const Canvas &canvas,
                        Color color = White, f32 opacity = 1.0f,
                        const RectI *viewport_bounds = nullptr) {
@@ -6078,6 +6033,7 @@ INLINE void fillCircle(vec2 center, i32 radius,
                        const RectI *viewport_bounds = nullptr) {
     _paintCircle(true, (i32)center.x, (i32)center.y, radius, canvas, color, opacity, viewport_bounds);
 }
+#endif
 
 
 INLINE void _drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3,
@@ -6216,7 +6172,6 @@ void _fillTriangle(f32 x1, f32 y1,
     }
 }
 
-
 INLINE void Canvas::drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
     _drawTriangle(x1, y1, x2, y2, x3, y3, *this, color, opacity, line_width, viewport_bounds);
 }
@@ -6233,6 +6188,7 @@ INLINE void Canvas::fillTriangle(i32 x1, i32 y1, i32 x2, i32 y2, i32 x3, i32 y3,
     _fillTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, *this, color, opacity, viewport_bounds);
 }
 
+#ifdef SLIM_VEC2
 INLINE void Canvas::drawTriangle(vec2 p1, vec2 p2, vec2 p3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
     _drawTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, *this, color, opacity, line_width, viewport_bounds);
 }
@@ -6248,7 +6204,7 @@ INLINE void Canvas::drawTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &colo
 INLINE void Canvas::fillTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _fillTriangle((f32)p1.x, (f32)p1.y, (f32)p2.x, (f32)p2.y, (f32)p3.x, (f32)p3.y, *this, color, opacity, viewport_bounds);
 }
-
+#endif
 
 
 INLINE void drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Canvas &canvas,
@@ -6282,6 +6238,7 @@ INLINE void fillTriangle(i32 x1, i32 y1,
     _fillTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, canvas, color, opacity, viewport_bounds);
 }
 
+#ifdef SLIM_VEC2
 void drawTriangle(vec2 p1, vec2 p2, vec2 p3, const Canvas &canvas,
                   Color color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) {
     _drawTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, canvas, color, opacity, line_width, viewport_bounds);
@@ -6304,7 +6261,7 @@ void fillTriangle(vec2i p1, vec2i p2, vec2i p3,
                   const RectI *viewport_bounds = nullptr) {
     _fillTriangle((f32)p1.x, (f32)p1.y, (f32)p2.x, (f32)p2.y, (f32)p3.x, (f32)p3.y, canvas, color, opacity, viewport_bounds);
 }
-
+#endif
 
 #define LINE_HEIGHT 14
 #define FIRST_CHARACTER_CODE 32
@@ -6508,23 +6465,28 @@ void _drawText(char *str, i32 x, i32 y, const Canvas &canvas, const Color &color
 INLINE void Canvas::drawText(char *str, i32 x, i32 y, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawText(str, x, y, *this, color, opacity, viewport_bounds);
 }
+#ifdef SLIM_VEC2
 INLINE void Canvas::drawText(char *str, vec2i position, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawText(str, position.x, position.y, *this, color, opacity, viewport_bounds);
 }
 INLINE void Canvas::drawText(char *str, vec2 position, const Color &color, f32 opacity, const RectI *viewport_bounds) const  {
     _drawText(str, (i32)position.x, (i32)position.y, *this, color, opacity, viewport_bounds);
 }
+#endif
 
 INLINE void drawText(char *str, i32 x, i32 y, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawText(str, x, y, canvas, color, opacity, viewport_bounds);
 }
 
+#ifdef SLIM_VEC2
 INLINE void drawText(char *str, vec2i position, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawText(str, position.x, position.y, canvas, color, opacity, viewport_bounds);
 }
 INLINE void drawText(char *str, vec2 position, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawText(str, (i32)position.x, (i32)position.y, canvas, color, opacity, viewport_bounds);
 }
+#endif
+
 
 void _drawNumber(i32 number, i32 x, i32 y, const Canvas &canvas, const Color &color, f32 opacity, const RectI *viewport_bounds) {
     static NumberString number_string;
@@ -6536,26 +6498,29 @@ INLINE void Canvas::drawNumber(i32 number, i32 x, i32 y, const Color &color, f32
     _drawNumber(number, x, y, *this, color, opacity, viewport_bounds);
 }
 
+#ifdef SLIM_VEC2
 INLINE void Canvas::drawNumber(i32 number, vec2i position, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawNumber(number, position.x, position.y, *this, color, opacity, viewport_bounds);
 }
 INLINE void Canvas::drawNumber(i32 number, vec2 position, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawNumber(number, (i32)position.x, (i32)position.y, *this, color, opacity, viewport_bounds);
 }
-
+#endif
 
 INLINE void drawNumber(i32 number, i32 x, i32 y, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawNumber(number, x, y, canvas, color, opacity, viewport_bounds);
 }
+
+#ifdef SLIM_VEC2
 INLINE void drawNumber(i32 number, vec2i position, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawNumber(number, position.x, position.y, canvas, color, opacity, viewport_bounds);
 }
 INLINE void drawNumber(i32 number, vec2 position, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawNumber(number, (i32)position.x, (i32)position.y, canvas, color, opacity, viewport_bounds);
 }
+#endif
 
-
-void _drawHUD(const HUD &hud, const Canvas &canvas, const RectI *viewport_bounds) {
+void drawHUD(const HUD &hud, const Canvas &canvas, const RectI *viewport_bounds = nullptr) {
     i32 x = hud.left;
     i32 y = hud.top;
 
@@ -6577,12 +6542,6 @@ void _drawHUD(const HUD &hud, const Canvas &canvas, const RectI *viewport_bounds
     }
 }
 
-INLINE void Canvas::drawHUD(const HUD &hud, const RectI *viewport_bounds) const {
-    _drawHUD(hud, *this, viewport_bounds);
-}
-INLINE void drawHUD(const HUD &hud, const Canvas &canvas, const RectI *viewport_bounds = nullptr) {
-    _drawHUD(hud, canvas, viewport_bounds);
-}
 
 struct Viewport {
     Canvas &canvas;
@@ -6631,14 +6590,6 @@ struct Viewport {
     INLINE bool cullAndClipEdge(Edge &edge) const {
         return frustum.cullAndClipEdge(edge, camera->focal_length, dimensions.width_over_height);
     }
-
-    INLINE void drawBox(const Box &box, const Transform &transform, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, u8 sides = BOX__ALL_SIDES) const;
-    INLINE void drawCamera(const Camera &camera, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) const;
-    INLINE void drawCurve(const Curve &curve, const Transform &transform, const Color &color = White,
-                          f32 opacity = 1.0f, u8 line_width = 0, u32 step_count = CURVE_STEPS) const;
-    INLINE void drawEdge(Edge edge, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) const;
-    INLINE void drawGrid(const Grid &grid, const Transform &transform, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) const;
-    INLINE void drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) const;
 };
 
 
@@ -6773,7 +6724,7 @@ struct Selection {
     }
 };
 
-void _drawEdge(Edge edge, const Viewport &viewport, const Color &color, f32 opacity, u8 line_width) {
+void drawEdge(Edge edge, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     if (!viewport.cullAndClipEdge(edge)) return;
 
     viewport.projectEdge(edge);
@@ -6786,16 +6737,11 @@ void _drawEdge(Edge edge, const Viewport &viewport, const Color &color, f32 opac
              viewport.canvas, color, opacity, line_width, &viewport.bounds);
 }
 
-INLINE void Viewport::drawEdge(Edge edge, const Color &color, f32 opacity, u8 line_width) const {
-    _drawEdge(edge, *this, color, opacity, line_width);
-}
-
-INLINE void drawEdge(Edge edge, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
-    _drawEdge(edge, viewport, color, opacity, line_width);
-}
 
 
-void _drawBox(const Box &box, const Transform &transform, const Viewport &viewport, const Color &color, f32 opacity, u8 line_width, u8 sides) {
+void drawBox(const Box &box, const Transform &transform, const Viewport &viewport,
+             const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, u8 sides = BOX__ALL_SIDES) {
+
     static Box view_space_box;
 
     // Transform vertices positions from local-space to world-space and then to view-space:
@@ -6806,35 +6752,25 @@ void _drawBox(const Box &box, const Transform &transform, const Viewport &viewpo
     view_space_box.edges.setFrom(view_space_box.vertices);
 
     if (sides == BOX__ALL_SIDES) for (const auto &edge : view_space_box.edges.buffer)
-            viewport.drawEdge(edge, color, opacity, line_width);
+            drawEdge(edge, viewport, color, opacity, line_width);
     else {
         BoxEdgeSides &box_edges = view_space_box.edges.sides;
-        if (sides & BoxSide_Front | sides & BoxSide_Top   ) viewport.drawEdge(box_edges.front_top,    color, opacity, line_width);
-        if (sides & BoxSide_Front | sides & BoxSide_Bottom) viewport.drawEdge(box_edges.front_bottom, color, opacity, line_width);
-        if (sides & BoxSide_Front | sides & BoxSide_Left  ) viewport.drawEdge(box_edges.front_left,   color, opacity, line_width);
-        if (sides & BoxSide_Front | sides & BoxSide_Right ) viewport.drawEdge(box_edges.front_right,  color, opacity, line_width);
-        if (sides & BoxSide_Back  | sides & BoxSide_Top   ) viewport.drawEdge(box_edges.back_top,     color, opacity, line_width);
-        if (sides & BoxSide_Back  | sides & BoxSide_Bottom) viewport.drawEdge(box_edges.back_bottom,  color, opacity, line_width);
-        if (sides & BoxSide_Back  | sides & BoxSide_Left  ) viewport.drawEdge(box_edges.back_left,    color, opacity, line_width);
-        if (sides & BoxSide_Back  | sides & BoxSide_Right ) viewport.drawEdge(box_edges.back_right,   color, opacity, line_width);
-        if (sides & BoxSide_Left  | sides & BoxSide_Top   ) viewport.drawEdge(box_edges.left_top,     color, opacity, line_width);
-        if (sides & BoxSide_Left  | sides & BoxSide_Bottom) viewport.drawEdge(box_edges.left_bottom,  color, opacity, line_width);
-        if (sides & BoxSide_Right | sides & BoxSide_Top   ) viewport.drawEdge(box_edges.right_top,    color, opacity, line_width);
-        if (sides & BoxSide_Right | sides & BoxSide_Bottom) viewport.drawEdge(box_edges.right_bottom, color, opacity, line_width);
+        if (sides & BoxSide_Front | sides & BoxSide_Top   ) drawEdge(box_edges.front_top,    viewport, color, opacity, line_width);
+        if (sides & BoxSide_Front | sides & BoxSide_Bottom) drawEdge(box_edges.front_bottom, viewport, color, opacity, line_width);
+        if (sides & BoxSide_Front | sides & BoxSide_Left  ) drawEdge(box_edges.front_left,   viewport, color, opacity, line_width);
+        if (sides & BoxSide_Front | sides & BoxSide_Right ) drawEdge(box_edges.front_right,  viewport, color, opacity, line_width);
+        if (sides & BoxSide_Back  | sides & BoxSide_Top   ) drawEdge(box_edges.back_top,     viewport, color, opacity, line_width);
+        if (sides & BoxSide_Back  | sides & BoxSide_Bottom) drawEdge(box_edges.back_bottom,  viewport, color, opacity, line_width);
+        if (sides & BoxSide_Back  | sides & BoxSide_Left  ) drawEdge(box_edges.back_left,    viewport, color, opacity, line_width);
+        if (sides & BoxSide_Back  | sides & BoxSide_Right ) drawEdge(box_edges.back_right,   viewport, color, opacity, line_width);
+        if (sides & BoxSide_Left  | sides & BoxSide_Top   ) drawEdge(box_edges.left_top,     viewport, color, opacity, line_width);
+        if (sides & BoxSide_Left  | sides & BoxSide_Bottom) drawEdge(box_edges.left_bottom,  viewport, color, opacity, line_width);
+        if (sides & BoxSide_Right | sides & BoxSide_Top   ) drawEdge(box_edges.right_top,    viewport, color, opacity, line_width);
+        if (sides & BoxSide_Right | sides & BoxSide_Bottom) drawEdge(box_edges.right_bottom, viewport, color, opacity, line_width);
     }
 }
 
-INLINE void Viewport::drawBox(const Box &box, const Transform &transform, const Color &color, f32 opacity, u8 line_width, u8 sides) const {
-    _drawBox(box, transform, *this, color, opacity, line_width, sides);
-}
-
-INLINE void drawBox(const Box &box, const Transform &transform, const Viewport &viewport,
-                    const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, u8 sides = BOX__ALL_SIDES) {
-    _drawBox(box, transform, viewport, color, opacity, line_width, sides);
-}
-
-
-void _drawCamera(const Camera &camera, const Viewport &viewport, const Color &color, f32 opacity, u8 line_width) {
+void drawCamera(const Camera &camera, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     static Transform transform;
     static Box box;
 
@@ -6843,7 +6779,7 @@ void _drawCamera(const Camera &camera, const Viewport &viewport, const Color &co
     transform.scale = 1.0f;
 
     box = Box{};
-    viewport.drawBox(box, transform, color, opacity, line_width, BOX__ALL_SIDES);
+    drawBox(box, transform, viewport, color, opacity, line_width, BOX__ALL_SIDES);
 
     box.vertices.corners.back_bottom_left   *= 0.5f;
     box.vertices.corners.back_bottom_right  *= 0.5f;
@@ -6857,20 +6793,11 @@ void _drawCamera(const Camera &camera, const Viewport &viewport, const Color &co
     for (auto &vertex : box.vertices.buffer)
         vertex.z += 1.5f;
 
-    viewport.drawBox(box, transform, color, opacity, line_width, BOX__ALL_SIDES);
+    drawBox(box, transform, viewport, color, opacity, line_width, BOX__ALL_SIDES);
 }
 
-INLINE void Viewport::drawCamera(const Camera &camera, const Color &color, f32 opacity, u8 line_width) const {
-    _drawCamera(camera, *this, color, opacity, line_width);
-}
-
-INLINE void drawCamera(const Camera &camera, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
-    _drawCamera(camera, viewport, color, opacity, line_width);
-}
-
-
-void _drawCurve(const Curve &curve, const Transform &transform, const Viewport &viewport,
-                const Color &color, f32 opacity, u8 line_width, u32 step_count) {
+void drawCurve(const Curve &curve, const Transform &transform, const Viewport &viewport,
+               const Color &color = White, f32 opacity = 1.0f, u8 line_width = 0, u32 step_count = CURVE_STEPS) {
     const Camera &cam = *viewport.camera;
 
     f32 one_over_step_count = 1.0f / (f32)step_count;
@@ -6931,7 +6858,7 @@ void _drawCurve(const Curve &curve, const Transform &transform, const Viewport &
         if (i) {
             edge.from = previous_position;
             edge.to   = current_position;
-            viewport.drawEdge(edge, color, opacity, line_width);
+            drawEdge(edge, viewport, color, opacity, line_width);
         }
 
         switch (curve.type) {
@@ -6949,18 +6876,9 @@ void _drawCurve(const Curve &curve, const Transform &transform, const Viewport &
     }
 }
 
-INLINE void Viewport::drawCurve(const Curve &curve, const Transform &transform,
-                                const Color &color, f32 opacity, u8 line_width, u32 step_count) const {
-    _drawCurve(curve, transform, *this, color, opacity, line_width, step_count);
-}
-INLINE void drawCurve(const Curve &curve, const Transform &transform, const Viewport &viewport,
-                      const Color &color = White, f32 opacity = 1.0f, u8 line_width = 0, u32 step_count = CURVE_STEPS) {
-    _drawCurve(curve, transform, viewport, color, opacity, line_width, step_count);
-}
 
 
-
-void _drawGrid(const Grid &grid, const Transform &transform, const Viewport &viewport, const Color &color, f32 opacity, u8 line_width) {
+void drawGrid(const Grid &grid, const Transform &transform, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     static Grid view_space_grid;
 
     // Transform vertices positions from local-space to world-space and then to view-space:
@@ -6976,26 +6894,21 @@ void _drawGrid(const Grid &grid, const Transform &transform, const Viewport &vie
     // Distribute transformed vertices positions to edges:
     view_space_grid.edges.update(view_space_grid.vertices, grid.u_segments, grid.v_segments);
 
-    for (u8 u = 0; u < grid.u_segments; u++) viewport.drawEdge(view_space_grid.edges.u.edges[u], color, opacity, line_width);
-    for (u8 v = 0; v < grid.v_segments; v++) viewport.drawEdge(view_space_grid.edges.v.edges[v], color, opacity, line_width);
-}
-INLINE void Viewport::drawGrid(const Grid &grid, const Transform &transform, const Color &color, f32 opacity, u8 line_width) const {
-    _drawGrid(grid, transform, *this, color, opacity, line_width);
-}
-INLINE void drawGrid(const Grid &grid, const Transform &transform, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
-    _drawGrid(grid, transform, viewport, color, opacity, line_width);
+    for (u8 u = 0; u < grid.u_segments; u++) drawEdge(view_space_grid.edges.u.edges[u], viewport, color, opacity, line_width);
+    for (u8 v = 0; v < grid.v_segments; v++) drawEdge(view_space_grid.edges.v.edges[v], viewport, color, opacity, line_width);
 }
 
 
-void _drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport, const Color &color, f32 opacity, u8 line_width) {
+void drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport,
+              const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     const Camera &cam = *viewport.camera;
     vec3 pos;
     Edge edge;
     EdgeVertexIndices *edge_index = mesh.edge_vertex_indices;
     for (u32 i = 0; i < mesh.edge_count; i++, edge_index++) {
         edge.from = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->from]));
-        edge.to   = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->to]));
-        viewport.drawEdge(edge, color, opacity, line_width);
+        edge.to = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->to]));
+        drawEdge(edge, viewport, color, opacity, line_width);
     }
 
     if (draw_normals && mesh.normals_count && mesh.vertex_normals && mesh.vertex_normal_indices) {
@@ -7007,19 +6920,10 @@ void _drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, 
                 edge.to = mesh.vertex_normals[normal_index->ids[i]] * 0.1f + pos;
                 edge.from = cam.internPos(transform.externPos(pos));
                 edge.to = cam.internPos(transform.externPos(edge.to));
-                viewport.drawEdge(edge, Red, opacity * 0.5f, line_width);
+                drawEdge(edge, viewport, Red, opacity * 0.5f, line_width);
             }
         }
     }
-}
-
-INLINE void Viewport::drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Color &color,
-                               f32 opacity, u8 line_width) const {
-    _drawMesh(mesh, transform, draw_normals, *this, color, opacity, line_width);
-}
-INLINE void drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport,
-                     const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
-    _drawMesh(mesh, transform, draw_normals, viewport, color, opacity, line_width);
 }
 
 void drawSelection(Selection &selection, const Viewport &viewport, const Scene &scene) {
@@ -7030,7 +6934,7 @@ void drawSelection(Selection &selection, const Viewport &viewport, const Scene &
         if (selection.geometry->type == GeometryType_Mesh)
             selection.xform.scale *= scene.meshes[selection.geometry->id].aabb.max;
 
-        viewport.drawBox(box, selection.xform, Yellow, 0.5f, 0);
+        drawBox(box, selection.xform, viewport, Yellow, 0.5f, 0);
         if (selection.box_side) {
             ColorID color = White;
             switch (selection.box_side) {
@@ -7040,7 +6944,7 @@ void drawSelection(Selection &selection, const Viewport &viewport, const Scene &
                 case BoxSide_None: break;
             }
 
-            viewport.drawBox(box, selection.xform, color, 0.5f, 1, selection.box_side);
+            drawBox(box, selection.xform, viewport, color, 0.5f, 1, selection.box_side);
         }
     }
 }

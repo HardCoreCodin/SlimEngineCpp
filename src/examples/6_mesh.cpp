@@ -1,17 +1,8 @@
-#ifdef SLIMMER
-#define SLIM_DISABLE_ALL_CANVAS_DRAWING
-#define SLIM_ENABLE_CANVAS_HUD_DRAWING
-
-#define SLIM_DISABLE_ALL_VIEWPORT_DRAWING
-#define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
-#define SLIM_ENABLE_VIEWPORT_MESH_DRAWING
-#endif
-
 #include "../slim/scene/selection.h"
+#include "../slim/draw/selection.h"
 #include "../slim/draw/hud.h"
 #include "../slim/draw/grid.h"
 #include "../slim/draw/mesh.h"
-#include "../slim/draw/selection.h"
 #include "../slim/app.h"
 // Or using the single-header file:
 //#include "../slim.h"
@@ -65,16 +56,18 @@ struct MeshApp : SlimApp {
 
     void OnRender() override {
         canvas.clear();
-        viewport.drawGrid(grid, grid1.transform, grid1.color, opacity);
+
+        drawGrid(grid, grid1.transform, viewport, grid1.color, opacity);
 
         bool draw_normals = controls::is_pressed::ctrl;
         Mesh &mesh{meshes[scene.geometries[1].id]};
-        viewport.drawMesh(mesh, mesh1.transform, draw_normals, mesh1.color, opacity);
-        viewport.drawMesh(mesh, mesh2.transform, draw_normals, mesh2.color, opacity);
+        drawMesh(mesh, mesh1.transform, draw_normals, viewport, mesh1.color, opacity);
+        drawMesh(mesh, mesh2.transform, draw_normals, viewport, mesh2.color, opacity);
 
         if (controls::is_pressed::alt) drawSelection(selection, viewport, scene);
         if (hud.enabled)
-            canvas.drawHUD(hud);
+            drawHUD(hud, canvas);
+
         canvas.drawToWindow();
     }
 

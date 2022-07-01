@@ -201,7 +201,6 @@ void _drawText(char *str, i32 x, i32 y, const Canvas &canvas, const Color &color
     }
 }
 
-#ifdef SLIM_ENABLE_CANVAS_TEXT_DRAWING
 INLINE void Canvas::drawText(char *str, i32 x, i32 y, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawText(str, x, y, *this, color, opacity, viewport_bounds);
 }
@@ -212,7 +211,6 @@ INLINE void Canvas::drawText(char *str, vec2i position, const Color &color, f32 
 INLINE void Canvas::drawText(char *str, vec2 position, const Color &color, f32 opacity, const RectI *viewport_bounds) const  {
     _drawText(str, (i32)position.x, (i32)position.y, *this, color, opacity, viewport_bounds);
 }
-#endif
 #endif
 
 

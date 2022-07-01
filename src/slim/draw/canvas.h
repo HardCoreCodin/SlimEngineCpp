@@ -1,9 +1,6 @@
 #pragma once
 
 #include "../core/base.h"
-#ifdef SLIM_ENABLE_CANVAS_HUD_DRAWING
-#include "../core/hud.h"
-#endif
 
 enum AntiAliasing {
     NoAA,
@@ -17,9 +14,8 @@ struct Canvas {
     f32 *depths{nullptr};
 
     AntiAliasing antialias;
-    bool premultiply = true;
 
-    Canvas(AntiAliasing antialiasing = NoAA) : antialias{antialiasing} {
+    Canvas(u16 width = MAX_WIDTH, u16 height = MAX_HEIGHT, AntiAliasing antialiasing = NoAA) : antialias{antialiasing} {
         if (memory::canvas_memory_capacity) {
             pixels = (Pixel*)memory::canvas_memory;
             memory::canvas_memory += CANVAS_PIXELS_SIZE;
@@ -28,14 +24,14 @@ struct Canvas {
             depths = (f32*)memory::canvas_memory;
             memory::canvas_memory += CANVAS_DEPTHS_SIZE;
             memory::canvas_memory_capacity -= CANVAS_DEPTHS_SIZE;
+
+            dimensions.update(MAX_WIDTH, MAX_HEIGHT);
+            clear();
+            dimensions.update(width, height);
         } else {
             pixels = nullptr;
             depths = nullptr;
         }
-    }
-
-    Canvas(u16 width, u16 height, AntiAliasing antialiasing = NoAA) : Canvas{antialiasing} {
-        dimensions.update(width, height);
     }
 
     Canvas(Pixel *pixels, f32 *depths) noexcept : pixels{pixels}, depths{depths} {}
@@ -95,7 +91,7 @@ struct Canvas {
                     depth = source_canvas.depths[src_offset];
 
                 if (blend) {
-                    setPixel(x, y, pixel.color, pixel.opacity, include_depths ? depth : 0.0f);
+                    setPixel(x, y, pixel.color / pixel.opacity, pixel.opacity, include_depths ? depth : 0.0f);
                 } else {
                     i32 trg_offset = antialias == SSAA ? (
                             (dimensions.stride * (y >> 1) + (x >> 1)) * 4 + (2 * (y & 1)) + (x & 1)
@@ -125,11 +121,21 @@ struct Canvas {
     }
 
     INLINE void setPixel(i32 x, i32 y, const Color &color, f32 opacity = 1.0f, f32 depth = 0, f32 z_top = 0, f32 z_bottom = 0, f32 z_right = 0) const {
-        u32 offset = antialias == SSAA ? ((dimensions.stride * (y >> 1) + (x >> 1)) * 4 + (2 * (y & 1)) + (x & 1)) : (dimensions.stride * y + x);
+        int w = dimensions.width;
+        int h = dimensions.height;
+        if (antialias == SSAA) {
+            w <<= 1;
+            h <<= 1;
+        }
+        if (x < 0 || y < 0 || x >= w || y >= h)
+            return;
+
+        opacity = clampedValue(opacity);
         Pixel pixel{color * color, opacity};
-        if (premultiply && opacity != 1.0f)
+        if (opacity != 1.0f)
             pixel.color *= pixel.opacity;
 
+        u32 offset = antialias == SSAA ? ((dimensions.stride * (y >> 1) + (x >> 1)) * 4 + (2 * (y & 1)) + (x & 1)) : (dimensions.stride * y + x);
         Pixel *out_pixel = pixels + offset;
         f32 *out_depth = depths ? (depths + (antialias == MSAA ? offset * 4 : offset)) : nullptr;
         if (
@@ -166,43 +172,33 @@ struct Canvas {
                     _sortPixelsByDepth(depth, &pixel, out_depth, out_pixel, &bg, &fg);
                     out_depth++;
                 }
-                accumulated_pixel += fg->opacity == 1 ? *fg : fg->alphaBlendOver(*bg, premultiply);
+                accumulated_pixel += fg->opacity == 1 ? *fg : fg->alphaBlendOver(*bg);
             }
             *out_pixel = accumulated_pixel * 0.25f;
         } else {
             if (depths)
                 _sortPixelsByDepth(depth, &pixel, out_depth, out_pixel, &bg, &fg);
-            *out_pixel = fg->opacity == 1 ? *fg : fg->alphaBlendOver(*bg, premultiply);
+            *out_pixel = fg->opacity == 1 ? *fg : fg->alphaBlendOver(*bg);
         }
     }
 
     INLINE u32 getPixelContent(Pixel *pixel) const {
-        return antialias == SSAA ?
-               _isTransparentPixelQuad(pixel) ? 0 : _blendPixelQuad(pixel).asContent(premultiply) :
-               pixel->opacity ? pixel->asContent(premultiply) : 0;
+        return antialias == SSAA ? _isTransparentPixelQuad(pixel) ? 0 : _blendPixelQuad(pixel).asContent() :
+               pixel->opacity == 0.0f ? 0 : pixel->asContent();
     }
 
-#ifdef SLIM_ENABLE_CANVAS_TEXT_DRAWING
     INLINE void drawText(char *str, i32 x, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
 #ifdef SLIM_VEC2
     INLINE void drawText(char *str, vec2i position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawText(char *str, vec2 position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
 #endif
-#endif
 
-#ifdef SLIM_ENABLE_CANVAS_NUMBER_DRAWING
     INLINE void drawNumber(i32 number, i32 x, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
 #ifdef SLIM_VEC2
     INLINE void drawNumber(i32 number, vec2i position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawNumber(i32 number, vec2 position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
 #endif
-#endif
 
-#ifdef SLIM_ENABLE_CANVAS_HUD_DRAWING
-    INLINE void drawHUD(const HUD &hud, const RectI *viewport_bounds = nullptr) const;
-#endif
-
-#ifdef SLIM_ENABLE_CANVAS_LINE_DRAWING
     INLINE void drawHLine(RangeI x_range, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawHLine(i32 x_start, i32 x_end, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawVLine(RangeI y_range, i32 x, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
@@ -214,16 +210,12 @@ struct Canvas {
     INLINE void drawLine(vec2 from, vec2 to, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawLine(vec2i from, vec2i to, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
 #endif
-#endif
 
-#ifdef SLIM_ENABLE_CANVAS_RECTANGLE_DRAWING
     INLINE void drawRect(RectI rect, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawRect(Rect rect, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillRect(RectI rect, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillRect(Rect rect, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#endif
 
-#ifdef SLIM_ENABLE_CANVAS_TRIANGLE_DRAWING
     INLINE void drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawTriangle(i32 x1, i32 y1, i32 x2, i32 y2, i32 x3, i32 y3, const Color &color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
@@ -235,9 +227,7 @@ struct Canvas {
     INLINE void drawTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
 #endif
-#endif
 
-#ifdef SLIM_ENABLE_CANVAS_CIRCLE_DRAWING
     INLINE void fillCircle(i32 center_x, i32 center_y, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawCircle(i32 center_x, i32 center_y, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
 #ifdef SLIM_VEC2
@@ -245,7 +235,6 @@ struct Canvas {
     INLINE void fillCircle(vec2i center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawCircle(vec2 center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillCircle(vec2 center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#endif
 #endif
 
 private:
@@ -259,45 +248,7 @@ private:
     }
 
     INLINE Pixel _blendPixelQuad(Pixel *pixel_quad) const {
-        Pixel TL{pixel_quad[0]}, TR{pixel_quad[1]}, BL{pixel_quad[2]}, BR{pixel_quad[3]};
-        f32 TL_factor = 0.25f;
-        f32 TR_factor = 0.25f;
-        f32 BL_factor = 0.25f;
-        f32 BR_factor = 0.25f;
-        if (!premultiply) {
-            TL_factor *= TL.opacity;
-            TR_factor *= TR.opacity;
-            BL_factor *= BL.opacity;
-            BR_factor *= BR.opacity;
-        }
-        return {
-                {
-                        (
-                                (TL.color.r * TL_factor) +
-                                (TR.color.r * TR_factor) +
-                                (BL.color.r * BL_factor) +
-                                (BR.color.r * BR_factor)
-                        ),
-                        (
-                                (TL.color.g * TL_factor) +
-                                (TR.color.g * TR_factor) +
-                                (BL.color.g * BL_factor) +
-                                (BR.color.g * BR_factor)
-                        ),
-                        (
-                                (TL.color.b * TL_factor) +
-                                (TR.color.b * TR_factor) +
-                                (BL.color.b * BL_factor) +
-                                (BR.color.b * BR_factor)
-                        )
-                },
-                (
-                        TL_factor +
-                        TR_factor +
-                        BL_factor +
-                        BR_factor
-                )
-        };
+        return (pixel_quad[0] + pixel_quad[1] + pixel_quad[2] + pixel_quad[3]) * 0.25f;
     }
 
     static INLINE void _sortPixelsByDepth(f32 depth, Pixel *pixel, f32 *out_depth, Pixel *out_pixel, Pixel **background, Pixel **foreground) {

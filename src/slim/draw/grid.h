@@ -1,15 +1,11 @@
 #pragma once
 
-#if defined(SLIM_ENABLE_VIEWPORT_GRID_DRAWING) & !defined(SLIM_ENABLE_VIEWPORT_EDGE_DRAWING)
-#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
-#endif
-
 #include "./edge.h"
 #include "../core/transform.h"
 #include "../scene/grid.h"
 #include "../viewport/viewport.h"
 
-void _drawGrid(const Grid &grid, const Transform &transform, const Viewport &viewport, const Color &color, f32 opacity, u8 line_width) {
+void drawGrid(const Grid &grid, const Transform &transform, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     static Grid view_space_grid;
 
     // Transform vertices positions from local-space to world-space and then to view-space:
@@ -25,16 +21,6 @@ void _drawGrid(const Grid &grid, const Transform &transform, const Viewport &vie
     // Distribute transformed vertices positions to edges:
     view_space_grid.edges.update(view_space_grid.vertices, grid.u_segments, grid.v_segments);
 
-    for (u8 u = 0; u < grid.u_segments; u++) viewport.drawEdge(view_space_grid.edges.u.edges[u], color, opacity, line_width);
-    for (u8 v = 0; v < grid.v_segments; v++) viewport.drawEdge(view_space_grid.edges.v.edges[v], color, opacity, line_width);
-}
-
-#ifdef SLIM_ENABLE_VIEWPORT_GRID_DRAWING
-INLINE void Viewport::drawGrid(const Grid &grid, const Transform &transform, const Color &color, f32 opacity, u8 line_width) const {
-    _drawGrid(grid, transform, *this, color, opacity, line_width);
-}
-#endif
-
-INLINE void drawGrid(const Grid &grid, const Transform &transform, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
-    _drawGrid(grid, transform, viewport, color, opacity, line_width);
+    for (u8 u = 0; u < grid.u_segments; u++) drawEdge(view_space_grid.edges.u.edges[u], viewport, color, opacity, line_width);
+    for (u8 v = 0; v < grid.v_segments; v++) drawEdge(view_space_grid.edges.v.edges[v], viewport, color, opacity, line_width);
 }

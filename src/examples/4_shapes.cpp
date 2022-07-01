@@ -1,15 +1,3 @@
-#ifdef SLIMMER
-#define SLIM_DISABLE_ALL_CANVAS_DRAWING
-#define SLIM_ENABLE_CANVAS_HUD_DRAWING
-
-#define SLIM_DISABLE_ALL_VIEWPORT_DRAWING
-#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
-#define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
-#define SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
-#define SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
-#define SLIM_ENABLE_VIEWPORT_BOX_DRAWING
-#endif
-
 #include "../slim/draw/hud.h"
 #include "../slim/draw/grid.h"
 #include "../slim/draw/curve.h"
@@ -58,12 +46,14 @@ struct ShapesApp : SlimApp {
 
     void OnRender() override {
         canvas.clear();
-        viewport.drawGrid(grid, grid_transform, Green, opacity);
-        viewport.drawBox(box, box_transform, Yellow, opacity);
-        viewport.drawCurve(coil, coil_transform, Magenta, opacity);
-        viewport.drawCurve(helix, helix_transform, Cyan, opacity);
+
+        drawGrid(grid, grid_transform, viewport, Green, opacity);
+        drawBox(box, box_transform, viewport, Yellow, opacity);
+        drawCurve(coil, coil_transform, viewport, Magenta, opacity);
+        drawCurve(helix, helix_transform, viewport, Cyan, opacity);
         if (hud.enabled)
-            canvas.drawHUD(hud);
+            drawHUD(hud, canvas);
+
         canvas.drawToWindow();
     }
 

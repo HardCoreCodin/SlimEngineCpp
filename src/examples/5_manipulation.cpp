@@ -1,17 +1,3 @@
-#ifdef SLIMMER
-#define SLIM_DISABLE_ALL_CANVAS_DRAWING
-#define SLIM_ENABLE_CANVAS_HUD_DRAWING
-#define SLIM_ENABLE_CANVAS_TEXT_DRAWING
-#define SLIM_ENABLE_CANVAS_RECTANGLE_DRAWING
-
-#define SLIM_DISABLE_ALL_VIEWPORT_DRAWING
-#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
-#define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
-#define SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
-#define SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
-#define SLIM_ENABLE_VIEWPORT_BOX_DRAWING
-#endif
-
 #include "../slim/scene/selection.h"
 #include "../slim/draw/hud.h"
 #include "../slim/draw/grid.h"
@@ -66,17 +52,19 @@ struct ManipulationApp : SlimApp {
 
     void OnRender() override {
         canvas.clear();
-        viewport.drawGrid(grid, grid_geo.transform, Green, opacity);
-        viewport.drawBox(box, box_geo.transform, Yellow, opacity);
-        viewport.drawCurve(coil, coil_geo.transform, Magenta, opacity);
-        viewport.drawCurve(helix, helix_geo.transform, Cyan, opacity);
+
+        drawGrid(grid, grid_geo.transform, viewport, Green, opacity);
+        drawBox(box, box_geo.transform, viewport, Yellow, opacity);
+        drawCurve(coil, coil_geo.transform, viewport, Magenta, opacity);
+        drawCurve(helix, helix_geo.transform, viewport, Cyan, opacity);
 
         if (controls::is_pressed::alt)
             drawSelection(selection, viewport, scene);
 
         drawMouseAndKeyboard(viewport);
         if (hud.enabled)
-            canvas.drawHUD(hud);
+            drawHUD(hud, canvas);
+
         canvas.drawToWindow();
     }
 

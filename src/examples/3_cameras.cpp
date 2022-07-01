@@ -1,13 +1,3 @@
-#ifdef SLIMMER
-#define SLIM_DISABLE_ALL_CANVAS_DRAWING
-#define SLIM_ENABLE_CANVAS_HUD_DRAWING
-
-#define SLIM_DISABLE_ALL_VIEWPORT_DRAWING
-#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
-#define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
-#define SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
-#endif
-
 #include "../slim/draw/hud.h"
 #include "../slim/draw/grid.h"
 #include "../slim/draw/camera.h"
@@ -62,10 +52,12 @@ struct CamerasApp : SlimApp {
         const Color color{other_camera_color};
 
         canvas.clear();
-        viewport.drawGrid(grid, transform,White, opacity);
-        viewport.drawCamera(camera,color, opacity);
+
+        drawGrid(grid, transform, viewport, White, opacity);
+        drawCamera(camera, viewport, color, opacity);
         if (hud.enabled)
-            canvas.drawHUD(hud);
+            drawHUD(hud, canvas);
+
         canvas.drawToWindow();
     }
 

@@ -3,7 +3,7 @@
 #include "./text.h"
 #include "../core/hud.h"
 
-void _drawHUD(const HUD &hud, const Canvas &canvas, const RectI *viewport_bounds) {
+void drawHUD(const HUD &hud, const Canvas &canvas, const RectI *viewport_bounds = nullptr) {
     i32 x = hud.left;
     i32 y = hud.top;
 
@@ -23,14 +23,4 @@ void _drawHUD(const HUD &hud, const Canvas &canvas, const RectI *viewport_bounds
         _drawText(text, x + (i32)line->title.length * FONT_WIDTH, y, canvas, color, 1.0f, viewport_bounds);
         y += (i32)(hud.settings.line_height * (f32)FONT_HEIGHT);
     }
-}
-
-#ifdef SLIM_ENABLE_CANVAS_HUD_DRAWING
-INLINE void Canvas::drawHUD(const HUD &hud, const RectI *viewport_bounds) const {
-    _drawHUD(hud, *this, viewport_bounds);
-}
-#endif
-
-INLINE void drawHUD(const HUD &hud, const Canvas &canvas, const RectI *viewport_bounds = nullptr) {
-    _drawHUD(hud, canvas, viewport_bounds);
 }

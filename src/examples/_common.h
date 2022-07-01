@@ -1,6 +1,6 @@
 #pragma once
 
-#ifndef SLIM_DINGLE_HEADER_FILE
+#ifndef SLIM_SINGLE_HEADER_FILE
 #include "../slim/draw/text.h"
 #include "../slim/draw/rectangle.h"
 #endif

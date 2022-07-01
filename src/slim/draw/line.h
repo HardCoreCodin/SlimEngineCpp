@@ -251,7 +251,6 @@ void _drawLine(f32 x1, f32 y1, f32 z1, f32 x2, f32 y2, f32 z2, const Canvas &can
 }
 
 
-#ifdef SLIM_ENABLE_CANVAS_LINE_DRAWING
 INLINE void Canvas::drawHLine(RangeI x_range, i32 y, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawHLine(x_range, y, *this, color, opacity, viewport_bounds);
 }
@@ -283,8 +282,6 @@ INLINE void Canvas::drawLine(vec2i from, vec2i to, const Color &color, f32 opaci
     _drawLine((f32)from.x, (f32)from.y, 0, (f32)to.x, (f32)to.y, 0, *this, color, opacity, line_width, viewport_bounds);
 }
 #endif
-#endif
-
 
 
 INLINE void drawHLine(RangeI x_range, i32 y, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {

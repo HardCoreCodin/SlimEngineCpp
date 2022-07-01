@@ -59,62 +59,6 @@ typedef signed   long int  i32;
 typedef float  f32;
 typedef double f64;
 
-#ifndef SLIM_DISABLE_ALL_CANVAS_DRAWING
-    #ifndef SLIM_ENABLE_CANVAS_TEXT_DRAWING
-        #define SLIM_ENABLE_CANVAS_TEXT_DRAWING
-    #endif
-
-    #ifndef SLIM_ENABLE_CANVAS_NUMBER_DRAWING
-        #define SLIM_ENABLE_CANVAS_NUMBER_DRAWING
-    #endif
-
-    #ifndef SLIM_ENABLE_CANVAS_HUD_DRAWING
-        #define SLIM_ENABLE_CANVAS_HUD_DRAWING
-    #endif
-
-    #ifndef SLIM_ENABLE_CANVAS_LINE_DRAWING
-        #define SLIM_ENABLE_CANVAS_LINE_DRAWING
-    #endif
-
-    #ifndef SLIM_ENABLE_CANVAS_RECTANGLE_DRAWING
-        #define SLIM_ENABLE_CANVAS_RECTANGLE_DRAWING
-    #endif
-
-    #ifndef SLIM_ENABLE_CANVAS_TRIANGLE_DRAWING
-        #define SLIM_ENABLE_CANVAS_TRIANGLE_DRAWING
-    #endif
-
-    #ifndef SLIM_ENABLE_CANVAS_CIRCLE_DRAWING
-        #define SLIM_ENABLE_CANVAS_CIRCLE_DRAWING
-    #endif
-#endif
-
-#ifndef SLIM_DISABLE_ALL_VIEWPORT_DRAWING
-    #ifndef SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
-        #define SLIM_ENABLE_VIEWPORT_CURVE_DRAWING
-    #endif
-
-    #ifndef SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
-        #define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
-    #endif
-
-    #ifndef SLIM_ENABLE_VIEWPORT_BOX_DRAWING
-        #define SLIM_ENABLE_VIEWPORT_BOX_DRAWING
-    #endif
-
-    #ifndef SLIM_ENABLE_VIEWPORT_MESH_DRAWING
-        #define SLIM_ENABLE_VIEWPORT_MESH_DRAWING
-    #endif
-
-    #ifndef SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
-        #define SLIM_ENABLE_VIEWPORT_CAMERA_DRAWING
-    #endif
-
-    #ifndef SLIM_ENABLE_VIEWPORT_GRID_DRAWING
-        #define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
-    #endif
-#endif
-
 #ifndef CANVAS_COUNT
 #define CANVAS_COUNT 2
 #endif
@@ -203,11 +147,6 @@ INLINE f32 clampedValue(f32 value) {
 INLINE i32 clampedValue(i32 value) {
     i32 mn = value < 1 ? value : 1;
     return mn > 0 ? mn : 0;
-}
-
-f32 smoothstep(f32 from, f32 to, f32 t) {
-    t = (t - from) / (to - from);
-    return t * t * (3 - 2 * t);
 }
 
 template <typename T>
@@ -579,13 +518,6 @@ struct Color {
         }
     }
 
-    INLINE Color& gammaCorrect() {
-        r *= r;
-        g *= g;
-        b *= b;
-        return *this;
-    }
-
     INLINE Color operator + (const Color &rhs) const {
         return {
                 r + rhs.r,
@@ -618,9 +550,9 @@ struct Color {
 
     INLINE Color operator - (const Color &rhs) const {
         return {
-            r - rhs.r,
-            g - rhs.g,
-            b - rhs.b
+                r - rhs.r,
+                g - rhs.g,
+                b - rhs.b
         };
     }
 
@@ -656,9 +588,9 @@ struct Color {
 
     INLINE Color operator * (f32 scalar) const {
         return {
-            r * scalar,
-            g * scalar,
-            b * scalar
+                r * scalar,
+                g * scalar,
+                b * scalar
         };
     }
 
@@ -714,17 +646,9 @@ struct Color {
 
     INLINE Color scaleAdd(f32 factor, const Color &to_be_added) const {
         return {
-            fast_mul_add(r, factor, to_be_added.r),
-            fast_mul_add(g, factor, to_be_added.g),
-            fast_mul_add(b, factor, to_be_added.b)
-        };
-    }
-
-    INLINE Color blendWith(const Color &other_color, f32 factor, f32 other_factor) const {
-        return {
-            fast_mul_add(r, factor, other_color.r * other_factor),
-            fast_mul_add(g, factor, other_color.g * other_factor),
-            fast_mul_add(b, factor, other_color.b * other_factor)
+                fast_mul_add(r, factor, to_be_added.r),
+                fast_mul_add(g, factor, to_be_added.g),
+                fast_mul_add(b, factor, to_be_added.b)
         };
     }
 };
@@ -739,8 +663,15 @@ struct Pixel {
 
     INLINE Pixel operator * (f32 factor) const {
         return {
-            color * factor,
-            opacity * factor
+                color * factor,
+                opacity * factor
+        };
+    }
+
+    INLINE Pixel operator + (const Pixel &rhs) const {
+        return {
+                color + rhs.color,
+                opacity + rhs.opacity
         };
     }
 
@@ -750,36 +681,21 @@ struct Pixel {
         return *this;
     }
 
-    INLINE Pixel alphaBlendOver(const Pixel &background, bool premultiplied) const {
-        const f32 one_minus_opacity = 1.0f - opacity;
-        const f32 background_opacity = background.opacity * one_minus_opacity;
-        const f32 new_opacity = background_opacity + opacity;
-        if (premultiplied)
-            return {color + (background.color * one_minus_opacity), new_opacity};
-
-        f32 one_over_opacity = new_opacity == 0 ? 0.0f : 1.0f / new_opacity;
-        return {
-                color.blendWith(
-                    background.color,
-                    one_over_opacity * opacity,
-                    one_over_opacity * background_opacity
-                ),
-                new_opacity
-        };
+    INLINE Pixel& operator *= (const Pixel &rhs) {
+        color *= rhs.color;
+        opacity *= rhs.opacity;
+        return *this;
     }
 
-    INLINE u32 asContent(bool premultiplied, bool gamma_corrected = false) const {
-        if (premultiplied) {
-            u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? color.r : sqrtf(color.r))));
-            u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? color.g : sqrtf(color.g))));
-            u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? color.b : sqrtf(color.b))));
-            return R << 16 | G << 8 | B;
-        } else {
-            u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? (color.r * opacity) : sqrtf(color.r * opacity))));
-            u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? (color.g * opacity) : sqrtf(color.g * opacity))));
-            u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * (gamma_corrected ? (color.b * opacity) : sqrtf(color.b * opacity))));
-            return R << 16 | G << 8 | B;
-        }
+    INLINE Pixel alphaBlendOver(const Pixel &background) const {
+        return *this + background * (1.0f - opacity);
+    }
+
+    INLINE u32 asContent() const {
+        u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.r)));
+        u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.g)));
+        u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.b)));
+        return R << 16 | G << 8 | B;
     }
 };
 

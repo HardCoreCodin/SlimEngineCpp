@@ -1,14 +1,3 @@
-#ifdef SLIMMER
-#define SLIM_DISABLE_ALL_CANVAS_DRAWING
-#define SLIM_ENABLE_CANVAS_HUD_DRAWING
-#define SLIM_ENABLE_CANVAS_TEXT_DRAWING
-#define SLIM_ENABLE_CANVAS_RECTANGLE_DRAWING
-
-#define SLIM_DISABLE_ALL_VIEWPORT_DRAWING
-#define SLIM_ENABLE_VIEWPORT_EDGE_DRAWING
-#define SLIM_ENABLE_VIEWPORT_GRID_DRAWING
-#endif
-
 #include "../slim/draw/hud.h"
 #include "../slim/draw/grid.h"
 #include "../slim/app.h"
@@ -54,10 +43,12 @@ struct NavigationApp : SlimApp {
     }
     void OnRender() override {
         canvas.clear();
-        viewport.drawGrid(grid, transform, color, opacity);
+
+        drawGrid(grid, transform, viewport, color, opacity);
         drawMouseAndKeyboard(viewport);
         if (hud.enabled)
-            canvas.drawHUD(hud);
+            drawHUD(hud, canvas);
+
         canvas.drawToWindow();
     }
     void OnUpdate(f32 delta_time) override {
