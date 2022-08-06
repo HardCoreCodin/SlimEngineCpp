@@ -2,10 +2,13 @@
 
 #include "../core/string.h"
 #include "../scene/mesh.h"
+#include "./rtree.h"
 
 
 u32 getSizeInBytes(const Mesh &mesh) {
-    u32 memory_size = sizeof(vec3) * mesh.vertex_count;
+    u32 memory_size = getSizeInBytes(mesh.rtree);
+    memory_size += sizeof(Triangle) * mesh.triangle_count;
+    memory_size += sizeof(vec3) * mesh.vertex_count;
     memory_size += sizeof(TriangleVertexIndices) * mesh.triangle_count;
     memory_size += sizeof(EdgeVertexIndices) * mesh.edge_count;
 
@@ -23,6 +26,8 @@ u32 getSizeInBytes(const Mesh &mesh) {
 
 bool allocateMemory(Mesh &mesh, memory::MonotonicAllocator *memory_allocator) {
     if (getSizeInBytes(mesh) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
+    allocateMemory(mesh.rtree, memory_allocator);
+    mesh.triangles               = (Triangle*             )memory_allocator->allocate(sizeof(Triangle)              * mesh.triangle_count);
     mesh.vertex_positions        = (vec3*                 )memory_allocator->allocate(sizeof(vec3)                  * mesh.vertex_count);
     mesh.vertex_position_indices = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * mesh.triangle_count);
     mesh.edge_vertex_indices     = (EdgeVertexIndices*    )memory_allocator->allocate(sizeof(EdgeVertexIndices)     * mesh.edge_count);
@@ -43,6 +48,7 @@ void writeHeader(const Mesh &mesh, void *file) {
     os::writeToFile((void*)&mesh.edge_count,     sizeof(u32),  file);
     os::writeToFile((void*)&mesh.uvs_count,      sizeof(u32),  file);
     os::writeToFile((void*)&mesh.normals_count,  sizeof(u32),  file);
+    writeHeader(mesh.rtree, file);
 }
 void readHeader(Mesh &mesh, void *file) {
     os::readFromFile(&mesh.vertex_count,   sizeof(u32),  file);
@@ -50,6 +56,7 @@ void readHeader(Mesh &mesh, void *file) {
     os::readFromFile(&mesh.edge_count,     sizeof(u32),  file);
     os::readFromFile(&mesh.uvs_count,      sizeof(u32),  file);
     os::readFromFile(&mesh.normals_count,  sizeof(u32),  file);
+    readHeader(mesh.rtree, file);
 }
 
 bool saveHeader(const Mesh &mesh, char *file_path) {
@@ -71,6 +78,7 @@ bool loadHeader(Mesh &mesh, char *file_path) {
 void readContent(Mesh &mesh, void *file) {
     os::readFromFile(&mesh.aabb.min,       sizeof(vec3), file);
     os::readFromFile(&mesh.aabb.max,       sizeof(vec3), file);
+    os::readFromFile(mesh.triangles,       sizeof(Triangle) * mesh.triangle_count, file);
     os::readFromFile(mesh.vertex_positions,             sizeof(vec3)                  * mesh.vertex_count,   file);
     os::readFromFile(mesh.vertex_position_indices,      sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
     os::readFromFile(mesh.edge_vertex_indices,          sizeof(EdgeVertexIndices)     * mesh.edge_count,     file);
@@ -82,10 +90,12 @@ void readContent(Mesh &mesh, void *file) {
         os::readFromFile(mesh.vertex_normals,                sizeof(vec3)                  * mesh.normals_count,  file);
         os::readFromFile(mesh.vertex_normal_indices,         sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
     }
+    readContent(mesh.rtree, file);
 }
 void writeContent(const Mesh &mesh, void *file) {
     os::writeToFile((void*)&mesh.aabb.min,       sizeof(vec3), file);
     os::writeToFile((void*)&mesh.aabb.max,       sizeof(vec3), file);
+    os::writeToFile((void*)mesh.triangles,               sizeof(Triangle)              * mesh.triangle_count, file);
     os::writeToFile((void*)mesh.vertex_positions,        sizeof(vec3)                  * mesh.vertex_count,   file);
     os::writeToFile((void*)mesh.vertex_position_indices, sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
     os::writeToFile((void*)mesh.edge_vertex_indices,     sizeof(EdgeVertexIndices)     * mesh.edge_count,     file);
@@ -97,6 +107,7 @@ void writeContent(const Mesh &mesh, void *file) {
         os::writeToFile(mesh.vertex_normals,        sizeof(vec3)                  * mesh.normals_count,  file);
         os::writeToFile(mesh.vertex_normal_indices, sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
     }
+    writeContent(mesh.rtree, file);
 }
 
 bool saveContent(const Mesh &mesh, char *file_path) {

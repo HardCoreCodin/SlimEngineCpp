@@ -3,6 +3,7 @@
 #include "../slim/draw/hud.h"
 #include "../slim/draw/grid.h"
 #include "../slim/draw/mesh.h"
+#include "../slim/draw/rtree.h"
 #include "../slim/app.h"
 // Or using the single-header file:
 //#include "../slim.h"
@@ -42,7 +43,7 @@ struct MeshApp : SlimApp {
     char strings[2][100] = {};
     String mesh_files[2] = {
         String::getFilePath((char*)"suzanne.mesh",strings[0],(char*)__FILE__),
-        String::getFilePath((char*)"dragon.mesh" ,strings[1],(char*)__FILE__)
+        String::getFilePath((char*)"dog.mesh" ,strings[1],(char*)__FILE__)
     };
     Mesh meshes[2];
 
@@ -54,6 +55,9 @@ struct MeshApp : SlimApp {
     // Drawing:
     f32 opacity = 0.5f;
 
+    u16 min_depth = 0;
+    u16 max_depth = 0;
+
     void OnRender() override {
         canvas.clear();
 
@@ -63,6 +67,8 @@ struct MeshApp : SlimApp {
         Mesh &mesh{meshes[scene.geometries[1].id]};
         drawMesh(mesh, mesh1.transform, draw_normals, viewport, mesh1.color, opacity);
         drawMesh(mesh, mesh2.transform, draw_normals, viewport, mesh2.color, opacity);
+        drawRTree(mesh.rtree, mesh1.transform, viewport, min_depth, max_depth);
+        drawRTree(mesh.rtree, mesh2.transform, viewport, min_depth, max_depth);
 
         if (controls::is_pressed::alt) drawSelection(selection, viewport, scene);
         if (hud.enabled)
@@ -83,6 +89,7 @@ struct MeshApp : SlimApp {
         if (key == 'A') move.left     = is_pressed;
         if (key == 'D') move.right    = is_pressed;
         if (!is_pressed) {
+            u16 depth = meshes[scene.geometries[1].id].rtree.height;
             if (key == controls::key_map::tab)
                 hud.enabled = !hud.enabled;
             else if (key == 'Q') {
@@ -93,6 +100,20 @@ struct MeshApp : SlimApp {
                 u32 new_mesh_id = (old_mesh_id + 1) % 2;
                 scene.geometries[1].id = new_mesh_id;
                 scene.geometries[2].id = new_mesh_id;
+            } else if (key == '0') {
+                if (max_depth < depth) max_depth++;
+                if (controls::is_pressed::shift) {
+                    if (min_depth < depth) min_depth++;
+                }
+            } if (key == '9') {
+                if (max_depth > 0) max_depth--;
+                if (controls::is_pressed::shift) {
+                    if (min_depth > 0) min_depth--;
+                }
+            } if (key == '8') {
+                if (min_depth < depth) min_depth++;
+            } if (key == '7') {
+                if (min_depth > 0) min_depth--;
             }
         }
     }

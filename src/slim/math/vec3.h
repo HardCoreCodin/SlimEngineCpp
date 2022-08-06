@@ -137,10 +137,11 @@ struct vec3 {
     }
 
     INLINE vec3 operator / (f32 rhs) const {
+        const f32 factor = 1.0f / rhs;
         return {
-            x / rhs,
-            y / rhs,
-            z / rhs
+            x * factor,
+            y * factor,
+            z * factor
         };
     }
 
@@ -380,7 +381,7 @@ INLINE vec3 minimum(const vec3 &a, const vec3 &b) {
     return {
         a.x < b.x ? a.x : b.x,
         a.y < b.y ? a.y : b.y,
-        a.z < b.y ? a.z : b.z
+        a.z < b.z ? a.z : b.z
     };
 }
 
@@ -433,8 +434,7 @@ struct Edge {
 };
 
 struct AABB {
-    vec3 min = -1;
-    vec3 max = +1;
+    vec3 min, max;
 
     AABB(f32 min_x, f32 min_y, f32 min_z,
          f32 max_x, f32 max_y, f32 max_z) : AABB{
@@ -444,6 +444,35 @@ struct AABB {
     AABB(f32 min_value, f32 max_value) : AABB{vec3{min_value}, vec3{max_value}} {}
     AABB(const vec3 &min, const vec3 &max) : min{min}, max{max} {}
     AABB() : AABB{0, 0} {}
+
+    INLINE AABB operator + (const AABB &rhs) const {
+        return {
+            min.x < rhs.min.x ? min.x : rhs.min.x,
+            min.y < rhs.min.y ? min.y : rhs.min.y,
+            min.z < rhs.min.z ? min.z : rhs.min.z,
+
+            max.x > rhs.max.x ? max.x : rhs.max.x,
+            max.y > rhs.max.y ? max.y : rhs.max.y,
+            max.z > rhs.max.z ? max.z : rhs.max.z,
+        };
+    }
+
+    INLINE const AABB& operator += (const AABB &rhs) {
+        min.x = min.x < rhs.min.x ? min.x : rhs.min.x;
+        min.y = min.y < rhs.min.y ? min.y : rhs.min.y;
+        min.z = min.z < rhs.min.z ? min.z : rhs.min.z;
+
+        max.x = max.x > rhs.max.x ? max.x : rhs.max.x;
+        max.y = max.y > rhs.max.y ? max.y : rhs.max.y;
+        max.z = max.z > rhs.max.z ? max.z : rhs.max.z;
+
+        return *this;
+    }
+
+    INLINE f32 area() const {
+        vec3 extents = max - min;
+        return extents.x*extents.y + extents.y*extents.z + extents.z*extents.x;
+    }
 };
 
 INLINE Color vec3ToColor(const vec3 &v) {

@@ -1,8 +1,9 @@
 #pragma once
 
 #include "../math/vec2.h"
-#include "../math/vec3.h"
+#include "../math/mat3.h"
 
+#include "./rtree.h"
 
 struct EdgeVertexIndices {
     u32 from, to;
@@ -15,8 +16,15 @@ union TriangleVertexIndices {
     };
 };
 
+struct Triangle {
+    mat3 world_to_tangent;
+    vec3 position, normal, U, V;
+};
+
 struct Mesh {
     AABB aabb;
+    RTree rtree;
+    Triangle *triangles;
 
     vec3 *vertex_positions{nullptr};
     vec3 *vertex_normals{nullptr};
