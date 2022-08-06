@@ -416,6 +416,7 @@ struct Color {
         struct { f32 r  , g    , b   ; };
     };
 
+    Color(f32 value) : red{value}, green{value}, blue{value} {}
     Color(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f) : red{red}, green{green}, blue{blue} {}
     Color(enum ColorID color_id) : Color{} {
         switch (color_id) {
@@ -516,6 +517,16 @@ struct Color {
                 green = 0.75f;
                 break;
         }
+    }
+
+    INLINE Color& operator = (f32 value) {
+        r = g = b = value;
+        return *this;
+    }
+
+    INLINE Color& operator = (ColorID color_id) {
+        *this  = Color(color_id);
+        return *this;
     }
 
     INLINE Color operator + (const Color &rhs) const {
@@ -773,7 +784,7 @@ namespace controls {
 }
 
 namespace os {
-    void* getMemory(u64 size);
+    void* getMemory(u64 size, u64 base = Terabytes(2));
     void setWindowTitle(char* str);
     void setWindowCapture(bool on);
     void setCursorVisibility(bool on);
@@ -926,18 +937,6 @@ namespace mouse {
     }
 }
 
-namespace os {
-    void* getMemory(u64 size);
-    void setWindowTitle(char* str);
-    void setWindowCapture(bool on);
-    void setCursorVisibility(bool on);
-    void closeFile(void *handle);
-    void* openFileForReading(const char* file_path);
-    void* openFileForWriting(const char* file_path);
-    bool readFromFile(void *out, unsigned long, void *handle);
-    bool writeToFile(void *out, unsigned long, void *handle);
-}
-
 namespace memory {
     u8 *canvas_memory{nullptr};
     u64 canvas_memory_capacity = CANVAS_SIZE * CANVAS_COUNT;
@@ -951,9 +950,9 @@ namespace memory {
 
         MonotonicAllocator() = default;
 
-        explicit MonotonicAllocator(u64 Capacity) {
+        explicit MonotonicAllocator(u64 Capacity, u64 starting = Terabytes(2)) {
             capacity = Capacity;
-            address = (u8*)os::getMemory(Capacity);
+            address = (u8*)os::getMemory(Capacity, starting);
         }
 
         void* allocate(u64 size) {

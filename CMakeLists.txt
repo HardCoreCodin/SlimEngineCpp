@@ -23,3 +23,6 @@ add_executable(7_scene WIN32 src/examples/7_scene.cpp)
 
 project(obj2mesh)
 add_executable(obj2mesh src/obj2mesh.cpp)
+
+project(bmp2texture)
+add_executable(bmp2texture src/bmp2texture.cpp)

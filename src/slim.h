@@ -775,7 +775,7 @@ namespace controls {
 }
 
 namespace os {
-    void* getMemory(u64 size);
+    void* getMemory(u64 size, u64 base = Terabytes(2));
     void setWindowTitle(char* str);
     void setWindowCapture(bool on);
     void setCursorVisibility(bool on);
@@ -928,18 +928,6 @@ namespace mouse {
     }
 }
 
-namespace os {
-    void* getMemory(u64 size);
-    void setWindowTitle(char* str);
-    void setWindowCapture(bool on);
-    void setCursorVisibility(bool on);
-    void closeFile(void *handle);
-    void* openFileForReading(const char* file_path);
-    void* openFileForWriting(const char* file_path);
-    bool readFromFile(void *out, unsigned long, void *handle);
-    bool writeToFile(void *out, unsigned long, void *handle);
-}
-
 namespace memory {
     u8 *canvas_memory{nullptr};
     u64 canvas_memory_capacity = CANVAS_SIZE * CANVAS_COUNT;
@@ -953,9 +941,9 @@ namespace memory {
 
         MonotonicAllocator() = default;
 
-        explicit MonotonicAllocator(u64 Capacity) {
+        explicit MonotonicAllocator(u64 Capacity, u64 starting = Terabytes(2)) {
             capacity = Capacity;
-            address = (u8*)os::getMemory(Capacity);
+            address = (u8*)os::getMemory(Capacity, starting);
         }
 
         void* allocate(u64 size) {
@@ -7075,8 +7063,8 @@ u64 time::getTicks() {
     return (u64)performance_counter.QuadPart;
 }
 
-void* os::getMemory(u64 size) {
-    return VirtualAlloc((LPVOID)MEMORY_BASE, (SIZE_T)size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+void* os::getMemory(u64 size, u64 base) {
+    return VirtualAlloc((LPVOID)base, (SIZE_T)size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 }
 
 void os::closeFile(void *handle) {

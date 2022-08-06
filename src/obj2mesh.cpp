@@ -20,7 +20,7 @@ void os::setWindowTitle(char* str) {}
 void os::setCursorVisibility(bool on) {}
 void os::setWindowCapture(bool on) {}
 u64 time::getTicks() {return 0; }
-void* os::getMemory(u64 size) { return nullptr; }
+void* os::getMemory(u64 size, u64 start) { return nullptr; }
 void os::closeFile(void *handle) {}
 void* os::openFileForReading(const char* path) { return nullptr; }
 void* os::openFileForWriting(const char* path) { return nullptr; }
