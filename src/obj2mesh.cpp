@@ -76,7 +76,7 @@ int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_orde
     fclose(obj_file);
 
     mesh.rtree.node_count = mesh.triangle_count * 2;
-    mesh.rtree.leaf_ids_count = mesh.triangle_count;
+    mesh.rtree.leaf_ids_count = mesh.rtree.height = mesh.triangle_count;
 
     u64 memory_capacity = getSizeInBytes(mesh);
     memory_capacity += RTreeBuilder::getSizeInBytes(mesh.triangle_count * 2);

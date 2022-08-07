@@ -5,7 +5,8 @@
 #include "../core/transform.h"
 #include "./box.h"
 
-void drawRTree(const RTree &rtree, const Transform &transform, const Viewport &viewport, u16 min_depth = 0, u16 max_depth = 5, f32 opacity = 0.25f, u8 line_width = 1) {
+void drawRTree(const RTree &rtree, const Transform &transform, const Viewport &viewport,
+               u16 min_depth = 0, u16 max_depth = 5, f32 opacity = 0.25f, u8 line_width = 1) {
     static Box box;
     static Transform box_transform;
 
@@ -24,7 +25,7 @@ void drawRTree(const RTree &rtree, const Transform &transform, const Viewport &v
 }
 
 void drawRTreeQueryResult(const RTreeQueryResult &query_result, const RTreeNode *nodes, const Transform &transform,
-                    const Viewport &viewport, const Color &color, f32 opacity = 0.5f, u8 line_width = 1) {
+                          const Viewport &viewport, const Color &color, f32 opacity = 0.5f, u8 line_width = 1) {
     static Box box;
     static Transform box_transform;
 

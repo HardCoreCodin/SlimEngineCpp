@@ -40,18 +40,21 @@ struct ClosestPointOnMeshApp : SlimApp {
     };
 
     Geometry grid1{grid_transform,GeometryType_Grid, Green};
-    Geometry sphere_geo{{{4, 4, 2}}, GeometryType_Curve, Magenta};
-    Geometry mesh1{{{+8, 5, 0} }, GeometryType_Mesh, Blue};
-    Geometry mesh2{{{-8, 5, 0} }, GeometryType_Mesh, Cyan}, *geometries{&grid1};
+    Geometry sphere_geo{{{4, 4, 2}}, GeometryType_Curve, Yellow};
+    Geometry mesh1{{{+8, 5, 0} }, GeometryType_Mesh, BrightBlue};
+    Geometry mesh2{{{-8, 5, 0} }, GeometryType_Mesh, DarkBlue}, *geometries{&grid1};
 
-    char strings[2][100] = {};
-    String mesh_files[2] = {
+    Transform *mesh_transform = &mesh1.transform;
+
+    char strings[3][100] = {};
+    String mesh_files[3] = {
         String::getFilePath((char*)"suzanne.mesh",strings[0],(char*)__FILE__),
-        String::getFilePath((char*)"dog.mesh" ,strings[1],(char*)__FILE__)
+        String::getFilePath((char*)"dog.mesh" ,strings[1],(char*)__FILE__),
+        String::getFilePath((char*)"cube.mesh" ,strings[2],(char*)__FILE__)
     };
-    Mesh meshes[2];
+    Mesh meshes[3], *mesh = meshes;
 
-    SceneCounts counts{1, 3, 1, 0, 1, 2 };
+    SceneCounts counts{1, 4, 1, 0, 1, 3 };
     Scene scene{counts,nullptr, cameras, geometries, grids,nullptr,curves,
                 meshes, mesh_files};
     Selection selection;
@@ -61,59 +64,30 @@ struct ClosestPointOnMeshApp : SlimApp {
 
     u16 min_depth = 0;
     u16 max_depth = 0;
-    vec3 point;
     f32 max_distance = 1;
+    f32 local_space_max_distance = 1;
 
     bool draw_rtree = false;
     bool draw_rtree_query_result = false;
     bool draw_rtree_query_aabbs = false;
     bool draw_rtree_query_triangles = false;
 
+
+
     void OnRender() override {
         canvas.clear();
 
         drawGrid(grid, grid1.transform, viewport, grid1.color, opacity);
-
-        Mesh &mesh{meshes[scene.geometries[1].id]};
-        drawMesh(mesh, mesh1.transform, false, viewport, mesh1.color, opacity);
-        drawMesh(mesh, mesh2.transform, false, viewport, mesh2.color, opacity);
-
-        if (draw_rtree) {
-            drawRTree(mesh.rtree, mesh1.transform, viewport, min_depth, max_depth);
-            drawRTree(mesh.rtree, mesh2.transform, viewport, min_depth, max_depth);
-        }
-
-        point = mesh1.transform.internPos(sphere_geo.transform.position);
-
-        vec3 &scale = mesh1.transform.scale;
-        f32 local_space_max_distance = max_distance / ((scale.x == scale.y && scale.x == scale.z) ? scale.x : (scale.length()));
-        if (mesh.rtree.collectOverlappedNodes(point, local_space_max_distance)) {
-            if (draw_rtree_query_aabbs)
-                drawRTreeQueryResult(mesh.rtree.query_result, mesh.rtree.nodes,
-                                     mesh1.transform, viewport, Red);
-
-            Edge edge;
-            if (draw_rtree_query_triangles)
-                for (u32 result_index = 0; result_index < mesh.rtree.query_result.node_count; result_index++) {
-                    const RTreeNode &node = mesh.rtree.nodes[mesh.rtree.query_result.node_ids[result_index]];
-                    for (u16 i = 0; i < node.child_count; i++) {
-                        Triangle &triangle = mesh.triangles[node.first_child_id + i];
-                        vec3 position = camera.internPos(mesh1.transform.externPos(triangle.position));
-                        edge.from = position;
-                        edge.to =  camera.internPos(mesh1.transform.externPos(triangle.position + triangle.U));
-                        edge.to.z -= 0.01;
-                        drawEdge(edge, viewport, Green, 1, 1);
-
-                        edge.from = camera.internPos(mesh1.transform.externPos(triangle.position + triangle.V));
-                        edge.from.z -= 0.01;
-                        drawEdge(edge, viewport, Green, 1, 1);
-
-                        edge.to = position;
-                        drawEdge(edge, viewport, Green, 1, 1);
-                    }
-                }
-        }
+        drawMesh(*mesh, mesh1.transform, false, viewport, mesh1.color, opacity);
+        drawMesh(*mesh, mesh2.transform, false, viewport, mesh2.color, opacity);
         drawCurve(sphere, sphere_geo.transform, viewport, sphere_geo.color);
+
+        RTree &rtree = mesh->rtree;
+        if (draw_rtree) drawRTree(rtree, *mesh_transform, viewport, min_depth, max_depth);
+        if (rtree.query_result.node_count) {
+            if (draw_rtree_query_aabbs) drawRTreeQueryResult(rtree.query_result, rtree.nodes, *mesh_transform, viewport, Red);
+            if (draw_rtree_query_triangles) drawMeshRTreeQueryResult(*mesh, *mesh_transform, viewport, Green);
+        }
 
         if (controls::is_pressed::alt) drawSelection(selection, viewport, scene);
         if (hud.enabled)
@@ -152,9 +126,10 @@ struct ClosestPointOnMeshApp : SlimApp {
             else if (key == '7') { if (min_depth > 0) min_depth--; }
             else if (key == 'M') {
                 u32 old_mesh_id = scene.geometries[1].id;
-                u32 new_mesh_id = (old_mesh_id + 1) % 2;
+                u32 new_mesh_id = (old_mesh_id + 1) % 3;
                 scene.geometries[1].id = new_mesh_id;
                 scene.geometries[2].id = new_mesh_id;
+                mesh = &meshes[new_mesh_id];
             }
         }
     }
@@ -165,6 +140,17 @@ struct ClosestPointOnMeshApp : SlimApp {
             !controls::is_pressed::ctrl &&
             !controls::is_pressed::shift)
             viewport.updateNavigation(delta_time);
+
+        if (selection.changed) {
+            selection.changed = false;
+            if (selection.geometry && selection.geo_type == GeometryType_Mesh)
+                mesh_transform = &selection.geometry->transform;
+        }
+
+        vec3 &scale = mesh_transform->scale;
+        local_space_max_distance = max_distance / ((scale.x == scale.y && scale.x == scale.z) ? scale.x : (scale.length()));
+        vec3 point = mesh_transform->internPos(sphere_geo.transform.position);
+        mesh->rtree.collectOverlappedNodes(point, local_space_max_distance);
     }
 
     void OnWindowResize(u16 width, u16 height) override {
