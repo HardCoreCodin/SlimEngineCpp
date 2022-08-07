@@ -224,22 +224,23 @@ struct RTreeBuilder {
         stack[0] = left;
         stack[1] = right;
 
-        i32 stack_length = 1;
+        i32 stack_size = 1;
         u32 leaf_count = 0;;
 
-        while (stack_length >= 0) {
-            left = stack[stack_length];
+        while (stack_size >= 0) {
+            left = stack[stack_size];
             RTreeNode &node = rtree.nodes[left.node_id];
             N = left.end - left.start;
             if (N <= max_leaf_size) {
                 node.depth = left.depth;
                 node.child_count = (u16)N;
                 node.first_child_id = leaf_count;
-                leaf_id = rtree.leaf_ids + left.start;
+
+                leaf_id = leaf_ids + left.start;
                 for (u32 i = 0; i < N; i++, leaf_id++)
                     rtree.leaf_ids[leaf_count + i] = leaf_nodes[*leaf_id].first_child_id;
                 leaf_count += N;
-                stack_length--;
+                stack_size--;
             } else {
                 middle = splitNode(node, left.start, left.end, rtree);
                 left.depth++;
@@ -250,8 +251,8 @@ struct RTreeBuilder {
                 right.node_id = node.first_child_id + 1;
                 rtree.nodes[rtree.node_count - 1].depth = left.depth;
                 rtree.nodes[rtree.node_count - 2].depth = right.depth;
-                stack[  stack_length] = left;
-                stack[++stack_length] = right;
+                stack[  stack_size] = left;
+                stack[++stack_size] = right;
                 if (left.depth > rtree.height) rtree.height = left.depth;
             }
         }

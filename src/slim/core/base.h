@@ -22,6 +22,14 @@
     #define INLINE inline
 #endif
 
+#if defined(COMPILER_CLANG_OR_GCC)
+    #define likely(x)   __builtin_expect(x, true)
+    #define unlikely(x) __builtin_expect_with_probability(x, false, 0.95)
+#else
+    #define likely(x)   x
+    #define unlikely(x) x
+#endif
+
 #ifdef COMPILER_CLANG
 #define ENABLE_FP_CONTRACT \
         _Pragma("clang diagnostic push") \
@@ -274,6 +282,7 @@ enum CurveType {
 
     CurveType_Helix,
     CurveType_Coil,
+    CurveType_Sphere,
 
     CurveType_Count
 };
