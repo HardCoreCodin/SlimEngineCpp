@@ -302,7 +302,6 @@ struct RTreeBuilder {
 
         build(mesh.rtree, mesh.triangle_count, MAX_TRIANGLES_PER_MESH_RTREE_NODE);
 
-        mat3 m3;
         for (u32 i = 0; i < mesh.triangle_count; i++) leaf_ids[i] = mesh.rtree.leaf_ids[i];
         for (u32 i = 0; i < mesh.triangle_count; i++) {
             u32 builder_leaf_id = leaf_ids[i];
@@ -317,10 +316,10 @@ struct RTreeBuilder {
             triangle.V = v2 - v1;
             triangle.normal = triangle.U.cross(triangle.V).normalized();
             triangle.position = v1;
-            triangle.world_to_tangent.X = triangle.U;
-            triangle.world_to_tangent.Y = triangle.V;
-            triangle.world_to_tangent.Z = triangle.normal;
-            triangle.world_to_tangent = triangle.world_to_tangent.inverted();
+            triangle.local_to_tangent.X = triangle.U;
+            triangle.local_to_tangent.Y = triangle.V;
+            triangle.local_to_tangent.Z = triangle.normal;
+            triangle.local_to_tangent = triangle.local_to_tangent.inverted();
         }
     }
 };

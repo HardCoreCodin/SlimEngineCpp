@@ -149,12 +149,17 @@ bool load(Mesh &mesh, char *file_path, memory::MonotonicAllocator *memory_alloca
     return true;
 }
 
-u32 getTotalMemoryForMeshes(String *mesh_files, u32 mesh_count) {
+u32 getTotalMemoryForMeshes(String *mesh_files, u32 mesh_count, u16 *max_rtree_height = nullptr) {
     u32 memory_size{0};
     for (u32 i = 0; i < mesh_count; i++) {
         Mesh mesh;
         loadHeader(mesh, mesh_files[i].char_ptr);
         memory_size += getSizeInBytes(mesh);
+
+        if (max_rtree_height && mesh.rtree.height > *max_rtree_height) *max_rtree_height = mesh.rtree.height;
     }
+    if (max_rtree_height)
+        memory_size += sizeof(u32) * (*max_rtree_height + (1 << *max_rtree_height));
+
     return memory_size;
 }

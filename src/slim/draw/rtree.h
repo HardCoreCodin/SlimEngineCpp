@@ -24,13 +24,13 @@ void drawRTree(const RTree &rtree, const Transform &transform, const Viewport &v
     }
 }
 
-void drawRTreeQueryResult(const RTreeQueryResult &query_result, const RTreeNode *nodes, const Transform &transform,
-                          const Viewport &viewport, const Color &color, f32 opacity = 0.5f, u8 line_width = 1) {
+void drawRTreeQuery(const RTreeQuery *query, const RTreeNode *nodes, const Transform &transform,
+                    const Viewport &viewport, const Color &color, f32 opacity = 0.5f, u8 line_width = 1) {
     static Box box;
     static Transform box_transform;
 
-    for (u32 result_index = 0; result_index < query_result.node_count; result_index++) {
-        const RTreeNode &node = nodes[query_result.node_ids[result_index]];
+    for (u32 result_index = 0; result_index < query->node_count; result_index++) {
+        const RTreeNode &node = nodes[query->node_ids[result_index]];
 
         box_transform = transform;
         box_transform.scale *= (node.aabb.max - node.aabb.min) * 0.5f;

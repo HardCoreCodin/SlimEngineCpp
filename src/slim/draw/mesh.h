@@ -31,13 +31,13 @@ void drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, c
     }
 }
 
-void drawMeshRTreeQueryResult(const Mesh &mesh, const Transform &transform, const Viewport &viewport,
-                              const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
+void drawMeshRTreeQuery(const Mesh &mesh, const RTreeQuery *query, const Transform &transform, const Viewport &viewport,
+                        const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     const Camera &cam = *viewport.camera;
     vec3 pos;
     Edge edge;
-    for (u32 result_index = 0; result_index < mesh.rtree.query_result.node_count; result_index++) {
-        const RTreeNode &node = mesh.rtree.nodes[mesh.rtree.query_result.node_ids[result_index]];
+    for (u32 result_index = 0; result_index < query->node_count; result_index++) {
+        const RTreeNode &node = mesh.rtree.nodes[query->node_ids[result_index]];
         for (u16 i = 0; i < node.child_count; i++) {
             Triangle &triangle = mesh.triangles[node.first_child_id + i];
             pos = cam.internPos(transform.externPos(triangle.position));

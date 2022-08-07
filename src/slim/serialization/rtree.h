@@ -4,17 +4,14 @@
 #include "../scene/rtree.h"
 
 u32 getSizeInBytes(const RTree &rtree) {
-    return sizeof(RTreeNode) * rtree.node_count +
-            sizeof(u32) * (rtree.leaf_ids_count + rtree.height + rtree.node_count);
+    return sizeof(RTreeNode) * rtree.node_count + sizeof(u32) * rtree.leaf_ids_count;
 }
 
 bool allocateMemory(RTree &rtree, memory::MonotonicAllocator *memory_allocator) {
     if (getSizeInBytes(rtree) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
 
-    rtree.nodes           = (RTreeNode*)memory_allocator->allocate(sizeof(RTreeNode) * rtree.node_count);
-    rtree.leaf_ids              = (u32*)memory_allocator->allocate(sizeof(u32)       * rtree.leaf_ids_count);
-    rtree.query_result.node_ids = (u32*)memory_allocator->allocate(sizeof(u32)       * rtree.node_count);
-    rtree.query_result.stack    = (u32*)memory_allocator->allocate(sizeof(u32)       * rtree.height);
+    rtree.nodes = (RTreeNode*)memory_allocator->allocate(sizeof(RTreeNode) * rtree.node_count);
+    rtree.leaf_ids    = (u32*)memory_allocator->allocate(sizeof(u32)       * rtree.leaf_ids_count);
 
     return true;
 }

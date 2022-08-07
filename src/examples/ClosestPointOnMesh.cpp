@@ -33,16 +33,26 @@ struct ClosestPointOnMeshApp : SlimApp {
               11}, *grids{&grid};
     Curve sphere{ CurveType_Sphere,  30}, *curves{&sphere};
 
+    Transform closest_point_transform{
+            {0, 0, 0},
+            {0, 0, 0},
+            {0.1f, 0.1f, 0.1f}
+    };
+    Transform sphere_center_transform{
+            {0, 0, 0},
+            {0, 0, 0},
+            {0.1f, 0.1f, 0.1f}
+    };
     Transform grid_transform{
           {0, 0, 0},
         {0, 45 * DEG_TO_RAD, 0},
         {5, 1, 5}
     };
 
-    Geometry grid1{grid_transform,GeometryType_Grid, Green};
+    Geometry grid1{grid_transform,GeometryType_Grid, BrightGrey};
     Geometry sphere_geo{{{4, 4, 2}}, GeometryType_Curve, Yellow};
     Geometry mesh1{{{+8, 5, 0} }, GeometryType_Mesh, BrightBlue};
-    Geometry mesh2{{{-8, 5, 0} }, GeometryType_Mesh, DarkBlue}, *geometries{&grid1};
+    Geometry mesh2{{{-8, 5, 0} }, GeometryType_Mesh, DarkYellow}, *geometries{&grid1};
 
     Transform *mesh_transform = &mesh1.transform;
 
@@ -64,34 +74,39 @@ struct ClosestPointOnMeshApp : SlimApp {
 
     u16 min_depth = 0;
     u16 max_depth = 0;
+    f32 world_max_distance = 1;
     f32 max_distance = 1;
-    f32 local_space_max_distance = 1;
+    vec3 closest_point;
+    TrianglePointOn point_on = TrianglePointOn_None;
 
     bool draw_rtree = false;
     bool draw_rtree_query_result = false;
     bool draw_rtree_query_aabbs = false;
     bool draw_rtree_query_triangles = false;
 
-
-
     void OnRender() override {
         canvas.clear();
-
         drawGrid(grid, grid1.transform, viewport, grid1.color, opacity);
         drawMesh(*mesh, mesh1.transform, false, viewport, mesh1.color, opacity);
         drawMesh(*mesh, mesh2.transform, false, viewport, mesh2.color, opacity);
         drawCurve(sphere, sphere_geo.transform, viewport, sphere_geo.color);
+        drawCurve(sphere, sphere_center_transform, viewport, Cyan);
 
         RTree &rtree = mesh->rtree;
         if (draw_rtree) drawRTree(rtree, *mesh_transform, viewport, min_depth, max_depth);
-        if (rtree.query_result.node_count) {
-            if (draw_rtree_query_aabbs) drawRTreeQueryResult(rtree.query_result, rtree.nodes, *mesh_transform, viewport, Red);
-            if (draw_rtree_query_triangles) drawMeshRTreeQueryResult(*mesh, *mesh_transform, viewport, Green);
+        if (scene.mesh_query.node_count) {
+            if (draw_rtree_query_aabbs) drawRTreeQuery(&scene.mesh_query, rtree.nodes, *mesh_transform, viewport, Red);
+            if (draw_rtree_query_triangles) drawMeshRTreeQuery(*mesh, &scene.mesh_query, *mesh_transform, viewport, Green);
+        }
+        if (point_on) {
+            drawCurve(sphere, closest_point_transform, viewport, Red);
+            drawEdge({camera.internPos(sphere_center_transform.position),
+                      camera.internPos(closest_point_transform.position)},
+                     viewport, Cyan, 1, 3);
         }
 
         if (controls::is_pressed::alt) drawSelection(selection, viewport, scene);
-        if (hud.enabled)
-            drawHUD(hud, canvas);
+        if (hud.enabled) drawHUD(hud, canvas);
 
         canvas.drawToWindow();
     }
@@ -146,11 +161,13 @@ struct ClosestPointOnMeshApp : SlimApp {
             if (selection.geometry && selection.geo_type == GeometryType_Mesh)
                 mesh_transform = &selection.geometry->transform;
         }
+        sphere_center_transform.position = sphere_geo.transform.position;
 
         vec3 &scale = mesh_transform->scale;
-        local_space_max_distance = max_distance / ((scale.x == scale.y && scale.x == scale.z) ? scale.x : (scale.length()));
+        max_distance = world_max_distance / ((scale.x == scale.y && scale.x == scale.z) ? scale.x : (scale.length()));
         vec3 point = mesh_transform->internPos(sphere_geo.transform.position);
-        mesh->rtree.collectOverlappedNodes(point, local_space_max_distance);
+        point_on = scene.mesh_query.findClosestPointOnMesh(*mesh, point, max_distance, closest_point);
+        if (point_on) closest_point_transform.position = mesh_transform->externPos(closest_point);
     }
 
     void OnWindowResize(u16 width, u16 height) override {
@@ -165,10 +182,10 @@ struct ClosestPointOnMeshApp : SlimApp {
     void OnMouseWheelScrolled(f32 amount) override {
         if (controls::is_pressed::ctrl && selection.geometry) {
             if (selection.geometry == &sphere_geo) {
-                max_distance += mouse::wheel_scroll_amount * 0.01f;
-                if (max_distance < 0.1f) max_distance = 0.1f;
-                if (max_distance > 5.0f) max_distance = 5.0;
-                sphere_geo.transform.scale = max_distance;
+                world_max_distance += mouse::wheel_scroll_amount * 0.01f;
+                if (world_max_distance < 0.1f) world_max_distance = 0.1f;
+                if (world_max_distance > 5.0f) world_max_distance = 5.0;
+                sphere_geo.transform.scale = world_max_distance;
             } else {
                 f32 scale = selection.geometry->transform.scale.x;
                 f32 new_scale = scale + mouse::wheel_scroll_amount * 0.01f;

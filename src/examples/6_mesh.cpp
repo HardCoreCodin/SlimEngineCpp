@@ -40,14 +40,15 @@ struct MeshApp : SlimApp {
     Geometry mesh1{{{+8, 5, 0} }, GeometryType_Mesh, Blue};
     Geometry mesh2{{{-8, 5, 0} }, GeometryType_Mesh, Cyan}, *geometries{&grid1};
 
-    char strings[2][100] = {};
-    String mesh_files[2] = {
+    char strings[3][100] = {};
+    String mesh_files[3] = {
         String::getFilePath((char*)"suzanne.mesh",strings[0],(char*)__FILE__),
-        String::getFilePath((char*)"dog.mesh" ,strings[1],(char*)__FILE__)
+        String::getFilePath((char*)"dog.mesh" ,strings[1],(char*)__FILE__),
+        String::getFilePath((char*)"cube.mesh" ,strings[2],(char*)__FILE__)
     };
-    Mesh meshes[2];
+    Mesh meshes[3];
 
-    SceneCounts counts{1, 3, 1, 0, 0, 2 };
+    SceneCounts counts{1, 3, 1, 0, 0, 3 };
     Scene scene{counts,nullptr, cameras, geometries, grids,nullptr,nullptr,
                 meshes, mesh_files};
     Selection selection;
@@ -67,8 +68,6 @@ struct MeshApp : SlimApp {
         Mesh &mesh{meshes[scene.geometries[1].id]};
         drawMesh(mesh, mesh1.transform, draw_normals, viewport, mesh1.color, opacity);
         drawMesh(mesh, mesh2.transform, draw_normals, viewport, mesh2.color, opacity);
-        drawRTree(mesh.rtree, mesh1.transform, viewport, min_depth, max_depth);
-        drawRTree(mesh.rtree, mesh2.transform, viewport, min_depth, max_depth);
 
         if (controls::is_pressed::alt) drawSelection(selection, viewport, scene);
         if (hud.enabled)
@@ -97,7 +96,7 @@ struct MeshApp : SlimApp {
                 antialias = canvas.antialias == SSAA;
             } else if (key == 'M') {
                 u32 old_mesh_id = scene.geometries[1].id;
-                u32 new_mesh_id = (old_mesh_id + 1) % 2;
+                u32 new_mesh_id = (old_mesh_id + 1) % 3;
                 scene.geometries[1].id = new_mesh_id;
                 scene.geometries[2].id = new_mesh_id;
             } else if (key == '0') {
