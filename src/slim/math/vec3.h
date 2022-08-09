@@ -539,57 +539,7 @@ struct AABB {
         }
 
         return true;
-
-//        // If the sphere is too far on any of the positive-facing directions, early out as it can't intersect the box:
-//        vec3 d_max = center - max;
-//        if (d_max.x > radius ||
-//            d_max.y > radius ||
-//            d_max.z > radius)
-//            return false;
-//
-//        // If the sphere is too far on any of the negative-facing directions, early out as it can't intersect the box:
-//        vec3 d_min = min - center;
-//        if (d_min.x > radius ||
-//            d_min.y > radius ||
-//            d_min.z > radius)
-//            return false;
-
-//        // Store which side of the box the sphere is in on the positive-facing directions
-//        // Note: Done here using the deltas before they get squared in-place, for later use in plane-testing
-//        u8 box_sides = 0;
-//        if (d_max.x > 0) box_sides = BoxSide_Right;
-//        if (d_max.y > 0) box_sides |= BoxSide_Top;
-//        if (d_max.z > 0) box_sides |= BoxSide_Front;
-
-//        // Pre-square the components
-//        d_min *= d_min;
-//        d_max *= d_max;
-//
-//        // If any of the corners of the box are within the sphere, early out:
-//        if ((d_min.x + d_min.y + d_max.z) <= radius_squared ||
-//            (d_min.x + d_max.y + d_min.z) <= radius_squared ||
-//            (d_min.x + d_max.y + d_max.z) <= radius_squared ||
-//            (d_min.x + d_min.y + d_min.z) <= radius_squared ||
-//
-//            (d_max.x + d_min.y + d_min.z) <= radius_squared ||
-//            (d_max.x + d_min.y + d_max.z) <= radius_squared ||
-//            (d_max.x + d_max.y + d_min.z) <= radius_squared ||
-//            (d_max.x + d_max.y + d_max.z) <= radius_squared)
-//            return true;
-
-//        // Check plane intersections:
-//        vec3 hit_point = center;
-//        if (box_sides & (u8)BoxSide_Right) { // Sphere is to the right of the box
-//
-//        }
     }
-
-
-//    INLINE bool overlaps(const AABB &other) const {
-//        return (((other.min.x <= min.x && min.x <= other.max.x) || (min.x <= other.min.x && other.min.x <= max.x)) &&
-//                ((other.min.y <= min.y && min.y <= other.max.y) || (min.y <= other.min.y && other.min.y <= max.y)) &&
-//                ((other.min.z <= min.z && min.z <= other.max.z) || (min.z <= other.min.z && other.min.z <= max.z)));
-//    }
 
     INLINE f32 area() const {
         vec3 extents = max - min;

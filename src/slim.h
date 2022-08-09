@@ -24,6 +24,14 @@
 #define INLINE inline
 #endif
 
+#if defined(COMPILER_CLANG_OR_GCC)
+#define likely(x)   __builtin_expect(x, true)
+#define unlikely(x) __builtin_expect_with_probability(x, false, 0.95)
+#else
+#define likely(x)   x
+    #define unlikely(x) x
+#endif
+
 #ifdef COMPILER_CLANG
 #define ENABLE_FP_CONTRACT \
         _Pragma("clang diagnostic push") \
@@ -271,18 +279,12 @@ INLINE f32 approach(f32 src, f32 trg, f32 diff) {
 
     return trg;
 }
-
-enum Axis {
-    Axis_X = 1,
-    Axis_Y = 2,
-    Axis_Z = 4
-};
-
 enum CurveType {
     CurveType_None = 0,
 
     CurveType_Helix,
     CurveType_Coil,
+    CurveType_Sphere,
 
     CurveType_Count
 };
@@ -300,6 +302,13 @@ enum GeometryType {
     GeometryType_Curve,
 
     GeometryType_Count
+};
+
+
+enum Axis {
+    Axis_X = 1,
+    Axis_Y = 2,
+    Axis_Z = 4
 };
 
 enum BoxSide {
@@ -418,6 +427,7 @@ struct Color {
         struct { f32 r  , g    , b   ; };
     };
 
+    Color(f32 value) : red{value}, green{value}, blue{value} {}
     Color(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f) : red{red}, green{green}, blue{blue} {}
     Color(enum ColorID color_id) : Color{} {
         switch (color_id) {
@@ -518,6 +528,16 @@ struct Color {
                 green = 0.75f;
                 break;
         }
+    }
+
+    INLINE Color& operator = (f32 value) {
+        r = g = b = value;
+        return *this;
+    }
+
+    INLINE Color& operator = (ColorID color_id) {
+        *this  = Color(color_id);
+        return *this;
     }
 
     INLINE Color operator + (const Color &rhs) const {
@@ -1973,6 +1993,8 @@ INLINE vec2 lerp(const vec2 &from, const vec2 &to, f32 by) {
 }
 
 
+#define SLIM_VEC3
+
 struct vec3 {
     union {
         struct {f32 components[3]; };
@@ -2108,10 +2130,11 @@ struct vec3 {
     }
 
     INLINE vec3 operator / (f32 rhs) const {
+        const f32 factor = 1.0f / rhs;
         return {
-                x / rhs,
-                y / rhs,
-                z / rhs
+                x * factor,
+                y * factor,
+                z * factor
         };
     }
 
@@ -2351,7 +2374,7 @@ INLINE vec3 minimum(const vec3 &a, const vec3 &b) {
     return {
             a.x < b.x ? a.x : b.x,
             a.y < b.y ? a.y : b.y,
-            a.z < b.y ? a.z : b.z
+            a.z < b.z ? a.z : b.z
     };
 }
 
@@ -2399,14 +2422,12 @@ INLINE vec3 lerp(const vec3 &from, const vec3 &to, f32 by) {
     return (to - from).scaleAdd(by, from);
 }
 
-
 struct Edge {
     vec3 from, to;
 };
 
 struct AABB {
-    vec3 min = -1;
-    vec3 max = +1;
+    vec3 min, max;
 
     AABB(f32 min_x, f32 min_y, f32 min_z,
          f32 max_x, f32 max_y, f32 max_z) : AABB{
@@ -2416,6 +2437,105 @@ struct AABB {
     AABB(f32 min_value, f32 max_value) : AABB{vec3{min_value}, vec3{max_value}} {}
     AABB(const vec3 &min, const vec3 &max) : min{min}, max{max} {}
     AABB() : AABB{0, 0} {}
+
+    INLINE AABB operator + (const AABB &rhs) const {
+        return {
+                min.x < rhs.min.x ? min.x : rhs.min.x,
+                min.y < rhs.min.y ? min.y : rhs.min.y,
+                min.z < rhs.min.z ? min.z : rhs.min.z,
+
+                max.x > rhs.max.x ? max.x : rhs.max.x,
+                max.y > rhs.max.y ? max.y : rhs.max.y,
+                max.z > rhs.max.z ? max.z : rhs.max.z,
+        };
+    }
+
+    INLINE const AABB& operator += (const AABB &rhs) {
+        min.x = min.x < rhs.min.x ? min.x : rhs.min.x;
+        min.y = min.y < rhs.min.y ? min.y : rhs.min.y;
+        min.z = min.z < rhs.min.z ? min.z : rhs.min.z;
+
+        max.x = max.x > rhs.max.x ? max.x : rhs.max.x;
+        max.y = max.y > rhs.max.y ? max.y : rhs.max.y;
+        max.z = max.z > rhs.max.z ? max.z : rhs.max.z;
+
+        return *this;
+    }
+
+    INLINE bool contains(const vec3& point) const {
+        return (min.x <= point.x && point.x <= max.x &&
+                min.y <= point.y && point.y <= max.y &&
+                min.z <= point.z && point.z <= max.z);
+    }
+
+    INLINE bool overlapSphere(const vec3 &center, f32 radius) {
+        if (contains(center))
+            return true;
+
+        static AABB enlarged_box;
+        enlarged_box.min = min - radius;
+        enlarged_box.max = max + radius;
+        if (!enlarged_box.contains(center))
+            return false;
+
+        f32 radius_squared = radius * radius;
+        vec3 d_max = center - max;
+        vec3 d_min = min - center;
+        vec3 d_max2 = d_max * d_max;
+        vec3 d_min2 = d_min * d_min;
+        if (0 < d_max.x) { // Sphere is on the right
+            if (0 < d_max.y) { // Sphere is above
+                if (0 < d_max.z) { // Sphere is in front
+                    // Sphere is outside around the front top-right corner.
+                    // If the corner isn't in the sphere, early out:
+                    if (radius_squared < (d_max2.x + d_max2.y + d_max2.z)) return false;
+                } else if (0 < d_min.z) { // Sphere is behind
+                    // Sphere is outside around the back top-right corner.
+                    // If the corner isn't in the sphere, early out:
+                    if (radius_squared < (d_max2.x + d_max2.y + d_min2.z)) return false;
+                }
+            } else if (0 < d_min.y) { // Sphere is below
+                if (0 < d_max.z) { // Sphere is in front
+                    // Sphere is outside around the front bottom-right corner.
+                    // If the corner isn't in the sphere, early out:
+                    if (radius_squared < (d_max2.x + d_min2.y + d_max2.z)) return false;
+                } else if (0 < d_min.z) { // Sphere is behind
+                    // Sphere is outside around the back bottom-right corner.
+                    // If the corner isn't in the sphere, early out:
+                    if (radius_squared < (d_max2.x + d_min2.y + d_min2.z)) return false;
+                }
+            }
+        } else if (0 < d_min.x) { // Sphere is on the left
+            if (0 < d_max.y) { // Sphere is above
+                if (0 < d_max.z) { // Sphere is in front
+                    // Sphere is outside around the front top-left corner.
+                    // If the corner isn't in the sphere, early out:
+                    if (radius_squared < (d_min2.x + d_max2.y + d_max2.z)) return false;
+                } else if (0 < d_min.z) { // Sphere is behind
+                    // Sphere is outside around the back top-left corner.
+                    // If the corner isn't in the sphere, early out:
+                    if (radius_squared < (d_min2.x + d_max2.y + d_min2.z)) return false;
+                }
+            } else if (0 < d_min.y) { // Sphere is below
+                if (0 < d_max.z) { // Sphere is in front
+                    // Sphere is outside around the front bottom-left corner.
+                    // If the corner isn't in the sphere, early out:
+                    if (radius_squared < (d_min2.x + d_min2.y + d_max2.z)) return false;
+                } else if (0 < d_min.z) { // Sphere is behind
+                    // Sphere is outside around the back bottom-left corner.
+                    // If the corner isn't in the sphere, early out:
+                    if (radius_squared < (d_min2.x + d_min2.y + d_min2.z)) return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    INLINE f32 area() const {
+        vec3 extents = max - min;
+        return extents.x*extents.y + extents.y*extents.z + extents.z*extents.x;
+    }
 };
 
 INLINE Color vec3ToColor(const vec3 &v) {
@@ -2433,7 +2553,6 @@ INLINE Color directionToColor(const vec3 &v) {
 INLINE vec3 colorToVec3(const Color &color) {
     return {color.r, color.g, color.b};
 }
-
 
 struct vec4 {
     union {
@@ -3303,15 +3422,15 @@ struct mat3 {
     INLINE mat3 inverted() const {
         return mat3{
                 +(Y.y * Z.z - Z.y * Y.z),
-                -(Y.x * Z.z - Z.x * Y.z),
-                +(Y.x * Z.y - Z.x * Y.y),
-
                 -(X.y * Z.z - Z.y * X.z),
-                +(X.x * Z.z - Z.x * X.z),
-                -(X.x * Z.y - Z.x * X.y),
-
                 +(X.y * Y.z - Y.y * X.z),
+
+                -(Y.x * Z.z - Z.x * Y.z),
+                +(X.x * Z.z - Z.x * X.z),
                 -(X.x * Y.z - Y.x * X.z),
+
+                +(Y.x * Z.y - Z.x * Y.y),
+                -(X.x * Z.y - Z.x * X.y),
                 +(X.x * Y.y - Y.x * X.y)
         } / det();
     }
@@ -4002,7 +4121,6 @@ AABB operator * (const AABB &aabb, const Transform &transform) {
     return {min, max};
 }
 
-
 enum RayIsFacing {
     RayIsFacing_Left = 1,
     RayIsFacing_Down = 2,
@@ -4387,6 +4505,165 @@ private:
 };
 
 
+
+struct RTreeNode {
+    AABB aabb;
+    u32 first_index = 0;
+    u16 leaf_count = 0;
+    u8 depth = 0;
+    u8 flags = 0;
+
+    INLINE bool isLeaf() const {
+        return leaf_count != 0;
+    }
+};
+
+struct RTreeQuery {
+    struct Result { u32 start, end, node_index; };
+    Result *results = nullptr;
+    u32 *stack = nullptr;
+    u32 result_count = 0;
+
+    RTreeQuery(u8 max_stack_size, u32 max_result_count, memory::MonotonicAllocator *memory_allocator = nullptr) {
+        memory::MonotonicAllocator temp_allocator;
+        if (!memory_allocator) {
+            memory_allocator = &temp_allocator;
+            temp_allocator = memory::MonotonicAllocator{
+                    sizeof(Result) * max_result_count +
+                    sizeof(u32) * max_stack_size,
+                    Terabytes(3)
+            };
+        }
+        results  = (Result*)memory_allocator->allocate(sizeof(Result) * max_result_count);
+        stack    = (u32*   )memory_allocator->allocate(sizeof(u32) * max_stack_size);
+    }
+
+    bool collectOverlappedNodes(const vec3 &point, f32 max_distance, RTreeNode *nodes) {
+        result_count = 0;
+        RTreeNode &root = nodes[0];
+        if (!root.aabb.overlapSphere(point, max_distance))
+            return false;
+
+        if (unlikely(root.isLeaf())) {
+            result_count = 1;
+            results[0] = {root.first_index, root.first_index + root.leaf_count, 0};
+            return true;
+        }
+
+        u32 node_id;
+        i32 stack_size = 0;
+        stack[stack_size++] = root.first_index;
+        stack[stack_size++] = root.first_index + 1;
+
+        while (stack_size >= 0) {
+            node_id = stack[--stack_size];
+            RTreeNode &node = nodes[node_id];
+            if (!node.aabb.overlapSphere(point, max_distance))
+                continue;
+
+            if (node.isLeaf()) {
+                results[result_count++] = {node.first_index, node.first_index + node.leaf_count, node_id};
+            } else {
+                stack[stack_size++] = node.first_index;
+                stack[stack_size++] = node.first_index + 1;
+            }
+        }
+
+        return true;
+    }
+};
+
+struct RTree {
+    RTreeNode *nodes;
+    u32 node_count;
+    u32 height;
+};
+
+
+u32 getSizeInBytes(const RTree &rtree) {
+    return sizeof(RTreeNode) * rtree.node_count;
+}
+
+bool allocateMemory(RTree &rtree, memory::MonotonicAllocator *memory_allocator) {
+    if (getSizeInBytes(rtree) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
+
+    rtree.nodes = (RTreeNode*)memory_allocator->allocate(sizeof(RTreeNode) * rtree.node_count);
+
+    return true;
+}
+
+void writeHeader(const RTree &rtree, void *file) {
+    os::writeToFile((void*)&rtree.node_count,     sizeof(u32),  file);
+    os::writeToFile((void*)&rtree.height,         sizeof(u32),  file);
+}
+void readHeader(const RTree &rtree, void *file) {
+    os::readFromFile((void*)&rtree.node_count,     sizeof(u32),  file);
+    os::readFromFile((void*)&rtree.height,         sizeof(u32),  file);
+}
+
+bool saveHeader(const RTree &rtree, char *file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeHeader(rtree, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool loadHeader(RTree &rtree, char *file_path) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+    readHeader(rtree, file);
+    os::closeFile(file);
+    return true;
+}
+
+void readContent(RTree &rtree, void *file) {
+    os::readFromFile(rtree.nodes,    rtree.node_count * sizeof(RTreeNode), file);
+}
+void writeContent(const RTree &rtree, void *file) {
+    os::writeToFile(rtree.nodes,    rtree.node_count * sizeof(RTreeNode), file);
+}
+
+bool saveContent(const RTree &rtree, char *file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeContent(rtree, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool loadContent(RTree &rtree, char *file_path) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+    readContent(rtree, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool save(const RTree &rtree, char* file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeHeader(rtree, file);
+    writeContent(rtree, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool load(RTree &rtree, char *file_path, memory::MonotonicAllocator *memory_allocator = nullptr) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+
+    if (memory_allocator) {
+        rtree = RTree{};
+        readHeader(rtree, file);
+        if (!allocateMemory(rtree, memory_allocator)) return false;
+    } else if (!rtree.nodes) return false;
+    readContent(rtree, file);
+    os::closeFile(file);
+    return true;
+}
+
+
 struct EdgeVertexIndices {
     u32 from, to;
 };
@@ -4398,8 +4675,24 @@ union TriangleVertexIndices {
     };
 };
 
+enum TrianglePointOn {
+    TrianglePointOn_None = 0,
+
+    TrianglePointOn_Face,
+    TrianglePointOn_Edge,
+    TrianglePointOn_Vertex
+};
+
+struct Triangle {
+    mat3 local_to_tangent;
+    vec3 position, normal, U, V;
+};
+
+
 struct Mesh {
     AABB aabb;
+    RTree rtree;
+    Triangle *triangles;
 
     vec3 *vertex_positions{nullptr};
     vec3 *vertex_normals{nullptr};
@@ -4454,6 +4747,7 @@ struct Mesh {
             aabb{aabb}
     {}
 };
+
 
 struct CubeMesh : Mesh {
     const vec3 CUBE_VERTEX_POSITIONS[CUBE_VERTEX_COUNT] = {
@@ -4549,8 +4843,11 @@ struct CubeMesh : Mesh {
 };
 
 
+
 u32 getSizeInBytes(const Mesh &mesh) {
-    u32 memory_size = sizeof(vec3) * mesh.vertex_count;
+    u32 memory_size = getSizeInBytes(mesh.rtree);
+    memory_size += sizeof(Triangle) * mesh.triangle_count;
+    memory_size += sizeof(vec3) * mesh.vertex_count;
     memory_size += sizeof(TriangleVertexIndices) * mesh.triangle_count;
     memory_size += sizeof(EdgeVertexIndices) * mesh.edge_count;
 
@@ -4568,6 +4865,8 @@ u32 getSizeInBytes(const Mesh &mesh) {
 
 bool allocateMemory(Mesh &mesh, memory::MonotonicAllocator *memory_allocator) {
     if (getSizeInBytes(mesh) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
+    allocateMemory(mesh.rtree, memory_allocator);
+    mesh.triangles               = (Triangle*             )memory_allocator->allocate(sizeof(Triangle)              * mesh.triangle_count);
     mesh.vertex_positions        = (vec3*                 )memory_allocator->allocate(sizeof(vec3)                  * mesh.vertex_count);
     mesh.vertex_position_indices = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * mesh.triangle_count);
     mesh.edge_vertex_indices     = (EdgeVertexIndices*    )memory_allocator->allocate(sizeof(EdgeVertexIndices)     * mesh.edge_count);
@@ -4588,6 +4887,7 @@ void writeHeader(const Mesh &mesh, void *file) {
     os::writeToFile((void*)&mesh.edge_count,     sizeof(u32),  file);
     os::writeToFile((void*)&mesh.uvs_count,      sizeof(u32),  file);
     os::writeToFile((void*)&mesh.normals_count,  sizeof(u32),  file);
+    writeHeader(mesh.rtree, file);
 }
 void readHeader(Mesh &mesh, void *file) {
     os::readFromFile(&mesh.vertex_count,   sizeof(u32),  file);
@@ -4595,6 +4895,7 @@ void readHeader(Mesh &mesh, void *file) {
     os::readFromFile(&mesh.edge_count,     sizeof(u32),  file);
     os::readFromFile(&mesh.uvs_count,      sizeof(u32),  file);
     os::readFromFile(&mesh.normals_count,  sizeof(u32),  file);
+    readHeader(mesh.rtree, file);
 }
 
 bool saveHeader(const Mesh &mesh, char *file_path) {
@@ -4616,6 +4917,7 @@ bool loadHeader(Mesh &mesh, char *file_path) {
 void readContent(Mesh &mesh, void *file) {
     os::readFromFile(&mesh.aabb.min,       sizeof(vec3), file);
     os::readFromFile(&mesh.aabb.max,       sizeof(vec3), file);
+    os::readFromFile(mesh.triangles,       sizeof(Triangle) * mesh.triangle_count, file);
     os::readFromFile(mesh.vertex_positions,             sizeof(vec3)                  * mesh.vertex_count,   file);
     os::readFromFile(mesh.vertex_position_indices,      sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
     os::readFromFile(mesh.edge_vertex_indices,          sizeof(EdgeVertexIndices)     * mesh.edge_count,     file);
@@ -4627,10 +4929,12 @@ void readContent(Mesh &mesh, void *file) {
         os::readFromFile(mesh.vertex_normals,                sizeof(vec3)                  * mesh.normals_count,  file);
         os::readFromFile(mesh.vertex_normal_indices,         sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
     }
+    readContent(mesh.rtree, file);
 }
 void writeContent(const Mesh &mesh, void *file) {
     os::writeToFile((void*)&mesh.aabb.min,       sizeof(vec3), file);
     os::writeToFile((void*)&mesh.aabb.max,       sizeof(vec3), file);
+    os::writeToFile((void*)mesh.triangles,               sizeof(Triangle)              * mesh.triangle_count, file);
     os::writeToFile((void*)mesh.vertex_positions,        sizeof(vec3)                  * mesh.vertex_count,   file);
     os::writeToFile((void*)mesh.vertex_position_indices, sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
     os::writeToFile((void*)mesh.edge_vertex_indices,     sizeof(EdgeVertexIndices)     * mesh.edge_count,     file);
@@ -4642,6 +4946,7 @@ void writeContent(const Mesh &mesh, void *file) {
         os::writeToFile(mesh.vertex_normals,        sizeof(vec3)                  * mesh.normals_count,  file);
         os::writeToFile(mesh.vertex_normal_indices, sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
     }
+    writeContent(mesh.rtree, file);
 }
 
 bool saveContent(const Mesh &mesh, char *file_path) {
@@ -4683,13 +4988,21 @@ bool load(Mesh &mesh, char *file_path, memory::MonotonicAllocator *memory_alloca
     return true;
 }
 
-u32 getTotalMemoryForMeshes(String *mesh_files, u32 mesh_count) {
-    u32 memory_size{0};
+u32 getTotalMemoryForMeshes(String *mesh_files, u32 mesh_count, u8 *max_rtree_height = nullptr, u32 *max_triangle_count = nullptr) {
+    u32 memory_size = 0;
+    if (max_rtree_height) *max_rtree_height = 0;
+    if (max_triangle_count) *max_triangle_count = 0;
     for (u32 i = 0; i < mesh_count; i++) {
         Mesh mesh;
         loadHeader(mesh, mesh_files[i].char_ptr);
         memory_size += getSizeInBytes(mesh);
+
+        if (max_rtree_height && mesh.rtree.height > *max_rtree_height) *max_rtree_height = mesh.rtree.height;
+        if (max_triangle_count && mesh.triangle_count > *max_triangle_count) *max_triangle_count = mesh.triangle_count;
     }
+    if (max_rtree_height)
+        memory_size += sizeof(u32) * (*max_rtree_height + (1 << *max_rtree_height));
+
     return memory_size;
 }
 
@@ -4713,8 +5026,11 @@ struct Scene {
     Box *boxes{nullptr};
     Camera *cameras{nullptr};
     Mesh *meshes{nullptr};
-    u64 last_io_ticks{0};
+
+    u64 last_io_ticks = 0;
     bool last_io_is_save{false};
+    u8 max_rtree_height = 0;
+    u32 max_triangle_count = 0;
 
     Scene(SceneCounts counts,
           char *file_path = nullptr,
@@ -4740,8 +5056,8 @@ struct Scene {
             for (u32 i = 0; i < counts.meshes; i++)
                 meshes[i] = Mesh{};
             memory::MonotonicAllocator temp_allocator;
+            u32 capacity = getTotalMemoryForMeshes(mesh_files, counts.meshes ,&max_rtree_height, &max_triangle_count);
             if (!memory_allocator) {
-                u32 capacity = getTotalMemoryForMeshes(mesh_files, 2);
                 temp_allocator = memory::MonotonicAllocator{capacity};
                 memory_allocator = &temp_allocator;
             }
@@ -4888,6 +5204,7 @@ void save(Scene &scene, char* scene_file_path = nullptr) {
     os::closeFile(file_handle);
 }
 
+
 struct Frustum {
     enum class ProjectionType {
         Orthographic = 0,
@@ -5025,29 +5342,18 @@ struct Frustum {
         return true;
     }
 
+    INLINE void projectPoint(vec3 &point, const Dimensions &dimensions) const {
+        point.x = ((projection.scale.x * point.x / point.z) + 1) * dimensions.h_width;
+        point.y = ((projection.scale.y * point.y / point.z) + 1) * dimensions.h_height;
+        point.y = dimensions.f_height - point.y;
+    }
+
     void projectEdge(Edge &edge, const Dimensions &dimensions) const {
-        // Project:
-        vec3 A{projection.project(edge.from)};
-        vec3 B{projection.project(edge.to)};
-
-        // NDC->screen:
-        A.x += 1;
-        B.x += 1;
-        A.y += 1;
-        B.y += 1;
-        A.x *= dimensions.h_width;
-        B.x *= dimensions.h_width;
-        A.y *= dimensions.h_height;
-        B.y *= dimensions.h_height;
-
-        // Flip Y:
-        A.y = dimensions.f_height - A.y;
-        B.y = dimensions.f_height - B.y;
-
-        edge.from = A;
-        edge.to   = B;
+        projectPoint(edge.from, dimensions);
+        projectPoint(edge.to, dimensions);
     }
 };
+
 
 
 struct Navigation {
@@ -5143,6 +5449,7 @@ enum AntiAliasing {
     MSAA,
     SSAA
 };
+
 
 struct Canvas {
     Dimensions dimensions;
@@ -5324,16 +5631,12 @@ struct Canvas {
     }
 
     INLINE void drawText(char *str, i32 x, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#ifdef SLIM_VEC2
     INLINE void drawText(char *str, vec2i position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawText(char *str, vec2 position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#endif
 
     INLINE void drawNumber(i32 number, i32 x, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#ifdef SLIM_VEC2
     INLINE void drawNumber(i32 number, vec2i position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawNumber(i32 number, vec2 position, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#endif
 
     INLINE void drawHLine(RangeI x_range, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawHLine(i32 x_start, i32 x_end, i32 y, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
@@ -5342,10 +5645,9 @@ struct Canvas {
     INLINE void drawLine(f32 x1, f32 y1, f32 z1, f32 x2, f32 y2, f32 z2, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawLine(f32 x1, f32 y1, f32 x2, f32 y2, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
 
-#ifdef SLIM_VEC2
     INLINE void drawLine(vec2 from, vec2 to, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawLine(vec2i from, vec2i to, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
-#endif
+    INLINE void drawLine(vec3 from, vec3 to, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
 
     INLINE void drawRect(RectI rect, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawRect(Rect rect, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
@@ -5357,21 +5659,23 @@ struct Canvas {
     INLINE void fillTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillTriangle(i32 x1, i32 y1, i32 x2, i32 y2, i32 x3, i32 y3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
 
-#ifdef SLIM_VEC2
+    INLINE void drawTriangle(f32 x1, f32 y1, f32 z1, f32 x2, f32 y2, f32 z2, f32 x3, f32 y3, f32 z3, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) const;
+    INLINE void fillTriangle(f32 x1, f32 y1, f32 z1, f32 x2, f32 y2, f32 z2, f32 x3, f32 y3, f32 z3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
+
     INLINE void drawTriangle(vec2 p1, vec2 p2, vec2 p3, const Color &color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillTriangle(vec2 p1, vec2 p2, vec2 p3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#endif
+
+    INLINE void drawTriangle(vec3 p1, vec3 p2, vec3 p3, const Color &color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) const;
+    INLINE void fillTriangle(vec3 p1, vec3 p2, vec3 p3, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
 
     INLINE void fillCircle(i32 center_x, i32 center_y, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawCircle(i32 center_x, i32 center_y, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#ifdef SLIM_VEC2
     INLINE void drawCircle(vec2i center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillCircle(vec2i center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void drawCircle(vec2 center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
     INLINE void fillCircle(vec2 center, i32 radius, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) const;
-#endif
 
 private:
     static INLINE bool _isTransparentPixelQuad(Pixel *pixel_quad) {
@@ -5672,14 +5976,12 @@ INLINE void Canvas::drawLine(f32 x1, f32 y1, f32 x2, f32 y2, const Color &color,
     _drawLine(x1, y1, 0, x2, y2, 0, *this, color, opacity, line_width, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 INLINE void Canvas::drawLine(vec2 from, vec2 to, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
     _drawLine(from.x, from.y, 0, to.x, to.y, 0, *this, color, opacity, line_width, viewport_bounds);
 }
 INLINE void Canvas::drawLine(vec2i from, vec2i to, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
     _drawLine((f32)from.x, (f32)from.y, 0, (f32)to.x, (f32)to.y, 0, *this, color, opacity, line_width, viewport_bounds);
 }
-#endif
 
 
 INLINE void drawHLine(RangeI x_range, i32 y, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
@@ -5705,13 +6007,12 @@ INLINE void drawLine(f32 x1, f32 y1, f32 x2, f32 y2, const Canvas &canvas, const
     _drawLine(x1, y1, 0, x2, y2, 0, canvas, color, opacity, line_width, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 void drawLine(vec2 from, vec2 to, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) {
     _drawLine(from.x, from.y, 0, to.x, to.y, 0, canvas, color, opacity, line_width, viewport_bounds);
 }
-#endif
-
-
+void drawLine(const vec3 &from, const vec3 &to, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) {
+    _drawLine(from.x, from.y, from.z, to.x, to.y, to.z, canvas, color, opacity, line_width, viewport_bounds);
+}
 
 
 void _drawRect(RectI rect, const Canvas &canvas, const Color &color, f32 opacity, const RectI *viewport_bounds) {
@@ -5861,7 +6162,7 @@ INLINE void fillRect(Rect rect, const Canvas &canvas, Color color = White, f32 o
 
 
 
-void _paintCircle(bool fill, i32 center_x, i32 center_y, i32 radius, const Canvas &canvas,
+void _drawCircle(bool fill, i32 center_x, i32 center_y, i32 radius, const Canvas &canvas,
                   const Color &color, f32 opacity, const RectI *viewport_bounds) {
     RectI bounds{0, canvas.dimensions.width - 1, 0, canvas.dimensions.height - 1};
     RectI rect{center_x - radius,
@@ -5961,80 +6262,77 @@ void _paintCircle(bool fill, i32 center_x, i32 center_y, i32 radius, const Canva
 }
 
 INLINE void Canvas::fillCircle(i32 center_x, i32 center_y, i32 radius, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
-    _paintCircle(true, center_x, center_y, radius, *this, color, opacity, viewport_bounds);
+    _drawCircle(true, center_x, center_y, radius, *this, color, opacity, viewport_bounds);
 }
 
 INLINE void Canvas::drawCircle(i32 center_x, i32 center_y, i32 radius, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
-    _paintCircle(false, center_x, center_y, radius, *this, color, opacity, viewport_bounds);
+    _drawCircle(false, center_x, center_y, radius, *this, color, opacity, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 INLINE void Canvas::drawCircle(vec2i center, i32 radius, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
-    _paintCircle(false, center.x, center.y, radius, *this, color, opacity, viewport_bounds);
+    _drawCircle(false, center.x, center.y, radius, *this, color, opacity, viewport_bounds);
 }
 
 INLINE void Canvas::fillCircle(vec2i center, i32 radius, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
-    _paintCircle(true, center.x, center.y, radius, *this, color, opacity, viewport_bounds);
+    _drawCircle(true, center.x, center.y, radius, *this, color, opacity, viewport_bounds);
 }
 INLINE void Canvas::drawCircle(vec2 center, i32 radius, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
-    _paintCircle(false, (i32)center.x, (i32)center.y, radius, *this, color, opacity, viewport_bounds);
+    _drawCircle(false, (i32)center.x, (i32)center.y, radius, *this, color, opacity, viewport_bounds);
 }
 INLINE void Canvas::fillCircle(vec2 center, i32 radius, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
-    _paintCircle(true, (i32)center.x, (i32)center.y, radius, *this, color, opacity, viewport_bounds);
+    _drawCircle(true, (i32)center.x, (i32)center.y, radius, *this, color, opacity, viewport_bounds);
 }
-#endif
 
 
 
 INLINE void fillCircle(i32 center_x, i32 center_y, i32 radius, const Canvas &canvas,
                        Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
-    _paintCircle(true, center_x, center_y, radius, canvas, color, opacity, viewport_bounds);
+    _drawCircle(true, center_x, center_y, radius, canvas, color, opacity, viewport_bounds);
 }
 
 INLINE void drawCircle(i32 center_x, i32 center_y, i32 radius, const Canvas &canvas,
                        Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
-    _paintCircle(false, center_x, center_y, radius, canvas, color, opacity, viewport_bounds);
+    _drawCircle(false, center_x, center_y, radius, canvas, color, opacity, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 INLINE void drawCircle(vec2i center, i32 radius, const Canvas &canvas,
                        Color color = White, f32 opacity = 1.0f,
                        const RectI *viewport_bounds = nullptr) {
-    _paintCircle(false, center.x, center.y, radius, canvas, color, opacity, viewport_bounds);
+    _drawCircle(false, center.x, center.y, radius, canvas, color, opacity, viewport_bounds);
 }
 
 INLINE void fillCircle(vec2i center, i32 radius,
                        const Canvas &canvas,
                        Color color = White, f32 opacity = 1.0f,
                        const RectI *viewport_bounds = nullptr) {
-    _paintCircle(true, center.x, center.y, radius, canvas, color, opacity, viewport_bounds);
+    _drawCircle(true, center.x, center.y, radius, canvas, color, opacity, viewport_bounds);
 }
 INLINE void drawCircle(vec2 center, i32 radius, const Canvas &canvas,
                        Color color = White, f32 opacity = 1.0f,
                        const RectI *viewport_bounds = nullptr) {
-    _paintCircle(false, (i32)center.x, (i32)center.y, radius, canvas, color, opacity, viewport_bounds);
+    _drawCircle(false, (i32)center.x, (i32)center.y, radius, canvas, color, opacity, viewport_bounds);
 }
 
 INLINE void fillCircle(vec2 center, i32 radius,
                        const Canvas &canvas,
                        Color color = White, f32 opacity = 1.0f,
                        const RectI *viewport_bounds = nullptr) {
-    _paintCircle(true, (i32)center.x, (i32)center.y, radius, canvas, color, opacity, viewport_bounds);
+    _drawCircle(true, (i32)center.x, (i32)center.y, radius, canvas, color, opacity, viewport_bounds);
 }
-#endif
 
-
-INLINE void _drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3,
+INLINE void _drawTriangle(f32 x1, f32 y1, f32 z1,
+                          f32 x2, f32 y2, f32 z2,
+                          f32 x3, f32 y3, f32 z3,
                           const Canvas &canvas, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) {
-    drawLine(x1, y1, 0, x2, y2, 0, canvas, color, opacity, line_width, viewport_bounds);
-    drawLine(x2, y2, 0, x3, y3, 0, canvas, color, opacity, line_width, viewport_bounds);
-    drawLine(x3, y3, 0, x1, y1, 0, canvas, color, opacity, line_width, viewport_bounds);
+    drawLine(x1, y1, z1, x2, y2, z3, canvas, color, opacity, line_width, viewport_bounds);
+    drawLine(x2, y2, z2, x3, y3, z3, canvas, color, opacity, line_width, viewport_bounds);
+    drawLine(x3, y3, z3, x1, y1, z3, canvas, color, opacity, line_width, viewport_bounds);
 }
 
 
-void _fillTriangle(f32 x1, f32 y1,
-                   f32 x2, f32 y2,
-                   f32 x3, f32 y3,
+void _fillTriangle(f32 x1, f32 y1, f32 z1,
+                   f32 x2, f32 y2, f32 z2,
+                   f32 x3, f32 y3, f32 z3,
                    const Canvas &canvas, const Color &color, f32 opacity, const RectI *viewport_bounds) {
     // Cull this triangle against the edges of the viewport:
     Rect bounds{0, canvas.dimensions.f_width - 1.0f, 0, canvas.dimensions.f_height - 1.0f};
@@ -6140,6 +6438,8 @@ void _fillTriangle(f32 x1, f32 y1,
     f32 A, B, C;
 
     // Scan the bounds:
+    bool depth_provided = z1 != 0 || z2 != 0 || z3 != 0;
+    f32 depth = 0;
     for (u32 y = first_y; y <= last_y; y++, C_start += Cdy, B_start += Bdy) {
         B = B_start;
         C = C_start;
@@ -6155,49 +6455,66 @@ void _fillTriangle(f32 x1, f32 y1,
             if (fminf(A, fminf(B, C)) < 0)
                 continue;
 
-            canvas.setPixel(x, y, color, opacity);
+            if (depth_provided) {}
+            depth = A*z1 + B*z2 + C*z3;
+
+            canvas.setPixel(x, y, color, opacity, depth);
         }
     }
 }
 
+
 INLINE void Canvas::drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
-    _drawTriangle(x1, y1, x2, y2, x3, y3, *this, color, opacity, line_width, viewport_bounds);
+    _drawTriangle(x1, y1, 0, x2, y2, 0, x3, y3, 0, *this, color, opacity, line_width, viewport_bounds);
 }
 
 INLINE void Canvas::drawTriangle(i32 x1, i32 y1, i32 x2, i32 y2, i32 x3, i32 y3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
-    _drawTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, *this, color, opacity, line_width, viewport_bounds);
+    _drawTriangle((f32)x1, (f32)y1, 0, (f32)x2, (f32)y2, 0, (f32)x3, (f32)y3, 0, *this, color, opacity, line_width, viewport_bounds);
+}
+
+INLINE void Canvas::drawTriangle(f32 x1, f32 y1, f32 z1, f32 x2, f32 y2, f32 z2, f32 x3, f32 y3, f32 z3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
+    _drawTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, *this, color, opacity, line_width, viewport_bounds);
+}
+
+INLINE void Canvas::fillTriangle(f32 x1, f32 y1, f32 z1, f32 x2, f32 y2, f32 z2, f32 x3, f32 y3, f32 z3, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
+    _fillTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, *this, color, opacity, viewport_bounds);
 }
 
 INLINE void Canvas::fillTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
-    _fillTriangle(x1, y1, x2, y2, x3, y3, *this, color, opacity, viewport_bounds);
+    _fillTriangle(x1, y1, 0, x2, y2, 0, x3, y3, 0, *this, color, opacity, viewport_bounds);
 }
 
 INLINE void Canvas::fillTriangle(i32 x1, i32 y1, i32 x2, i32 y2, i32 x3, i32 y3, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
-    _fillTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, *this, color, opacity, viewport_bounds);
+    _fillTriangle((f32)x1, (f32)y1, 0, (f32)x2, (f32)y2, 0, (f32)x3, (f32)y3, 0, *this, color, opacity, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 INLINE void Canvas::drawTriangle(vec2 p1, vec2 p2, vec2 p3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
-    _drawTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, *this, color, opacity, line_width, viewport_bounds);
+    _drawTriangle(p1.x, p1.y,0,  p2.x, p2.y, 0, p3.x, p3.y, 0, *this, color, opacity, line_width, viewport_bounds);
 }
 
 INLINE void Canvas::fillTriangle(vec2 p1, vec2 p2, vec2 p3, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
-    _fillTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, *this, color, opacity, viewport_bounds);
+    _fillTriangle(p1.x, p1.y,0,  p2.x, p2.y, 0, p3.x, p3.y, 0, *this, color, opacity, viewport_bounds);
 }
 
 INLINE void Canvas::drawTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
-    _drawTriangle((f32)p1.x, (f32)p1.y, (f32)p2.x, (f32)p2.y, (f32)p3.x, (f32)p3.y, *this, color, opacity, line_width, viewport_bounds);
+    _drawTriangle((f32)p1.x, (f32)p1.y, 0, (f32)p2.x, (f32)p2.y, 0, (f32)p3.x, (f32)p3.y, 0, *this, color, opacity, line_width, viewport_bounds);
 }
 
 INLINE void Canvas::fillTriangle(vec2i p1, vec2i p2, vec2i p3, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
-    _fillTriangle((f32)p1.x, (f32)p1.y, (f32)p2.x, (f32)p2.y, (f32)p3.x, (f32)p3.y, *this, color, opacity, viewport_bounds);
+    _fillTriangle((f32)p1.x, (f32)p1.y, 0, (f32)p2.x, (f32)p2.y, 0, (f32)p3.x, (f32)p3.y, 0, *this, color, opacity, viewport_bounds);
 }
-#endif
 
+INLINE void Canvas::drawTriangle(vec3 p1, vec3 p2, vec3 p3, const Color &color, f32 opacity, u8 line_width, const RectI *viewport_bounds) const {
+    _drawTriangle(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, p3.x, p3.y, p3.z, *this, color, opacity, line_width, viewport_bounds);
+}
+
+INLINE void Canvas::fillTriangle(vec3 p1, vec3 p2, vec3 p3, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
+    _fillTriangle(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, p3.x, p3.y, p3.z, *this, color, opacity, viewport_bounds);
+}
 
 INLINE void drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Canvas &canvas,
                          Color color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) {
-    _drawTriangle(x1, y1, x2, y2, x3, y3, canvas, color, opacity, line_width, viewport_bounds);
+    _drawTriangle(x1, y1, 0, x2, y2, 0, x3, y3, 0, canvas, color, opacity, line_width, viewport_bounds);
 }
 
 INLINE void drawTriangle(i32 x1, i32 y1,
@@ -6206,7 +6523,7 @@ INLINE void drawTriangle(i32 x1, i32 y1,
                          const Canvas &canvas,
                          Color color = White, f32 opacity = 0.5f, u8 line_width = 0,
                          const RectI *viewport_bounds = nullptr) {
-    _drawTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, canvas, color, opacity, line_width, viewport_bounds);
+    _drawTriangle((f32)x1, (f32)y1, 0, (f32)x2, (f32)y2, 0, (f32)x3, (f32)y3, 0, canvas, color, opacity, line_width, viewport_bounds);
 }
 
 
@@ -6215,7 +6532,7 @@ INLINE void fillTriangle(f32 x1, f32 y1,
                          f32 x3, f32 y3,
                          const Canvas &canvas, Color color = White, f32 opacity = 1.0f,
                          const RectI *viewport_bounds = nullptr) {
-    _fillTriangle(x1, y1, x2, y2, x3, y3, canvas, color, opacity, viewport_bounds);
+    _fillTriangle(x1, y1, 0, x2, y2, 0, x3, y3, 0, canvas, color, opacity, viewport_bounds);
 }
 
 INLINE void fillTriangle(i32 x1, i32 y1,
@@ -6223,33 +6540,41 @@ INLINE void fillTriangle(i32 x1, i32 y1,
                          i32 x3, i32 y3,
                          const Canvas &canvas, Color color = White, f32 opacity = 1.0f,
                          const RectI *viewport_bounds = nullptr) {
-    _fillTriangle((f32)x1, (f32)y1, (f32)x2, (f32)y2, (f32)x3, (f32)y3, canvas, color, opacity, viewport_bounds);
+    _fillTriangle((f32)x1, (f32)y1, 0, (f32)x2, (f32)y2, 0, (f32)x3, (f32)y3, 0, canvas, color, opacity, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 void drawTriangle(vec2 p1, vec2 p2, vec2 p3, const Canvas &canvas,
                   Color color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) {
-    _drawTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, canvas, color, opacity, line_width, viewport_bounds);
+    _drawTriangle(p1.x, p1.y, 0, p2.x, p2.y, 0, p3.x, p3.y, 0, canvas, color, opacity, line_width, viewport_bounds);
 }
 
 void fillTriangle(vec2 p1, vec2 p2, vec2 p3, const Canvas &canvas,
                   Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
-    _fillTriangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, canvas, color, opacity, viewport_bounds);
+    _fillTriangle(p1.x, p1.y, 0, p2.x, p2.y, 0, p3.x, p3.y, 0, canvas, color, opacity, viewport_bounds);
 }
 
 void drawTriangle(vec2i p1, vec2i p2, vec2i p3, const Canvas &canvas,
                   Color color = White, f32 opacity = 0.5f, u8 line_width = 0,
                   const RectI *viewport_bounds = nullptr) {
-    _drawTriangle((f32)p1.x, (f32)p1.y, (f32)p2.x, (f32)p2.y, (f32)p3.x, (f32)p3.y, canvas, color, opacity, line_width, viewport_bounds);
+    _drawTriangle((f32)p1.x, (f32)p1.y, 0, (f32)p2.x, (f32)p2.y, 0, (f32)p3.x, (f32)p3.y, 0, canvas, color, opacity, line_width, viewport_bounds);
 }
 
 void fillTriangle(vec2i p1, vec2i p2, vec2i p3,
                   const Canvas &canvas,
                   Color color = White, f32 opacity = 1.0f,
                   const RectI *viewport_bounds = nullptr) {
-    _fillTriangle((f32)p1.x, (f32)p1.y, (f32)p2.x, (f32)p2.y, (f32)p3.x, (f32)p3.y, canvas, color, opacity, viewport_bounds);
+    _fillTriangle((f32)p1.x, (f32)p1.y, 0, (f32)p2.x, (f32)p2.y, 0, (f32)p3.x, (f32)p3.y, 0, canvas, color, opacity, viewport_bounds);
 }
-#endif
+
+void drawTriangle(vec3 p1, vec3 p2, vec3 p3, const Canvas &canvas,
+                  Color color = White, f32 opacity = 0.5f, u8 line_width = 0, const RectI *viewport_bounds = nullptr) {
+    _drawTriangle(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, p3.x, p3.y, p3.z, canvas, color, opacity, line_width, viewport_bounds);
+}
+
+void fillTriangle(vec3 p1, vec3 p2, vec3 p3, const Canvas &canvas,
+                  Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
+    _fillTriangle(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, p3.x, p3.y, p3.z, canvas, color, opacity, viewport_bounds);
+}
 
 #define LINE_HEIGHT 14
 #define FIRST_CHARACTER_CODE 32
@@ -6453,27 +6778,24 @@ void _drawText(char *str, i32 x, i32 y, const Canvas &canvas, const Color &color
 INLINE void Canvas::drawText(char *str, i32 x, i32 y, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawText(str, x, y, *this, color, opacity, viewport_bounds);
 }
-#ifdef SLIM_VEC2
+
 INLINE void Canvas::drawText(char *str, vec2i position, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawText(str, position.x, position.y, *this, color, opacity, viewport_bounds);
 }
 INLINE void Canvas::drawText(char *str, vec2 position, const Color &color, f32 opacity, const RectI *viewport_bounds) const  {
     _drawText(str, (i32)position.x, (i32)position.y, *this, color, opacity, viewport_bounds);
 }
-#endif
 
 INLINE void drawText(char *str, i32 x, i32 y, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawText(str, x, y, canvas, color, opacity, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 INLINE void drawText(char *str, vec2i position, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawText(str, position.x, position.y, canvas, color, opacity, viewport_bounds);
 }
 INLINE void drawText(char *str, vec2 position, const Canvas &canvas, Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawText(str, (i32)position.x, (i32)position.y, canvas, color, opacity, viewport_bounds);
 }
-#endif
 
 
 void _drawNumber(i32 number, i32 x, i32 y, const Canvas &canvas, const Color &color, f32 opacity, const RectI *viewport_bounds) {
@@ -6486,27 +6808,23 @@ INLINE void Canvas::drawNumber(i32 number, i32 x, i32 y, const Color &color, f32
     _drawNumber(number, x, y, *this, color, opacity, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 INLINE void Canvas::drawNumber(i32 number, vec2i position, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawNumber(number, position.x, position.y, *this, color, opacity, viewport_bounds);
 }
 INLINE void Canvas::drawNumber(i32 number, vec2 position, const Color &color, f32 opacity, const RectI *viewport_bounds) const {
     _drawNumber(number, (i32)position.x, (i32)position.y, *this, color, opacity, viewport_bounds);
 }
-#endif
 
 INLINE void drawNumber(i32 number, i32 x, i32 y, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawNumber(number, x, y, canvas, color, opacity, viewport_bounds);
 }
 
-#ifdef SLIM_VEC2
 INLINE void drawNumber(i32 number, vec2i position, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawNumber(number, position.x, position.y, canvas, color, opacity, viewport_bounds);
 }
 INLINE void drawNumber(i32 number, vec2 position, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _drawNumber(number, (i32)position.x, (i32)position.y, canvas, color, opacity, viewport_bounds);
 }
-#endif
 
 void drawHUD(const HUD &hud, const Canvas &canvas, const RectI *viewport_bounds = nullptr) {
     i32 x = hud.left;
@@ -6529,7 +6847,6 @@ void drawHUD(const HUD &hud, const Canvas &canvas, const RectI *viewport_bounds 
         y += (i32)(hud.settings.line_height * (f32)FONT_HEIGHT);
     }
 }
-
 
 struct Viewport {
     Canvas &canvas;
@@ -6571,6 +6888,10 @@ struct Viewport {
         updateProjection();
     }
 
+    INLINE void projectPoint(vec3 &point) const {
+        frustum.projectPoint(point, dimensions);
+    }
+
     INLINE void projectEdge(Edge &edge) const {
         frustum.projectEdge(edge, dimensions);
     }
@@ -6579,8 +6900,6 @@ struct Viewport {
         return frustum.cullAndClipEdge(edge, camera->focal_length, dimensions.width_over_height);
     }
 };
-
-
 
 struct Selection {
     Transform xform;
@@ -6725,8 +7044,6 @@ void drawEdge(Edge edge, const Viewport &viewport, const Color &color = White, f
              viewport.canvas, color, opacity, line_width, &viewport.bounds);
 }
 
-
-
 void drawBox(const Box &box, const Transform &transform, const Viewport &viewport,
              const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, u8 sides = BOX__ALL_SIDES) {
 
@@ -6784,86 +7101,85 @@ void drawCamera(const Camera &camera, const Viewport &viewport, const Color &col
     drawBox(box, transform, viewport, color, opacity, line_width, BOX__ALL_SIDES);
 }
 
+
 void drawCurve(const Curve &curve, const Transform &transform, const Viewport &viewport,
                const Color &color = White, f32 opacity = 1.0f, u8 line_width = 0, u32 step_count = CURVE_STEPS) {
     const Camera &cam = *viewport.camera;
 
-    f32 one_over_step_count = 1.0f / (f32)step_count;
-    f32 rotation_step = one_over_step_count * TAU;
+    f32 rotation_step = 1.0f / (f32)step_count;
+    f32 helix_center_to_orbit_y_inc = rotation_step * 2;
+
+    rotation_step *= TAU;
     f32 rotation_step_times_rev_count = rotation_step * (f32)curve.revolution_count;
 
     if (curve.type == CurveType_Helix)
         rotation_step = rotation_step_times_rev_count;
 
-    vec3 center_to_orbit;
-    center_to_orbit.x = 1;
-    center_to_orbit.y = center_to_orbit.z = 0;
-
-    vec3 orbit_to_curve;
-    orbit_to_curve.x = curve.thickness;
-    orbit_to_curve.y = orbit_to_curve.z = 0;
-
-    mat3 rotation;
-    rotation.X.x = rotation.Z.z = cosf(rotation_step);
-    rotation.X.z = sinf(rotation_step);
-    rotation.Z.x = -rotation.X.z;
-    rotation.X.y = rotation.Z.y = rotation.Y.x = rotation.Y.z =  0;
-    rotation.Y.y = 1;
-
-    mat3 orbit_to_curve_rotation;
-    if (curve.type == CurveType_Coil) {
-        orbit_to_curve_rotation.X.x = orbit_to_curve_rotation.Y.y = cosf(rotation_step_times_rev_count);
-        orbit_to_curve_rotation.X.y = sinf(rotation_step_times_rev_count);
-        orbit_to_curve_rotation.Y.x = -orbit_to_curve_rotation.X.y;
-        orbit_to_curve_rotation.X.z = orbit_to_curve_rotation.Y.z = orbit_to_curve_rotation.Z.x = orbit_to_curve_rotation.Z.y =  0;
-        orbit_to_curve_rotation.Z.z = 1;
-    }
+    vec3 center_to_orbit{1, 0, 0};
+    vec3 orbit_to_curve{curve.thickness, 0, 0};
+    mat3 rotation{mat3::RotationAroundY(rotation_step)};
+    mat3 orbit_to_curve_rotation{mat3::RotationAroundZ(rotation_step_times_rev_count)};
 
     // Transform vertices positions of edges from view-space to screen-space (w/ culling and clipping):
     mat3 accumulated_orbit_rotation = rotation;
-    vec3 current_position, previous_position;
+    vec3 local_position, local_previous_position, current_position, previous_position;
     Edge edge;
 
     for (u32 i = 0; i < step_count; i++) {
-        center_to_orbit = rotation * center_to_orbit;
+        local_position = center_to_orbit = rotation * center_to_orbit;
 
         switch (curve.type) {
-            case CurveType_Helix:
-                current_position = center_to_orbit;
-                current_position.y -= 1;
-                break;
+            case CurveType_Helix: local_position.y -= 1; break;
             case CurveType_Coil:
                 orbit_to_curve  = orbit_to_curve_rotation * orbit_to_curve;
-                current_position = accumulated_orbit_rotation * orbit_to_curve;
-                current_position += center_to_orbit;
+                local_position += accumulated_orbit_rotation * orbit_to_curve;
                 break;
-            default:
-                break;
+            default: break;
         }
 
-        current_position = cam.internPos(transform.externPos(current_position));
+        current_position = cam.internPos(transform.externPos(local_position));
 
         if (i) {
             edge.from = previous_position;
             edge.to   = current_position;
             drawEdge(edge, viewport, color, opacity, line_width);
+            if (curve.type == CurveType_Sphere) {
+                edge.from.x = local_previous_position.x;
+                edge.from.y = local_previous_position.z;
+                edge.from.z = 0;
+
+                edge.to.x = local_position.x;
+                edge.to.y = local_position.z;
+                edge.to.z = 0;
+
+                edge.from = cam.internPos(transform.externPos(edge.from));
+                edge.to   = cam.internPos(transform.externPos(edge.to));
+                drawEdge(edge, viewport, color, opacity, line_width);
+
+                edge.from.x = 0;
+                edge.from.y = local_previous_position.x;
+                edge.from.z = local_previous_position.z;
+
+                edge.to.x = 0;
+                edge.to.y = local_position.x;
+                edge.to.z = local_position.z;
+
+                edge.from = cam.internPos(transform.externPos(edge.from));
+                edge.to   = cam.internPos(transform.externPos(edge.to));
+                drawEdge(edge, viewport, color, opacity, line_width);
+            }
         }
 
         switch (curve.type) {
-            case CurveType_Helix:
-                center_to_orbit.y += 2 * one_over_step_count;
-                break;
-            case CurveType_Coil:
-                accumulated_orbit_rotation *= rotation;
-                break;
-            default:
-                break;
+            case CurveType_Helix: center_to_orbit.y += helix_center_to_orbit_y_inc; break;
+            case CurveType_Coil:  accumulated_orbit_rotation *= rotation; break;
+            default: break;
         }
 
         previous_position = current_position;
+        local_previous_position = local_position;
     }
 }
-
 
 
 void drawGrid(const Grid &grid, const Transform &transform, const Viewport &viewport, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
@@ -6887,6 +7203,7 @@ void drawGrid(const Grid &grid, const Transform &transform, const Viewport &view
 }
 
 
+
 void drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, const Viewport &viewport,
               const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1) {
     const Camera &cam = *viewport.camera;
@@ -6895,7 +7212,7 @@ void drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, c
     EdgeVertexIndices *edge_index = mesh.edge_vertex_indices;
     for (u32 i = 0; i < mesh.edge_count; i++, edge_index++) {
         edge.from = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->from]));
-        edge.to = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->to]));
+        edge.to   = cam.internPos(transform.externPos(mesh.vertex_positions[edge_index->to]));
         drawEdge(edge, viewport, color, opacity, line_width);
     }
 
@@ -6913,7 +7230,40 @@ void drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, c
         }
     }
 }
+void drawRTree(const RTree &rtree, const Transform &transform, const Viewport &viewport,
+               u16 min_depth = 0, u16 max_depth = 5, f32 opacity = 0.25f, u8 line_width = 1) {
+    static Box box;
+    static Transform box_transform;
 
+    for (u32 node_id = 0; node_id < rtree.node_count; node_id++) {
+        RTreeNode &node = rtree.nodes[node_id];
+        if (node.depth < min_depth || node.depth > max_depth)
+            continue;
+
+        box_transform = transform;
+        box_transform.scale *= (node.aabb.max - node.aabb.min) * 0.5f;
+        box_transform.position = transform.externPos((node.aabb.min + node.aabb.max) * 0.5f);
+
+        drawBox(box, box_transform, viewport, node.leaf_count ? BrightMagenta : (node_id ? BrightGreen : BrightCyan),
+                opacity, line_width);
+    }
+}
+
+void drawRTreeQuery(const RTreeQuery *query, const RTreeNode *nodes, const Transform &transform,
+                    const Viewport &viewport, const Color &color, f32 opacity = 0.5f, u8 line_width = 1) {
+    static Box box;
+    static Transform box_transform;
+
+    for (u32 result_index = 0; result_index < query->result_count; result_index++) {
+        const RTreeNode &node = nodes[query->results[result_index].node_index];
+
+        box_transform = transform;
+        box_transform.scale *= (node.aabb.max - node.aabb.min) * 0.5f;
+        box_transform.position = transform.externPos((node.aabb.min + node.aabb.max) * 0.5f);
+
+        drawBox(box, box_transform, viewport, color, opacity, line_width);
+    }
+}
 void drawSelection(Selection &selection, const Viewport &viewport, const Scene &scene) {
     static Box box;
 
@@ -6977,6 +7327,7 @@ SlimApp* createApp();
 #ifdef __linux__
 //linux code goes here
 #elif _WIN32
+
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
@@ -7011,6 +7362,73 @@ void DisplayError(LPTSTR lpszFunction) {
     LocalFree(lpDisplayBuf);
 }
 #endif
+
+void win32_closeFile(void *handle) {
+    CloseHandle(handle);
+}
+
+void* win32_openFileForReading(const char* path) {
+    HANDLE handle = CreateFileA(path,           // file to open
+                                GENERIC_READ,          // open for reading
+                                FILE_SHARE_READ,       // share for reading
+                                nullptr,                  // default security
+                                OPEN_EXISTING,         // existing file only
+                                FILE_ATTRIBUTE_NORMAL, // normal file
+                                nullptr);                 // no attr. template
+#ifndef NDEBUG
+    if (handle == INVALID_HANDLE_VALUE) {
+        DisplayError((LPTSTR)"CreateFile");
+        _tprintf((LPTSTR)"Terminal failure: unable to open file \"%s\" for read.\n", path);
+        return nullptr;
+    }
+#endif
+    return handle;
+}
+
+void* win32_openFileForWriting(const char* path) {
+    HANDLE handle = CreateFileA(path,           // file to open
+                                GENERIC_WRITE,          // open for writing
+                                0,                      // do not share
+                                nullptr,                   // default security
+                                OPEN_ALWAYS,            // create new or open existing
+                                FILE_ATTRIBUTE_NORMAL,  // normal file
+                                nullptr);
+#ifndef NDEBUG
+    if (handle == INVALID_HANDLE_VALUE) {
+        DisplayError((LPTSTR)"CreateFile");
+        _tprintf((LPTSTR)"Terminal failure: unable to open file \"%s\" for write.\n", path);
+        return nullptr;
+    }
+#endif
+    return handle;
+}
+
+bool win32_readFromFile(LPVOID out, DWORD size, HANDLE handle) {
+    DWORD bytes_read = 0;
+    BOOL result = ReadFile(handle, out, size, &bytes_read, nullptr);
+#ifndef NDEBUG
+    if (result == FALSE) {
+        DisplayError((LPTSTR)"ReadFile");
+        printf("Terminal failure: Unable to read from file.\n GetLastError=%08x\n", (unsigned int)GetLastError());
+        CloseHandle(handle);
+    }
+#endif
+    return result != FALSE;
+}
+
+bool win32_writeToFile(LPVOID out, DWORD size, HANDLE handle) {
+    DWORD bytes_written = 0;
+    BOOL result = WriteFile(handle, out, size, &bytes_written, nullptr);
+#ifndef NDEBUG
+    if (result == FALSE) {
+        DisplayError((LPTSTR)"WriteFile");
+        printf("Terminal failure: Unable to write from file.\n GetLastError=%08x\n", (unsigned int)GetLastError());
+        CloseHandle(handle);
+    }
+#endif
+    return result != FALSE;
+}
+
 
 #define GET_X_LPARAM(lp)                        ((int)(short)LOWORD(lp))
 #define GET_Y_LPARAM(lp)                        ((int)(short)HIWORD(lp))
@@ -7067,71 +7485,11 @@ void* os::getMemory(u64 size, u64 base) {
     return VirtualAlloc((LPVOID)base, (SIZE_T)size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 }
 
-void os::closeFile(void *handle) {
-    CloseHandle(handle);
-}
-
-void* os::openFileForReading(const char* path) {
-    HANDLE handle = CreateFileA(path,           // file to open
-                                GENERIC_READ,          // open for reading
-                                FILE_SHARE_READ,       // share for reading
-                                nullptr,                  // default security
-                                OPEN_EXISTING,         // existing file only
-                                FILE_ATTRIBUTE_NORMAL, // normal file
-                                nullptr);                 // no attr. template
-#ifndef NDEBUG
-    if (handle == INVALID_HANDLE_VALUE) {
-        DisplayError((LPTSTR)"CreateFile");
-        _tprintf((LPTSTR)"Terminal failure: unable to open file \"%s\" for read.\n", path);
-        return nullptr;
-    }
-#endif
-    return handle;
-}
-
-void* os::openFileForWriting(const char* path) {
-    HANDLE handle = CreateFileA(path,           // file to open
-                                GENERIC_WRITE,          // open for writing
-                                0,                      // do not share
-                                nullptr,                   // default security
-                                OPEN_ALWAYS,            // create new or open existing
-                                FILE_ATTRIBUTE_NORMAL,  // normal file
-                                nullptr);
-#ifndef NDEBUG
-    if (handle == INVALID_HANDLE_VALUE) {
-        DisplayError((LPTSTR)"CreateFile");
-        _tprintf((LPTSTR)"Terminal failure: unable to open file \"%s\" for write.\n", path);
-        return nullptr;
-    }
-#endif
-    return handle;
-}
-
-bool os::readFromFile(LPVOID out, DWORD size, HANDLE handle) {
-    DWORD bytes_read = 0;
-    BOOL result = ReadFile(handle, out, size, &bytes_read, nullptr);
-#ifndef NDEBUG
-    if (result == FALSE) {
-        DisplayError((LPTSTR)"ReadFile");
-        printf("Terminal failure: Unable to read from file.\n GetLastError=%08x\n", (unsigned int)GetLastError());
-        CloseHandle(handle);
-    }
-#endif
-    return result != FALSE;
-}
-
-bool os::writeToFile(LPVOID out, DWORD size, HANDLE handle) {
-    DWORD bytes_written = 0;
-    BOOL result = WriteFile(handle, out, size, &bytes_written, nullptr);
-#ifndef NDEBUG
-    if (result == FALSE) {
-        DisplayError((LPTSTR)"WriteFile");
-        printf("Terminal failure: Unable to write from file.\n GetLastError=%08x\n", (unsigned int)GetLastError());
-        CloseHandle(handle);
-    }
-#endif
-    return result != FALSE;
-}
+void os::closeFile(void *handle) { return win32_closeFile(handle); }
+void* os::openFileForReading(const char* path) { return win32_openFileForReading(path); }
+void* os::openFileForWriting(const char* path) { return win32_openFileForWriting(path); }
+bool os::readFromFile(LPVOID out, DWORD size, HANDLE handle) { return win32_readFromFile(out, size, handle); }
+bool os::writeToFile(LPVOID out, DWORD size, HANDLE handle) { return win32_writeToFile(out, size, handle); }
 
 SlimApp *CURRENT_APP;
 
