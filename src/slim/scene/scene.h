@@ -27,10 +27,11 @@ struct Scene {
     Box *boxes{nullptr};
     Camera *cameras{nullptr};
     Mesh *meshes{nullptr};
-    MeshQuery mesh_query;
 
-    u64 last_io_ticks{0};
+    u64 last_io_ticks = 0;
     bool last_io_is_save{false};
+    u8 max_rtree_height = 0;
+    u32 max_triangle_count = 0;
 
     Scene(SceneCounts counts,
           char *file_path = nullptr,
@@ -56,16 +57,12 @@ struct Scene {
             for (u32 i = 0; i < counts.meshes; i++)
                 meshes[i] = Mesh{};
             memory::MonotonicAllocator temp_allocator;
-            u16 max_rtree_height;
-            u32 capacity = getTotalMemoryForMeshes(mesh_files, counts.meshes,  &max_rtree_height);
+            u32 capacity = getTotalMemoryForMeshes(mesh_files, counts.meshes ,&max_rtree_height, &max_triangle_count);
             if (!memory_allocator) {
                 temp_allocator = memory::MonotonicAllocator{capacity};
                 memory_allocator = &temp_allocator;
             }
             for (u32 i = 0; i < counts.meshes; i++) load(meshes[i], mesh_files[i].char_ptr, memory_allocator);
-
-            mesh_query.node_ids = (u32*)memory_allocator->allocate(sizeof(u32) * (1 << max_rtree_height));
-            mesh_query.stack    = (u32*)memory_allocator->allocate(sizeof(u32)       * max_rtree_height);
         }
     }
 

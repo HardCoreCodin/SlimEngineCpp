@@ -19,7 +19,7 @@ void drawRTree(const RTree &rtree, const Transform &transform, const Viewport &v
         box_transform.scale *= (node.aabb.max - node.aabb.min) * 0.5f;
         box_transform.position = transform.externPos((node.aabb.min + node.aabb.max) * 0.5f);
 
-        drawBox(box, box_transform, viewport, node.child_count ? Magenta : (node_id ? Green : Cyan),
+        drawBox(box, box_transform, viewport, node.leaf_count ? BrightMagenta : (node_id ? BrightGreen : BrightCyan),
                 opacity, line_width);
     }
 }
@@ -29,8 +29,8 @@ void drawRTreeQuery(const RTreeQuery *query, const RTreeNode *nodes, const Trans
     static Box box;
     static Transform box_transform;
 
-    for (u32 result_index = 0; result_index < query->node_count; result_index++) {
-        const RTreeNode &node = nodes[query->node_ids[result_index]];
+    for (u32 result_index = 0; result_index < query->result_count; result_index++) {
+        const RTreeNode &node = nodes[query->results[result_index].node_index];
 
         box_transform = transform;
         box_transform.scale *= (node.aabb.max - node.aabb.min) * 0.5f;

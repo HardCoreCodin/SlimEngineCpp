@@ -139,26 +139,14 @@ struct Frustum {
         return true;
     }
 
+    INLINE void projectPoint(vec3 &point, const Dimensions &dimensions) const {
+        point.x = ((projection.scale.x * point.x / point.z) + 1) * dimensions.h_width;
+        point.y = ((projection.scale.y * point.y / point.z) + 1) * dimensions.h_height;
+        point.y = dimensions.f_height - point.y;
+    }
+
     void projectEdge(Edge &edge, const Dimensions &dimensions) const {
-        // Project:
-        vec3 A{projection.project(edge.from)};
-        vec3 B{projection.project(edge.to)};
-
-        // NDC->screen:
-        A.x += 1;
-        B.x += 1;
-        A.y += 1;
-        B.y += 1;
-        A.x *= dimensions.h_width;
-        B.x *= dimensions.h_width;
-        A.y *= dimensions.h_height;
-        B.y *= dimensions.h_height;
-
-        // Flip Y:
-        A.y = dimensions.f_height - A.y;
-        B.y = dimensions.f_height - B.y;
-
-        edge.from = A;
-        edge.to   = B;
+        projectPoint(edge.from, dimensions);
+        projectPoint(edge.to, dimensions);
     }
 };

@@ -2,6 +2,8 @@
 
 #include "../core/base.h"
 
+#define SLIM_VEC3
+
 struct vec3 {
     union {
         struct {f32 components[3]; };

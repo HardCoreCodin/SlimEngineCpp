@@ -4,26 +4,23 @@
 #include "../scene/rtree.h"
 
 u32 getSizeInBytes(const RTree &rtree) {
-    return sizeof(RTreeNode) * rtree.node_count + sizeof(u32) * rtree.leaf_ids_count;
+    return sizeof(RTreeNode) * rtree.node_count;
 }
 
 bool allocateMemory(RTree &rtree, memory::MonotonicAllocator *memory_allocator) {
     if (getSizeInBytes(rtree) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
 
     rtree.nodes = (RTreeNode*)memory_allocator->allocate(sizeof(RTreeNode) * rtree.node_count);
-    rtree.leaf_ids    = (u32*)memory_allocator->allocate(sizeof(u32)       * rtree.leaf_ids_count);
 
     return true;
 }
 
 void writeHeader(const RTree &rtree, void *file) {
     os::writeToFile((void*)&rtree.node_count,     sizeof(u32),  file);
-    os::writeToFile((void*)&rtree.leaf_ids_count, sizeof(u32),  file);
     os::writeToFile((void*)&rtree.height,         sizeof(u32),  file);
 }
 void readHeader(const RTree &rtree, void *file) {
     os::readFromFile((void*)&rtree.node_count,     sizeof(u32),  file);
-    os::readFromFile((void*)&rtree.leaf_ids_count, sizeof(u32),  file);
     os::readFromFile((void*)&rtree.height,         sizeof(u32),  file);
 }
 
@@ -45,11 +42,9 @@ bool loadHeader(RTree &rtree, char *file_path) {
 
 void readContent(RTree &rtree, void *file) {
     os::readFromFile(rtree.nodes,    rtree.node_count * sizeof(RTreeNode), file);
-    os::readFromFile(rtree.leaf_ids, rtree.leaf_ids_count * sizeof(u32), file);
 }
 void writeContent(const RTree &rtree, void *file) {
     os::writeToFile(rtree.nodes,    rtree.node_count * sizeof(RTreeNode), file);
-    os::writeToFile(rtree.leaf_ids, rtree.leaf_ids_count * sizeof(u32), file);
 }
 
 bool saveContent(const RTree &rtree, char *file_path) {

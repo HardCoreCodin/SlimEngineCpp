@@ -44,6 +44,10 @@ struct Viewport {
         updateProjection();
     }
 
+    INLINE void projectPoint(vec3 &point) const {
+        frustum.projectPoint(point, dimensions);
+    }
+
     INLINE void projectEdge(Edge &edge) const {
         frustum.projectEdge(edge, dimensions);
     }

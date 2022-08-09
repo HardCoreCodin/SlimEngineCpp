@@ -312,3 +312,9 @@ void drawLine(vec2 from, vec2 to, const Canvas &canvas, const Color &color = Whi
     _drawLine(from.x, from.y, 0, to.x, to.y, 0, canvas, color, opacity, line_width, viewport_bounds);
 }
 #endif
+
+#ifdef SLIM_VEC3
+void drawLine(const vec3 &from, const vec3 &to, const Canvas &canvas, const Color &color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) {
+    _drawLine(from.x, from.y, from.z, to.x, to.y, to.z, canvas, color, opacity, line_width, viewport_bounds);
+}
+#endif
