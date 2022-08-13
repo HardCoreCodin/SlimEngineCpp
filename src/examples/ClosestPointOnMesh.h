@@ -96,57 +96,50 @@ struct ClosestPointOnTriangle {
 
 struct ClosestPointOnMesh {
     // The query does a broad-phase to narrows the search to only triangles that are close enough to matter.
-    // There are 3 operation modes catering to different use-cases:
-    // 1. Deferred: IDs of Leaf-node and triangles first get collected into an array and only then triangles get tested.
-    // 2. Immediate: Leaf-node triangles get tested when visited and tracked on the node flags (no array is needed).
-    // 3. Adaptive: Same as Immediate but also the search radius is reduced dynamically as closer triangles are found.
-
-    enum Mode { Deferred, Immediate, Adaptive };
-    struct BroadPhaseResult { u32 start, end, node_index; };
+    // Leaf-node triangles get tested immediately when visited and tracked on the node flags (no aux. array needed).
+    // In adaptive mode the search radius is also reduced dynamically as closer triangles are found.
 
     Mesh *mesh = nullptr;
+    Transform *mesh_transform = nullptr;
+    Transform *search_origin_transform = nullptr;
     u32 *stack = nullptr;
-    BroadPhaseResult *broad_phase_results = nullptr;
     u32 max_stack_size = 0;
-    u32 max_broad_phase_result_count = 0;
-    u32 broad_phase_result_count = 0;
-    Mode mode = Adaptive;
+    u32 max_result_count = 0;
+    ClosestPointOnTriangle *results = nullptr;
 
-    TrianglePointOn find(const vec3 &search_origin, f32 max_distance, ClosestPointOnTriangle &closest_point_on_triangle) {
-        closest_point_on_triangle = ClosestPointOnTriangle{search_origin, max_distance};
-
+    TrianglePointOn find(vec3 search_origin, f32 max_distance, ClosestPointOnTriangle &closest_point_on_triangle, bool adaptive = true) const {
 #ifndef NDEBUG
         if (max_stack_size < getMaxStackSize(*mesh)) {
             closest_point_on_triangle.on = TrianglePointOn_Error;
             return TrianglePointOn_Error;
         }
-        if (mode == Deferred) {
-            broad_phase_result_count = 0;
-            if (!broad_phase_results || max_broad_phase_result_count < getMaxBroadPhaseResultCount(*mesh)) {
-                closest_point_on_triangle.on = TrianglePointOn_Error;
-                return TrianglePointOn_Error;
-            }
-        }
 #endif
+        if (search_origin_transform) search_origin = search_origin_transform->externPos(search_origin);
+        closest_point_on_triangle = ClosestPointOnTriangle{search_origin, max_distance};
+        if (mesh_transform)
+            closest_point_on_triangle.search_origin = mesh_transform->internPos(closest_point_on_triangle.search_origin);
 
         RTreeNode *nodes = mesh->rtree.nodes;
         RTreeNode &root = nodes[0];
 
-        if (!root.aabb.overlapSphere(search_origin, max_distance))
+        if (!root.aabb.overlapSphere(closest_point_on_triangle.search_origin, max_distance))
             return TrianglePointOn_None;
 
         u32 start, end, node_id;
         if (unlikely(root.isLeaf())) {
             start = root.first_index;
             end = start + root.leaf_count;
-            if (mode == Deferred) {
-                broad_phase_results[0] = {start, end, 0};
-                broad_phase_result_count = 1;
-            }
             closest_point_on_triangle.find(mesh->triangles, start, end);
+            if (closest_point_on_triangle.on) {
+                closest_point_on_triangle.search_origin = search_origin;
+                if (mesh_transform)
+                    closest_point_on_triangle.closest_point = mesh_transform->externPos(closest_point_on_triangle.closest_point);
+            }
+
             return closest_point_on_triangle.on;
         }
 
+        f32 squared_distance_before;
         f32 radius = max_distance;
         i32 stack_size = 0;
         stack[stack_size++] = root.first_index;
@@ -155,61 +148,54 @@ struct ClosestPointOnMesh {
         while (stack_size > 0) {
             node_id = stack[--stack_size];
             RTreeNode &node = nodes[node_id];
-            if (!node.aabb.overlapSphere(search_origin, radius))
+            if (!node.aabb.overlapSphere(closest_point_on_triangle.search_origin, radius))
                 continue;
 
             if (node.isLeaf()) {
+                node.flags = BROAD_PHASE_INCLUDED;
                 start = node.first_index;
                 end = start + node.leaf_count;
+                squared_distance_before = closest_point_on_triangle.squared_distance;
+                closest_point_on_triangle.find(mesh->triangles, start, end);
 
-                switch (mode) {
-                    case Deferred:
-                        broad_phase_results[broad_phase_result_count++] = {start, end, node_id};
-                        break;
-                    case Immediate:
-                        node.flags = BROAD_PHASE_INCLUDED;
-                        closest_point_on_triangle.find(mesh->triangles, start, end);
-                        break;
-                    default:
-                        node.flags = BROAD_PHASE_INCLUDED;
-
-                        // When testing triangles eagerly the search radius may be safely narrowed down on the fly:
-                        f32 squared_distance_before = closest_point_on_triangle.squared_distance;
-                        closest_point_on_triangle.find(mesh->triangles, start, end);
-                        if (closest_point_on_triangle.squared_distance < squared_distance_before)
-                            radius = sqrtf(closest_point_on_triangle.squared_distance);
-                }
+                // Since triangles are tested eagerly the search radius may be safely narrowed down on the fly:
+                if (adaptive && closest_point_on_triangle.squared_distance < squared_distance_before)
+                    radius = sqrtf(closest_point_on_triangle.squared_distance);
             } else {
                 stack[stack_size++] = node.first_index;
                 stack[stack_size++] = node.first_index + 1;
             }
         }
 
-        if (broad_phase_results)
-            for (u32 result_index = 0; result_index < broad_phase_result_count; result_index++) {
-                start = broad_phase_results[result_index].start;
-                end = broad_phase_results[result_index].end;
-                closest_point_on_triangle.find(mesh->triangles, start, end);
-            }
+        if (closest_point_on_triangle.on) {
+            closest_point_on_triangle.search_origin = search_origin;
+            if (mesh_transform)
+                closest_point_on_triangle.closest_point = mesh_transform->externPos(closest_point_on_triangle.closest_point);
+        }
 
         return closest_point_on_triangle.on;
     }
 
-    void allocate(bool broad_phase = true, memory::MonotonicAllocator *allocator = nullptr) {
-        if (broad_phase && broad_phase_results)
-            broad_phase = false;
+    void find(const vec3 *search_origins, u32 search_origins_count, f32 max_distance, bool adaptive = true) const {
+        for (u32 i = 0; i < search_origins_count; i++)
+            find(search_origins[i], max_distance, results[i], adaptive);
+    }
 
-        if (stack && !broad_phase)
+    void allocate(u32 result_count = 0, memory::MonotonicAllocator *allocator = nullptr) {
+        if (result_count && results)
+            result_count = 0;
+
+        if (stack && !result_count)
             return;
 
         u32 capacity = 0;
         if (!stack) {
-            max_stack_size = getMaxStackSize(*mesh);
+            max_stack_size = mesh->rtree.height;
             capacity += max_stack_size * sizeof(u32);
         }
-        if (broad_phase) {
-            max_broad_phase_result_count = getMaxBroadPhaseResultCount(*mesh);
-            capacity += max_broad_phase_result_count * sizeof(BroadPhaseResult);
+        if (result_count) {
+            max_result_count = result_count;
+            capacity += max_result_count * sizeof(ClosestPointOnTriangle);
         }
 
         memory::MonotonicAllocator tmp;
@@ -218,9 +204,6 @@ struct ClosestPointOnMesh {
             tmp = memory::MonotonicAllocator{capacity};
         }
         if (!stack) stack = (u32*)allocator->allocate(max_stack_size * sizeof(u32));
-        if (broad_phase) broad_phase_results = (BroadPhaseResult*)allocator->allocate(max_broad_phase_result_count * sizeof(BroadPhaseResult));
+        if (result_count) results = (ClosestPointOnTriangle*)allocator->allocate(result_count * sizeof(ClosestPointOnTriangle));
     }
-
-    static u32 getMaxBroadPhaseResultCount(const Mesh &mesh) { return mesh.triangle_count; }
-    static u32 getMaxStackSize(const Mesh &mesh) { return mesh.rtree.height; }
 };

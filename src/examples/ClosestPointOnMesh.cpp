@@ -4,6 +4,7 @@
 #include "../slim/draw/triangle.h"
 #include "../slim/draw/curve.h"
 #include "../slim/draw/grid.h"
+#include "../slim/draw/rectangle.h"
 #include "../slim/draw/mesh.h"
 #include "../slim/draw/rtree.h"
 #include "../slim/app.h"
@@ -22,21 +23,22 @@ struct ClosestPointOnMeshApp : SlimApp {
     bool antialias = false;
 
     bool draw_rtree = false;
-    bool draw_query = false;
+    bool draw_query_result = false;
     bool draw_query_aabbs = false;
     bool draw_query_triangles = false;
+    bool adaptive = false;
+    bool multi = false;
 
     // HUD:
-    HUDLine TimerLine{(char*)"Timer : "};
-    HUDLine ModeLine {(char*)"Mode  : "};
-    HUDLine QueryLine{(char*)"Query : ", (char*)"On",(char*)"Off", &draw_query, true};
-    HUDLine AABBsLine{(char*)"AABBs : ", (char*)"On", (char*)"Off", &draw_query_aabbs, true};
-    HUDLine TriesLine{(char*)"Tries : ", (char*)"On", (char*)"Off", &draw_query_triangles, true};
-    HUDLine RTreeLine{(char*)"RTree : ", (char*)"On", (char*)"Off", &draw_rtree, true};
-    HUDSettings hud_settings{5};
-    HUD hud{hud_settings, &TimerLine};
-
-    char *mode_strings[3] = {(char*)"Deferred", (char*)"Immediate", (char*)"Adaptive"};
+    HUDLine QueryLine{(char*)"Show Query     : ", (char*)"On",(char*)"Off", &draw_query_result, true};
+    HUDLine AABBsLine{(char*)"Show AABBs     : ", (char*)"On",(char*)"Off", &draw_query_aabbs, true};
+    HUDLine TriesLine{(char*)"Show Triangles : ", (char*)"On",(char*)"Off", &draw_query_triangles, true};
+    HUDLine RTreeLine{(char*)"Show RTree     : ", (char*)"On",(char*)"Off", &draw_rtree, true};
+    HUDLine MultiLine{(char*)"Cross Mesh     : ", (char*)"On",(char*)"Off", &multi, true};
+    HUDLine AdaptLine{(char*)"Adaptive Mode  : ", (char*)"On",(char*)"Off", &adaptive, true};
+    HUDLine TimerLine{(char*)"Micro Seconds  : "};
+    HUDSettings hud_settings{7};
+    HUD hud{hud_settings, &QueryLine};
 
     // Scene:
     Grid grid{11, 11}, *grids{&grid};
@@ -63,22 +65,21 @@ struct ClosestPointOnMeshApp : SlimApp {
     Geometry mesh1{{{+8, 5, 0} }, GeometryType_Mesh, BrightBlue};
     Geometry mesh2{{{-8, 5, 0} }, GeometryType_Mesh, BrightGrey}, *geometries{&grid1};
 
-    Transform *mesh_transform = &mesh1.transform;
-
     char strings[3][100] = {};
     String mesh_files[3] = {
         String::getFilePath((char*)"dog.mesh" ,strings[1],(char*)__FILE__),
         String::getFilePath((char*)"suzanne.mesh",strings[0],(char*)__FILE__),
         String::getFilePath((char*)"cube.mesh" ,strings[2],(char*)__FILE__)
     };
-    Mesh dog, monkey, cube, *meshes = &dog, *mesh = meshes;
+    Mesh dog, monkey, cube, *meshes = &dog;
 
     SceneCounts counts{1, 4, 1, 0, 1, 3 };
     Scene scene{counts,nullptr, cameras, geometries, grids, nullptr,curves,
                 meshes, mesh_files, nullptr};
     Selection selection;
 
-    ClosestPointOnMesh query{mesh};
+    Geometry *query_geo = &mesh1;
+    ClosestPointOnMesh query{&dog};
     ClosestPointOnTriangle closest_point_on_triangle;
 
     // Drawing:
@@ -91,19 +92,27 @@ struct ClosestPointOnMeshApp : SlimApp {
 
     time::Timer query_timer;
 
-    void doQuery() {
+    void doQuery(Mesh &mesh, Transform &transform) {
         query_timer.beginFrame();
 
-        if (query.mode != ClosestPointOnMesh::Mode::Deferred && (draw_query_triangles || draw_query_aabbs))
-            for (u32 node_index = 0; node_index < mesh->rtree.node_count; node_index++)
-                mesh->rtree.nodes[node_index].flags = 0;
+        if (!multi && draw_query_triangles || draw_query_aabbs)
+            for (u32 node_index = 0; node_index < mesh.rtree.node_count; node_index++)
+                mesh.rtree.nodes[node_index].flags = 0;
 
-        vec3 &scale = mesh_transform->scale;
+        vec3 &scale = transform.scale;
         max_distance = world_max_distance / ((scale.x == scale.y && scale.x == scale.z) ? scale.x : (scale.length()));
 
-        vec3 point = mesh_transform->internPos(sphere_geo.transform.position);
-        if (query.find(point, max_distance, closest_point_on_triangle))
-            closest_point_transform.position = mesh_transform->externPos(closest_point_on_triangle.closest_point);
+        query.mesh = &mesh;
+        query.mesh_transform = &transform;
+        if (multi) {
+            Geometry &other_geo = query_geo == &mesh1 ? mesh2 : mesh1;
+            Mesh &other_mesh = meshes[other_geo.id];
+            query.search_origin_transform = &other_geo.transform;
+            query.find(other_mesh.vertex_positions, other_mesh.vertex_count, max_distance, adaptive);
+        } else {
+            query.search_origin_transform = nullptr;
+            query.find(sphere_geo.transform.position, max_distance, closest_point_on_triangle, adaptive);
+        }
 
         query_timer.endFrame();
         TimerLine.value = (i32)query_timer.microseconds;
@@ -119,64 +128,53 @@ struct ClosestPointOnMeshApp : SlimApp {
         if (selection.changed) {
             selection.changed = false;
             if (selection.geometry && selection.geo_type == GeometryType_Mesh)
-                mesh_transform = &selection.geometry->transform;
+                query_geo = selection.geometry;
         }
         sphere_center_transform.position = sphere_geo.transform.position;
 
-        if (!query.stack) {
-            ModeLine.value.string = mode_strings[0];
-            query.mode = ClosestPointOnMesh::Mode::Deferred;
-            query.allocate();
-        }
+        if (!query.stack) query.allocate(dog.vertex_count);
 
-        doQuery();
+        doQuery(meshes[query_geo->id], query_geo->transform);
     }
 
     void OnRender() override {
         canvas.clear();
         drawGrid(grid, grid1.transform, viewport, grid1.color, opacity);
-        drawMesh(*mesh, mesh1.transform, false, viewport, mesh1.color, opacity);
-        drawMesh(*mesh, mesh2.transform, false, viewport, mesh2.color, opacity);
+        drawMesh(meshes[mesh1.id], mesh1.transform, false, viewport, mesh1.color, opacity);
+        drawMesh(meshes[mesh2.id], mesh2.transform, false, viewport, mesh2.color, opacity);
         drawCurve(sphere, sphere_geo.transform, viewport, sphere_geo.color, 0.2f);
         drawCurve(sphere, sphere_center_transform, viewport, Cyan, 0.2f);
 
-        RTree &rtree = mesh->rtree;
-        if (draw_rtree) drawRTree(rtree, *mesh_transform, viewport, min_depth, max_depth);
-        if (query.mode == ClosestPointOnMesh::Mode::Deferred) {
-            if (draw_query_aabbs) drawQueryAABBs();
-            if (draw_query_triangles) drawQueryTriangles();
-        }
-        if (draw_query && closest_point_on_triangle.on) {
-            Edge edge;
-            edge.from = camera.internPos(sphere_center_transform.position);
-            edge.to = camera.internPos(closest_point_transform.position);
-            ColorID color = closest_point_on_triangle.on == TrianglePointOn_Vertex ? Red : White;
-            drawEdge(edge, viewport, Cyan, opacity, 3);
-            drawCurve(sphere, closest_point_transform, viewport, color, opacity);
+        Geometry &other_geo = query_geo == &mesh1 ? mesh2 : mesh1;
+        Mesh &other_mesh = meshes[other_geo.id];
+        bool large_mesh = other_mesh.vertex_count > 8;
+        if (multi && !large_mesh) {
+            vec3 sphere_position = sphere_geo.transform.position;
 
-            if (closest_point_on_triangle.on != TrianglePointOn_Vertex) {
-                Triangle &triangle = mesh->triangles[closest_point_on_triangle.triangle_index];
-                vec3 v1 = camera.internPos(mesh_transform->externPos(triangle.position));
-                vec3 v2 = camera.internPos(mesh_transform->externPos(triangle.position + triangle.V));
-                vec3 v3 = camera.internPos(mesh_transform->externPos(triangle.position + triangle.U));
-                if (closest_point_on_triangle.on == TrianglePointOn_Edge) {
-                    f32 u = closest_point_on_triangle.uv.u;
-                    f32 v = closest_point_on_triangle.uv.v;
-                    if (u == 0 || v == 0) {
-                        edge.from = v1;
-                        edge.to = u == 0 ? v2 : v3;
-                    } else {
-                        edge.from = v2;
-                        edge.to = v3;
-                    }
-                    drawEdge(edge, viewport, Red, 1, 3);
-                } else {
-                    viewport.projectPoint(v1);
-                    viewport.projectPoint(v2);
-                    viewport.projectPoint(v3);
-                    canvas.fillTriangle(v1, v2, v3, Red, 0.5f);
-                }
+            for (u32 vertex_index = 0; vertex_index < other_mesh.vertex_count; vertex_index++) {
+                vec3 v = other_mesh.vertex_positions[vertex_index];
+                sphere_geo.transform.position = sphere_center_transform.position = other_geo.transform.externPos(v);
+                drawCurve(sphere, sphere_geo.transform, viewport, sphere_geo.color, 0.2f);
+                drawCurve(sphere, sphere_center_transform, viewport, Cyan, 0.2f);
+
+                sphere_geo.transform.position = sphere_position;
             }
+        }
+
+        if (draw_rtree) drawRTree(query.mesh->rtree, *query.mesh_transform, viewport, min_depth, max_depth);
+        if (draw_query_aabbs) drawQueryAABBs();
+        if (draw_query_triangles) drawQueryTriangles();
+        if (draw_query_result) {
+            if (multi) {
+                if (large_mesh) {
+                    for (u32 vertex_index = 0; vertex_index < other_mesh.vertex_count; vertex_index++)
+                        drawBoundsOfEdgeToClosestPoint(query.results[vertex_index]);
+                } else {
+                    for (u32 vertex_index = 0; vertex_index < other_mesh.vertex_count; vertex_index++)
+                        drawEdgeToClosestPoint(query.results[vertex_index]);
+                }
+            } else
+                drawQueryResult(closest_point_on_triangle);
         }
 
         if (controls::is_pressed::alt) drawSelection(selection, viewport, scene);
@@ -185,53 +183,118 @@ struct ClosestPointOnMeshApp : SlimApp {
         canvas.drawToWindow();
     }
 
-    void drawQueryTriangles(u32 start, u32 end) const {
-        static vec3 pos, v1, v2, v3;
+    void drawBoundsOfEdgeToClosestPoint(ClosestPointOnTriangle &query_result, i32 size = 3) {
+        static Edge edge;
+        static RectI rect;
+
+        if (!query_result.on) return;
+
+        edge.from = camera.internPos(query_result.search_origin);
+        edge.to   = camera.internPos(query_result.closest_point);
+        viewport.projectEdge(edge);
+        rect.left = (i32)edge.from.x - size;
+        rect.right = (i32)edge.from.x + size;
+        rect.top = (i32)edge.from.y - size;
+        rect.bottom = (i32)edge.from.y + size;
+        viewport.canvas.fillRect(rect, Cyan);
+        rect.left = (i32)edge.to.x - size;
+        rect.right = (i32)edge.to.x + size;
+        rect.top = (i32)edge.to.y - size;
+        rect.bottom = (i32)edge.to.y + size;
+        viewport.canvas.fillRect(rect, Red);
+    }
+
+    void drawEdgeToClosestPoint(ClosestPointOnTriangle &query_result) {
         static Edge edge;
 
-        for (u32 triangle_index = start; triangle_index < end; triangle_index++) {
-            Triangle &triangle = mesh->triangles[triangle_index];
-            v1 = camera.internPos(mesh_transform->externPos(triangle.position));
-            v2 = camera.internPos(mesh_transform->externPos(triangle.position + triangle.V));
-            v3 = camera.internPos(mesh_transform->externPos(triangle.position + triangle.U));
+        if (!query_result.on) return;
+
+        closest_point_transform.position = query_result.closest_point;
+        edge.from = camera.internPos(query_result.search_origin);
+        edge.to   = camera.internPos(query_result.closest_point);
+
+        ColorID color = query_result.on == TrianglePointOn_Vertex ? Red : White;
+        drawEdge(edge, viewport, Cyan, opacity, 3);
+        drawCurve(sphere, closest_point_transform, viewport, color, opacity);
+    }
+
+    void drawQueryResult(ClosestPointOnTriangle &query_result) {
+        static Edge edge;
+        static vec3 v1, v2, v3;
+
+        if (!query_result.on) return;
+
+        drawEdgeToClosestPoint(query_result);
+
+        Triangle &triangle = query.mesh->triangles[query_result.triangle_index];
+        v1 = camera.internPos(query.mesh_transform->externPos(triangle.position));
+        v2 = camera.internPos(query.mesh_transform->externPos(triangle.position + triangle.V));
+        v3 = camera.internPos(query.mesh_transform->externPos(triangle.position + triangle.U));
+
+        if (query_result.on == TrianglePointOn_Edge) {
+            f32 u = query_result.uv.u;
+            f32 v = query_result.uv.v;
+            if (u == 0 || v == 0) {
+                edge.from = v1;
+                edge.to = u == 0 ? v2 : v3;
+            } else {
+                edge.from = v2;
+                edge.to = v3;
+            }
+            drawEdge(edge, viewport, Red, 1, 3);
+        } else {
             viewport.projectPoint(v1);
             viewport.projectPoint(v2);
             viewport.projectPoint(v3);
-            viewport.canvas.fillTriangle(v1, v2, v3, BrightMagenta, opacity);
+            canvas.fillTriangle(v1, v2, v3, Red, 0.5f);
         }
     }
 
     void drawQueryTriangles() const {
-        if (query.mode == ClosestPointOnMesh::Mode::Deferred)
-            for (u32 result_index = 0; result_index < query.broad_phase_result_count; result_index++)
-                drawQueryTriangles(query.broad_phase_results[result_index].start,
-                                   query.broad_phase_results[result_index].end);
-        else
-            for (u32 node_index = 0; node_index < mesh->rtree.node_count; node_index++)
-                if (mesh->rtree.nodes[node_index].flags == BROAD_PHASE_INCLUDED)
-                    drawQueryTriangles(mesh->rtree.nodes[node_index].first_index,
-                                       mesh->rtree.nodes[node_index].first_index + mesh->rtree.nodes[node_index].leaf_count);
-    }
+        static vec3 pos, v1, v2, v3;
+        static Edge edge;
 
-    void drawQueryAABB(const AABB &aabb) const {
-        static Box box;
-        static Transform box_transform;
-
-        box_transform = *mesh_transform;
-        box_transform.scale *= (aabb.max - aabb.min) * 0.5f;
-        box_transform.position = mesh_transform->externPos((aabb.min + aabb.max) * 0.5f);
-
-        drawBox(box, box_transform, viewport, BrightGreen, opacity);
+        Mesh &mesh = meshes[query_geo->id];
+        Transform &transform = query_geo->transform;
+        for (u32 node_index = 0; node_index < mesh.rtree.node_count; node_index++) {
+            RTreeNode &node = mesh.rtree.nodes[node_index];
+            if (node.flags == BROAD_PHASE_INCLUDED) {
+                u32 start = node.first_index;
+                u32 end = start + node.leaf_count;
+                for (u32 triangle_index = start; triangle_index < end; triangle_index++) {
+                    Triangle &triangle = mesh.triangles[triangle_index];
+                    v1 = camera.internPos(transform.externPos(triangle.position));
+                    v2 = camera.internPos(transform.externPos(triangle.position + triangle.V));
+                    v3 = camera.internPos(transform.externPos(triangle.position + triangle.U));
+                    viewport.projectPoint(v1);
+                    viewport.projectPoint(v2);
+                    viewport.projectPoint(v3);
+                    viewport.canvas.fillTriangle(v1, v2, v3, BrightMagenta, opacity);
+                }
+            }
+        }
     }
 
     void drawQueryAABBs() const {
-        if (query.mode == ClosestPointOnMesh::Mode::Deferred)
-            for (u32 result_index = 0; result_index < query.broad_phase_result_count; result_index++)
-                drawQueryAABB(mesh->rtree.nodes[query.broad_phase_results[result_index].node_index].aabb);
-        else
-            for (u32 node_index = 0; node_index < mesh->rtree.node_count; node_index++)
-                if (mesh->rtree.nodes[node_index].flags == BROAD_PHASE_INCLUDED)
-                    drawQueryAABB(mesh->rtree.nodes[node_index].aabb);
+        static Box box;
+        static Transform box_transform;
+
+        Mesh &mesh = meshes[query_geo->id];
+        Transform &transform = query_geo->transform;
+        for (u32 node_index = 0; node_index < mesh.rtree.node_count; node_index++) {
+            RTreeNode &node = mesh.rtree.nodes[node_index];
+            if (node.flags == BROAD_PHASE_INCLUDED) {
+                u32 start = node.first_index;
+                u32 end = start + node.leaf_count;
+                for (u32 triangle_index = start; triangle_index < end; triangle_index++) {
+                    box_transform = transform;
+                    box_transform.scale *= (node.aabb.max - node.aabb.min) * 0.5f;
+                    box_transform.position = transform.externPos((node.aabb.min + node.aabb.max) * 0.5f);
+
+                    drawBox(box, box_transform, viewport, BrightGreen, opacity);
+                }
+            }
+        }
     }
 
     void OnKeyChanged(u8 key, bool is_pressed) override {
@@ -248,34 +311,22 @@ struct ClosestPointOnMeshApp : SlimApp {
         if (!is_pressed) {
             u16 depth = meshes[scene.geometries[1].id].rtree.height;
             if (key == controls::key_map::tab) hud.enabled = !hud.enabled;
-            else if (key == '1') draw_query = !draw_query;
+            else if (key == 'M') query_geo->id = (query_geo->id + 1) % 3;
+            else if (key == '1') draw_query_result = !draw_query_result;
             else if (key == '2') draw_query_aabbs = !draw_query_aabbs;
             else if (key == '3') draw_query_triangles = !draw_query_triangles;
             else if (key == '4') draw_rtree = !draw_rtree;
-            else if (key == '0') {
-                if (max_depth < depth) max_depth++;
-                if (min_depth < depth && controls::is_pressed::shift) min_depth++;
-            }
+            else if (key == '5') multi = !multi;
+            else if (key == '6') adaptive = !adaptive;
+            else if (key == '7') { if (min_depth > 0) min_depth--; }
+            else if (key == '8') { if (min_depth < depth) min_depth++; }
             else if (key == '9') {
                 if (max_depth > 0) max_depth--;
                 if (min_depth > 0 && controls::is_pressed::shift) min_depth--;
             }
-            else if (key == '8') { if (min_depth < depth) min_depth++; }
-            else if (key == '7') { if (min_depth > 0) min_depth--; }
-            else if (key == 'C') {
-                switch (query.mode) {
-                    case ClosestPointOnMesh::Mode::Deferred: query.mode = ClosestPointOnMesh::Mode::Immediate; break;
-                    case ClosestPointOnMesh::Mode::Immediate: query.mode = ClosestPointOnMesh::Mode::Adaptive; break;
-                    case ClosestPointOnMesh::Mode::Adaptive: query.mode = ClosestPointOnMesh::Mode::Deferred; break;
-                }
-                ModeLine.value.string = mode_strings[(u8)query.mode];
-            }
-            else if (key == 'M') {
-                u32 old_mesh_id = scene.geometries[1].id;
-                u32 new_mesh_id = (old_mesh_id + 1) % 3;
-                scene.geometries[1].id = new_mesh_id;
-                scene.geometries[2].id = new_mesh_id;
-                mesh = query.mesh = &meshes[new_mesh_id];
+            else if (key == '0') {
+                if (max_depth < depth) max_depth++;
+                if (min_depth < depth && controls::is_pressed::shift) min_depth++;
             }
         }
     }
