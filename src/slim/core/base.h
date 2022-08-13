@@ -793,7 +793,7 @@ namespace controls {
 }
 
 namespace os {
-    void* getMemory(u64 size, u64 base = Terabytes(2));
+    void* getMemory(u64 size, u64 base = 0);
     void setWindowTitle(char* str);
     void setWindowCapture(bool on);
     void setCursorVisibility(bool on);
@@ -859,7 +859,6 @@ namespace time {
         }
 
         INLINE void beginFrame() {
-            ticks_after = ticks_before;
             ticks_before = getTicks();
             ticks_diff = ticks_before - ticks_after;
             delta_time = (f32) ((f64) ticks_diff * seconds_per_tick);
@@ -959,7 +958,7 @@ namespace memory {
 
         MonotonicAllocator() = default;
 
-        explicit MonotonicAllocator(u64 Capacity, u64 starting = Terabytes(2)) {
+        explicit MonotonicAllocator(u64 Capacity, u64 starting = 0) {
             capacity = Capacity;
             address = (u8*)os::getMemory(Capacity, starting);
         }

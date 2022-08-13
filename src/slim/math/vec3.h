@@ -478,67 +478,14 @@ struct AABB {
     }
 
     INLINE bool overlapSphere(const vec3 &center, f32 radius) {
-        if (contains(center))
-            return true;
-
-        static AABB enlarged_box;
-        enlarged_box.min = min - radius;
-        enlarged_box.max = max + radius;
-        if (!enlarged_box.contains(center))
-            return false;
-
-        f32 radius_squared = radius * radius;
-        vec3 d_max = center - max;
-        vec3 d_min = min - center;
-        vec3 d_max2 = d_max * d_max;
-        vec3 d_min2 = d_min * d_min;
-        if (0 < d_max.x) { // Sphere is on the right
-            if (0 < d_max.y) { // Sphere is above
-                if (0 < d_max.z) { // Sphere is in front
-                    // Sphere is outside around the front top-right corner.
-                    // If the corner isn't in the sphere, early out:
-                    if (radius_squared < (d_max2.x + d_max2.y + d_max2.z)) return false;
-                } else if (0 < d_min.z) { // Sphere is behind
-                    // Sphere is outside around the back top-right corner.
-                    // If the corner isn't in the sphere, early out:
-                    if (radius_squared < (d_max2.x + d_max2.y + d_min2.z)) return false;
-                }
-            } else if (0 < d_min.y) { // Sphere is below
-                if (0 < d_max.z) { // Sphere is in front
-                    // Sphere is outside around the front bottom-right corner.
-                    // If the corner isn't in the sphere, early out:
-                    if (radius_squared < (d_max2.x + d_min2.y + d_max2.z)) return false;
-                } else if (0 < d_min.z) { // Sphere is behind
-                    // Sphere is outside around the back bottom-right corner.
-                    // If the corner isn't in the sphere, early out:
-                    if (radius_squared < (d_max2.x + d_min2.y + d_min2.z)) return false;
-                }
-            }
-        } else if (0 < d_min.x) { // Sphere is on the left
-            if (0 < d_max.y) { // Sphere is above
-                if (0 < d_max.z) { // Sphere is in front
-                    // Sphere is outside around the front top-left corner.
-                    // If the corner isn't in the sphere, early out:
-                    if (radius_squared < (d_min2.x + d_max2.y + d_max2.z)) return false;
-                } else if (0 < d_min.z) { // Sphere is behind
-                    // Sphere is outside around the back top-left corner.
-                    // If the corner isn't in the sphere, early out:
-                    if (radius_squared < (d_min2.x + d_max2.y + d_min2.z)) return false;
-                }
-            } else if (0 < d_min.y) { // Sphere is below
-                if (0 < d_max.z) { // Sphere is in front
-                    // Sphere is outside around the front bottom-left corner.
-                    // If the corner isn't in the sphere, early out:
-                    if (radius_squared < (d_min2.x + d_min2.y + d_max2.z)) return false;
-                } else if (0 < d_min.z) { // Sphere is behind
-                    // Sphere is outside around the back bottom-left corner.
-                    // If the corner isn't in the sphere, early out:
-                    if (radius_squared < (d_min2.x + d_min2.y + d_min2.z)) return false;
-                }
-            }
+        vec3 min_delta{min - center};
+        vec3 max_delta{center - max};
+        f32 squared_distance = 0;
+        for (u8 i = 0; i < 3; i++) {
+            if (min_delta.components[i] > 0) squared_distance += min_delta.components[i] * min_delta.components[i]; else
+            if (max_delta.components[i] > 0) squared_distance += max_delta.components[i] * max_delta.components[i];
         }
-
-        return true;
+        return squared_distance <= radius * radius;
     }
 
     INLINE f32 area() const {

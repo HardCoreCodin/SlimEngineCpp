@@ -21,7 +21,9 @@ enum TrianglePointOn {
 
     TrianglePointOn_Face,
     TrianglePointOn_Edge,
-    TrianglePointOn_Vertex
+    TrianglePointOn_Vertex,
+
+    TrianglePointOn_Error
 };
 
 struct Triangle {

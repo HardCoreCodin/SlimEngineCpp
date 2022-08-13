@@ -795,7 +795,7 @@ namespace controls {
 }
 
 namespace os {
-    void* getMemory(u64 size, u64 base = Terabytes(2));
+    void* getMemory(u64 size, u64 base = 0);
     void setWindowTitle(char* str);
     void setWindowCapture(bool on);
     void setCursorVisibility(bool on);
@@ -961,7 +961,7 @@ namespace memory {
 
         MonotonicAllocator() = default;
 
-        explicit MonotonicAllocator(u64 Capacity, u64 starting = Terabytes(2)) {
+        explicit MonotonicAllocator(u64 Capacity, u64 starting = 0) {
             capacity = Capacity;
             address = (u8*)os::getMemory(Capacity, starting);
         }
