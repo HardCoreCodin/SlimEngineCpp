@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 
 project(0_task)
-add_executable(0_ClosestPointOnMesh WIN32 src/examples/ClosestPointOnMesh.cpp)
+add_executable(0_ClosestPointOnMesh WIN32 src/examples/DemoApp.cpp)
 
 project(1_viewport)
 add_executable(1_viewport WIN32 src/examples/1_viewport.cpp)

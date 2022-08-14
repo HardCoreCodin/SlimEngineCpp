@@ -16,16 +16,6 @@ union TriangleVertexIndices {
     };
 };
 
-enum TrianglePointOn {
-    TrianglePointOn_None = 0,
-
-    TrianglePointOn_Face,
-    TrianglePointOn_Edge,
-    TrianglePointOn_Vertex,
-
-    TrianglePointOn_Error
-};
-
 struct Triangle {
     mat3 local_to_tangent;
     vec3 position, normal, U, V;

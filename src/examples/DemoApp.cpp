@@ -1,18 +1,8 @@
-#include "../slim/scene/selection.h"
-#include "../slim/draw/selection.h"
-#include "../slim/draw/hud.h"
-#include "../slim/draw/triangle.h"
-#include "../slim/draw/curve.h"
-#include "../slim/draw/grid.h"
-#include "../slim/draw/rectangle.h"
-#include "../slim/draw/mesh.h"
-#include "../slim/draw/rtree.h"
-#include "../slim/app.h"
-
-#include "ClosestPointOnMesh.h"
+#include "../slim.h"
+#include "./ClosestPointOnMesh.hpp"
 
 
-struct ClosestPointOnMeshApp : SlimApp {
+struct DemoApp : SlimApp {
     // Viewport:
     Camera camera{
             {0, 10, -15},
@@ -26,19 +16,25 @@ struct ClosestPointOnMeshApp : SlimApp {
     bool draw_query_result = false;
     bool draw_query_aabbs = false;
     bool draw_query_triangles = false;
-    bool adaptive = false;
-    bool multi = false;
+    bool adaptive = true;
+    bool multi = true;
+
+    u8 min_depth = 0;
+    u8 max_depth = 0;
+    f32 world_max_distance = 0.3f;
+
+    time::Timer query_timer;
 
     // HUD:
-    HUDLine QueryLine{(char*)"Show Query     : ", (char*)"On",(char*)"Off", &draw_query_result, true};
-    HUDLine AABBsLine{(char*)"Show AABBs     : ", (char*)"On",(char*)"Off", &draw_query_aabbs, true};
-    HUDLine TriesLine{(char*)"Show Triangles : ", (char*)"On",(char*)"Off", &draw_query_triangles, true};
-    HUDLine RTreeLine{(char*)"Show RTree     : ", (char*)"On",(char*)"Off", &draw_rtree, true};
-    HUDLine MultiLine{(char*)"Cross Mesh     : ", (char*)"On",(char*)"Off", &multi, true};
-    HUDLine AdaptLine{(char*)"Adaptive Mode  : ", (char*)"On",(char*)"Off", &adaptive, true};
+    HUDLine QueryLine{(char*)"Show Query     : ", (char*)"On",(char*)"Off", &draw_query_result, true, Yellow, DarkYellow} ;
+    HUDLine AABBsLine{(char*)"Show AABBs     : ", (char*)"On",(char*)"Off", &draw_query_aabbs, true, Magenta, DarkMagenta};
+    HUDLine TriesLine{(char*)"Show Triangles : ", (char*)"On",(char*)"Off", &draw_query_triangles, true, Green, DarkGreen};
+    HUDLine RTreeLine{(char*)"Show RTree     : ", (char*)"On",(char*)"Off", &draw_rtree, true, Cyan, DarkCyan};
+    HUDLine MultiLine{(char*)"Cross Mesh     : ", (char*)"On",(char*)"Off", &multi, true, BrightBlue, Blue};
+    HUDLine AdaptLine{(char*)"Adaptive Mode  : ", (char*)"On",(char*)"Off", &adaptive, true, Green, Red};
     HUDLine TimerLine{(char*)"Micro Seconds  : "};
     HUDSettings hud_settings{7};
-    HUD hud{hud_settings, &QueryLine};
+    HUD hud{hud_settings, &QueryLine, White};
 
     // Scene:
     Grid grid{11, 11}, *grids{&grid};
@@ -61,7 +57,7 @@ struct ClosestPointOnMeshApp : SlimApp {
     };
 
     Geometry grid1{grid_transform,GeometryType_Grid, BrightGrey};
-    Geometry sphere_geo{{{4, 4, 2}}, GeometryType_Curve, BrightYellow};
+    Geometry sphere_geo{{{4, 4, 2}, {}, {world_max_distance}}, GeometryType_Curve, BrightYellow};
     Geometry mesh1{{{+8, 5, 0} }, GeometryType_Mesh, BrightBlue};
     Geometry mesh2{{{-8, 5, 0} }, GeometryType_Mesh, BrightGrey}, *geometries{&grid1};
 
@@ -85,22 +81,15 @@ struct ClosestPointOnMeshApp : SlimApp {
     // Drawing:
     f32 opacity = 0.5f;
 
-    u16 min_depth = 0;
-    u16 max_depth = 0;
-    f32 world_max_distance = 1;
-    f32 max_distance = 1;
-
-    time::Timer query_timer;
-
     void doQuery(Mesh &mesh, Transform &transform) {
         query_timer.beginFrame();
 
-        if (!multi && draw_query_triangles || draw_query_aabbs)
+        if (draw_query_triangles || draw_query_aabbs)
             for (u32 node_index = 0; node_index < mesh.rtree.node_count; node_index++)
                 mesh.rtree.nodes[node_index].flags = 0;
 
         vec3 &scale = transform.scale;
-        max_distance = world_max_distance / ((scale.x == scale.y && scale.x == scale.z) ? scale.x : (scale.length()));
+        f32 max_distance = world_max_distance / ((scale.x == scale.y && scale.x == scale.z) ? scale.x : (scale.length()));
 
         query.mesh = &mesh;
         query.mesh_transform = &transform;
@@ -309,22 +298,22 @@ struct ClosestPointOnMeshApp : SlimApp {
         if (key == 'A') move.left     = is_pressed;
         if (key == 'D') move.right    = is_pressed;
         if (!is_pressed) {
-            u16 depth = meshes[scene.geometries[1].id].rtree.height;
+            u8 depth = meshes[scene.geometries[1].id].rtree.height;
             if (key == controls::key_map::tab) hud.enabled = !hud.enabled;
             else if (key == 'M') query_geo->id = (query_geo->id + 1) % 3;
-            else if (key == '1') draw_query_result = !draw_query_result;
-            else if (key == '2') draw_query_aabbs = !draw_query_aabbs;
-            else if (key == '3') draw_query_triangles = !draw_query_triangles;
-            else if (key == '4') draw_rtree = !draw_rtree;
-            else if (key == '5') multi = !multi;
-            else if (key == '6') adaptive = !adaptive;
-            else if (key == '7') { if (min_depth > 0) min_depth--; }
-            else if (key == '8') { if (min_depth < depth) min_depth++; }
-            else if (key == '9') {
+            else if (key == 'Q') draw_query_result = !draw_query_result;
+            else if (key == 'C') multi = !multi;
+            else if (key == 'B') draw_query_aabbs = !draw_query_aabbs;
+            else if (key == 'G') draw_query_triangles = !draw_query_triangles;
+            else if (key == 'T') draw_rtree = !draw_rtree;
+            else if (key == 'V') adaptive = !adaptive;
+            else if (key == '3') { if (min_depth > 0) min_depth--; }
+            else if (key == '4') { if (min_depth < depth) min_depth++; }
+            else if (key == '1') {
                 if (max_depth > 0) max_depth--;
                 if (min_depth > 0 && controls::is_pressed::shift) min_depth--;
             }
-            else if (key == '0') {
+            else if (key == '2') {
                 if (max_depth < depth) max_depth++;
                 if (min_depth < depth && controls::is_pressed::shift) min_depth++;
             }
@@ -343,9 +332,9 @@ struct ClosestPointOnMeshApp : SlimApp {
     void OnMouseWheelScrolled(f32 amount) override {
         if (controls::is_pressed::ctrl && selection.geometry) {
             if (selection.geometry == &sphere_geo) {
-                world_max_distance += mouse::wheel_scroll_amount * 0.01f;
-                if (world_max_distance < 0.1f) world_max_distance = 0.1f;
-                if (world_max_distance > 5.0f) world_max_distance = 5.0;
+                world_max_distance += mouse::wheel_scroll_amount * 0.001f;
+                if (world_max_distance < 0.3f) world_max_distance = 0.3f;
+                if (world_max_distance > 3.0f) world_max_distance = 3.0;
                 sphere_geo.transform.scale = world_max_distance;
             } else {
                 f32 scale = selection.geometry->transform.scale.x;
@@ -367,5 +356,5 @@ struct ClosestPointOnMeshApp : SlimApp {
 };
 
 SlimApp* createApp() {
-    return new ClosestPointOnMeshApp();
+    return new DemoApp();
 }

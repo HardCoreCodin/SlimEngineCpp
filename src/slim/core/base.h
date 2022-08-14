@@ -3,26 +3,50 @@
 #include <cmath>
 
 #if defined(__clang__)
-#define COMPILER_CLANG 1
-#define COMPILER_CLANG_OR_GCC 1
+    #define COMPILER_CLANG 1
+    #define COMPILER_CLANG_OR_GCC 1
 #elif defined(__GNUC__) || defined(__GNUG__)
-#define COMPILER_GCC 1
+    #define COMPILER_GCC 1
     #define COMPILER_CLANG_OR_GCC 1
 #elif defined(_MSC_VER)
     #define COMPILER_MSVC 1
 #endif
 
-#if (defined(SLIMMER) || !defined(NDEBUG))
-#define INLINE
-#elif defined(COMPILER_MSVC)
-#define INLINE inline __forceinline
-#elif defined(COMPILER_CLANG_OR_GCC)
-    #define INLINE inline __attribute__((always_inline))
+#ifdef __CUDACC__
+    #ifndef NDEBUG
+        #include <stdio.h>
+        #include <stdlib.h>
+        #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+        inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
+            if (code != cudaSuccess) {
+                fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+                if (abort) exit(code);
+            }
+        }
+        #ifndef INLINE
+            #define INLINE __device__ __host__
+        #endif
+    #else
+        #ifndef INLINE
+            #define INLINE __device__ __host__ __forceinline__
+        #endif
+        #define gpuErrchk(ans) (ans);
+    #endif
 #else
-    #define INLINE inline
+    #ifndef INLINE
+        #if (defined(SLIMMER) || !defined(NDEBUG))
+            #define INLINE
+        #elif defined(COMPILER_MSVC)
+            #define INLINE inline __forceinline
+        #elif defined(COMPILER_CLANG_OR_GCC)
+            #define INLINE inline __attribute__((always_inline))
+        #else
+            #define INLINE inline
+        #endif
+    #endif
 #endif
 
-#if defined(COMPILER_CLANG_OR_GCC)
+#if defined(COMPILER_CLANG)
     #define likely(x)   __builtin_expect(x, true)
     #define unlikely(x) __builtin_expect_with_probability(x, false, 0.95)
 #else
@@ -31,31 +55,25 @@
 #endif
 
 #ifdef COMPILER_CLANG
-#define ENABLE_FP_CONTRACT \
+    #define ENABLE_FP_CONTRACT \
         _Pragma("clang diagnostic push") \
         _Pragma("clang diagnostic ignored \"-Wunknown-pragmas\"") \
         _Pragma("STDC FP_CONTRACT ON") \
         _Pragma("clang diagnostic pop")
 #else
-#define ENABLE_FP_CONTRACT
+    #define ENABLE_FP_CONTRACT
 #endif
 
 #ifdef FP_FAST_FMAF
-#define fast_mul_add(a, b, c) fmaf(a, b, c)
+    #define fast_mul_add(a, b, c) fmaf(a, b, c)
 #else
-ENABLE_FP_CONTRACT
-#define fast_mul_add(a, b, c) ((a) * (b) + (c))
+    ENABLE_FP_CONTRACT
+    #define fast_mul_add(a, b, c) ((a) * (b) + (c))
 #endif
 
-#ifdef __cplusplus
-    #define null nullptr
-    #ifndef signbit
-        #define signbit std::signbit
-    #endif
-#else
-    #define null 0
-    typedef unsigned char      bool;
- #endif
+#ifndef signbit
+    #define signbit std::signbit
+#endif
 
 typedef unsigned char      u8;
 typedef unsigned short     u16;
