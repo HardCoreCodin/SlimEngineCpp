@@ -12,6 +12,14 @@ void load(Scene &scene, char* scene_file_path = nullptr) {
 
     os::readFromFile(&scene.counts, sizeof(SceneCounts), file_handle);
 
+    if (scene.counts.meshes)
+        for (u32 i = 0; i < scene.counts.meshes; i++)
+            readHeader(scene.meshes[i], file_handle);
+
+    if (scene.counts.textures)
+        for (u32 i = 0; i < scene.counts.textures; i++)
+            readHeader(scene.textures[i], file_handle);
+
     if (scene.counts.cameras) {
         Camera *camera = scene.cameras;
         for (u32 i = 0; i < scene.counts.cameras; i++, camera++) {
@@ -41,13 +49,13 @@ void load(Scene &scene, char* scene_file_path = nullptr) {
         for (u32 i = 0; i < scene.counts.curves; i++)
             os::readFromFile(scene.curves + i, sizeof(Curve), file_handle);
 
-    if (scene.counts.meshes) {
-        Mesh *mesh = scene.meshes;
-        for (u32 i = 0; i < scene.counts.meshes; i++, mesh++) {
-            readHeader(*mesh, file_handle);
-            readContent(*mesh, file_handle);
-        }
-    }
+    if (scene.counts.meshes)
+        for (u32 i = 0; i < scene.counts.meshes; i++)
+            readContent(scene.meshes[i], file_handle);
+
+    if (scene.counts.textures)
+        for (u32 i = 0; i < scene.counts.textures; i++)
+            readContent(scene.textures[i], file_handle);
 
     os::closeFile(file_handle);
 }
@@ -61,6 +69,14 @@ void save(Scene &scene, char* scene_file_path = nullptr) {
     void *file_handle = os::openFileForWriting(scene_file_path);
 
     os::writeToFile(&scene.counts, sizeof(SceneCounts), file_handle);
+
+    if (scene.counts.meshes)
+        for (u32 i = 0; i < scene.counts.meshes; i++)
+            writeHeader(scene.meshes[i], file_handle);
+
+    if (scene.counts.textures)
+        for (u32 i = 0; i < scene.counts.textures; i++)
+            writeHeader(scene.textures[i], file_handle);
 
     if (scene.counts.cameras) {
         Camera *camera = scene.cameras;
@@ -91,13 +107,13 @@ void save(Scene &scene, char* scene_file_path = nullptr) {
         for (u32 i = 0; i < scene.counts.curves; i++)
             os::writeToFile(scene.curves + i, sizeof(Curve), file_handle);
 
-    if (scene.counts.meshes) {
-        Mesh *mesh = scene.meshes;
-        for (u32 i = 0; i < scene.counts.meshes; i++, mesh++) {
-            writeHeader(*mesh, file_handle);
-            writeContent(*mesh, file_handle);
-        }
-    }
+    if (scene.counts.meshes)
+        for (u32 i = 0; i < scene.counts.meshes; i++)
+            writeContent(scene.meshes[i], file_handle);
+
+    if (scene.counts.textures)
+        for (u32 i = 0; i < scene.counts.textures; i++)
+            writeContent(scene.textures[i], file_handle);
 
     os::closeFile(file_handle);
 }

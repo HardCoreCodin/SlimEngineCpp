@@ -11,9 +11,9 @@ struct Camera : OrientationUsing3x3Matrix {
     f32 target_distance{CAMERA_DEFAULT__TARGET_DISTANCE};
     f32 dolly_amount{0};
 
-    Camera() : OrientationUsing3x3Matrix{}, position{0.0f} {}
-    explicit Camera(const vec3 &position) : OrientationUsing3x3Matrix{}, position{position} {}
-    explicit Camera(const vec3 &position, const vec3 &orientation = vec3{0.0f}, f32 zoom_amount = CAMERA_DEFAULT__FOCAL_LENGTH) :
+    XPU Camera() : OrientationUsing3x3Matrix{}, position{0.0f} {}
+    XPU explicit Camera(const vec3 &position) : OrientationUsing3x3Matrix{}, position{position} {}
+    XPU explicit Camera(const vec3 &position, const vec3 &orientation = vec3{0.0f}, f32 zoom_amount = CAMERA_DEFAULT__FOCAL_LENGTH) :
             OrientationUsing3x3Matrix{orientation.x, orientation.y, orientation.z},
             position{position}, current_velocity{vec3{0}}, focal_length{zoom_amount}, zoom_amount{zoom_amount} {}
 
@@ -49,19 +49,19 @@ struct Camera : OrientationUsing3x3Matrix {
         position += up * up_amount + right * right_amount;
     }
 
-    INLINE vec3 getRayDirectionAt(f32 x, f32 y, f32 width, f32 height) const {
+    INLINE_XPU vec3 getRayDirectionAt(f32 x, f32 y, f32 width, f32 height) const {
         vec3 start{forward.scaleAdd(focal_length * height,up.scaleAdd(height,right * -width))};
         return right.scaleAdd(x * 2.0f + 1,up.scaleAdd(1 - 2.0f * y, start)).normalized();
     }
 
-    INLINE vec3 internPos(const vec3 &pos) const { return _unrotate(_untranslate(pos)); }
-    INLINE vec3 internDir(const vec3 &dir) const { return _unrotate(dir); }
-    INLINE vec3 externPos(const vec3 &pos) const { return _translate(_rotate(pos)); }
-    INLINE vec3 externDir(const vec3 &dir) const { return _rotate(dir); }
+    INLINE_XPU vec3 internPos(const vec3 &pos) const { return _unrotate(_untranslate(pos)); }
+    INLINE_XPU vec3 internDir(const vec3 &dir) const { return _unrotate(dir); }
+    INLINE_XPU vec3 externPos(const vec3 &pos) const { return _translate(_rotate(pos)); }
+    INLINE_XPU vec3 externDir(const vec3 &dir) const { return _rotate(dir); }
 
 private:
-    INLINE vec3 _rotate(const vec3 &pos) const { return rotation * pos; }
-    INLINE vec3 _unrotate(const vec3 &pos) const { return rotation.transposed() * pos; }
-    INLINE vec3 _translate(const vec3 &pos) const { return pos + position; }
-    INLINE vec3 _untranslate(const vec3 &pos) const { return pos - position; }
+    INLINE_XPU vec3 _rotate(const vec3 &pos) const { return rotation * pos; }
+    INLINE_XPU vec3 _unrotate(const vec3 &pos) const { return rotation.transposed() * pos; }
+    INLINE_XPU vec3 _translate(const vec3 &pos) const { return pos + position; }
+    INLINE_XPU vec3 _untranslate(const vec3 &pos) const { return pos - position; }
 };

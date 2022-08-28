@@ -17,9 +17,9 @@ struct ClosestPointOnMesh {
     u32 max_result_count = 0;
     ClosestPointOnTriangle *results = nullptr;
 
-    TrianglePointOn find(vec3 search_origin, f32 max_distance, ClosestPointOnTriangle &closest_point_on_triangle, bool adaptive = true) const {
+    INLINE_XPU TrianglePointOn find(vec3 search_origin, f32 max_distance, ClosestPointOnTriangle &closest_point_on_triangle, bool adaptive = true) const {
 #ifndef NDEBUG
-        if (max_stack_size < getMaxStackSize(*mesh)) {
+        if (max_stack_size < mesh->rtree.height) {
         closest_point_on_triangle.on = TrianglePointOn_Error;
         return TrianglePointOn_Error;
     }

@@ -6,6 +6,7 @@
 #include "./camera.h"
 #include "../core/ray.h"
 #include "../core/transform.h"
+#include "../serialization/texture.h"
 #include "../serialization/mesh.h"
 
 struct SceneCounts {
@@ -15,6 +16,7 @@ struct SceneCounts {
     u32 boxes{0};
     u32 curves{0};
     u32 meshes{0};
+    u32 textures{0};
 };
 
 struct Scene {
@@ -27,11 +29,15 @@ struct Scene {
     Box *boxes{nullptr};
     Camera *cameras{nullptr};
     Mesh *meshes{nullptr};
+    Texture *textures{nullptr};
 
     u64 last_io_ticks = 0;
     bool last_io_is_save{false};
     u8 max_rtree_height = 0;
     u32 max_triangle_count = 0;
+    u32 *mesh_rtree_node_counts = nullptr;
+    u32 *mesh_triangle_counts = nullptr;
+    u32 *mesh_vertex_counts = nullptr;
 
     Scene(SceneCounts counts,
           char *file_path = nullptr,
@@ -53,17 +59,41 @@ struct Scene {
         curves{curves},
         meshes{meshes}
     {
+        memory::MonotonicAllocator temp_allocator;
+        u32 capacity = 0;
+
+        if (counts.textures) capacity += getTotalMemoryForTextures(texture_files, counts.textures);
+        if (counts.meshes) {
+            for (u32 i = 0; i < counts.meshes; i++)
+                meshes[i] = Mesh{};
+
+            capacity += getTotalMemoryForMeshes(mesh_files, counts.meshes ,&max_rtree_height, &max_triangle_count);
+            capacity += sizeof(u32) * (3 * counts.meshes);
+        }
+
+        if (!memory_allocator) {
+            temp_allocator = memory::MonotonicAllocator{capacity};
+            memory_allocator = &temp_allocator;
+        }
+
         if (meshes && mesh_files && counts.meshes) {
             for (u32 i = 0; i < counts.meshes; i++)
                 meshes[i] = Mesh{};
-            memory::MonotonicAllocator temp_allocator;
-            u32 capacity = getTotalMemoryForMeshes(mesh_files, counts.meshes ,&max_rtree_height, &max_triangle_count);
-            if (!memory_allocator) {
-                temp_allocator = memory::MonotonicAllocator{capacity};
-                memory_allocator = &temp_allocator;
+
+            mesh_rtree_node_counts = (u32*)memory_allocator->allocate(sizeof(u32) * counts.meshes);
+            mesh_triangle_counts = (u32*)memory_allocator->allocate(sizeof(u32) * counts.meshes);
+            mesh_vertex_counts = (u32*)memory_allocator->allocate(sizeof(u32) * counts.meshes);
+            for (u32 i = 0; i < counts.meshes; i++) {
+                load(meshes[i], mesh_files[i].char_ptr, memory_allocator);
+                mesh_rtree_node_counts[i] = meshes[i].rtree.node_count;
+                mesh_triangle_counts[i] = meshes[i].triangle_count;
+                mesh_vertex_counts[i] = meshes[i].vertex_count;
             }
-            for (u32 i = 0; i < counts.meshes; i++) load(meshes[i], mesh_files[i].char_ptr, memory_allocator);
         }
+
+        if (textures && texture_files && counts.textures)
+            for (u32 i = 0; i < counts.textures; i++)
+                load(textures[i], texture_files[i].char_ptr, memory_allocator);
     }
 
     INLINE bool castRay(Ray &ray) const {

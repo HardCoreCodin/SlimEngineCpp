@@ -20,10 +20,10 @@ struct Ray {
     vec3 origin, direction;
     RayHit hit;
 
-    INLINE vec3 at(f32 t) const { return direction.scaleAdd(t, origin);; }
-    INLINE vec3 operator [](f32 t) const { return at(t); }
+    INLINE_XPU vec3 at(f32 t) const { return direction.scaleAdd(t, origin);; }
+    INLINE_XPU vec3 operator [](f32 t) const { return at(t); }
 
-    INLINE BoxSide hitsCube() {
+    INLINE_XPU BoxSide hitsCube() {
         u8 ray_is_facing = 0;
 
         if (signbit(direction.x)) ray_is_facing |= RayIsFacing_Left;
@@ -85,7 +85,7 @@ struct Ray {
         return side;
     }
 
-    INLINE bool hitsPlane(const vec3 &P, const vec3 &N) {
+    INLINE_XPU bool hitsPlane(const vec3 &P, const vec3 &N) {
         f32 NdotRd = N.dot(direction);
         if (NdotRd == 0) // The ray is parallel to the plane
             return false;

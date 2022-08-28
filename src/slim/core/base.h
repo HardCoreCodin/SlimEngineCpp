@@ -19,20 +19,41 @@
         #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
         inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
             if (code != cudaSuccess) {
-                fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+                fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code) , file, line);
                 if (abort) exit(code);
             }
         }
+        #ifndef XPU
+            #define XPU __device__ __host__
+        #endif
+        #ifndef INLINE_XPU
+            #define INLINE_XPU __device__ __host__
+        #endif
         #ifndef INLINE
-            #define INLINE __device__ __host__
+            #define INLINE
         #endif
     #else
+        #ifndef XPU
+            #define XPU __device__ __host__
+        #endif
+        #ifndef INLINE_XPU
+            #define INLINE_XPU __device__ __host__ __forceinline__
+        #endif
         #ifndef INLINE
-            #define INLINE __device__ __host__ __forceinline__
+            #define INLINE __forceinline__
         #endif
         #define gpuErrchk(ans) (ans);
     #endif
+
+    #define checkErrors() gpuErrchk(cudaPeekAtLastError())
+    #define uploadNto(cpu_ptr, gpu_ptr, N, offset) gpuErrchk(cudaMemcpy(&((gpu_ptr)[(offset)]), (cpu_ptr), sizeof((cpu_ptr)[0]) * (N), cudaMemcpyHostToDevice))
+    #define uploadN(  cpu_ptr, gpu_ptr, N        ) gpuErrchk(cudaMemcpy(&((gpu_ptr)[0])       , (cpu_ptr), sizeof((cpu_ptr)[0]) * (N), cudaMemcpyHostToDevice))
+    #define downloadN(gpu_ptr, cpu_ptr, N)         gpuErrchk(cudaMemcpy((cpu_ptr), &((gpu_ptr)[0])       , sizeof((cpu_ptr)[0]) * (N), cudaMemcpyDeviceToHost))
+    #define downloadNTo(gpu_ptr,cpu_ptr,N, offset) gpuErrchk(cudaMemcpy((cpu_ptr), &((gpu_ptr)[(offset)]), sizeof((cpu_ptr)[0]) * (N), cudaMemcpyDeviceToHost))
 #else
+    #ifndef XPU
+        #define XPU
+    #endif
     #ifndef INLINE
         #if (defined(SLIMMER) || !defined(NDEBUG))
             #define INLINE
@@ -43,6 +64,9 @@
         #else
             #define INLINE inline
         #endif
+    #endif
+    #ifndef INLINE_XPU
+        #define INLINE_XPU INLINE
     #endif
 #endif
 
@@ -147,30 +171,30 @@ typedef double f64;
 #define fractionOf(x) ((x) - floorf(x))
 #define oneMinusFractionOf(x) (1 - fractionOf(x))
 
-INLINE f32 clampedValue(f32 value, f32 from, f32 to) {
+INLINE_XPU f32 clampedValue(f32 value, f32 from, f32 to) {
     f32 mn = value < to ? value : to;
     return mn > from ? mn : from;
 }
 
-INLINE i32 clampedValue(i32 value, i32 from, i32 to) {
+INLINE_XPU i32 clampedValue(i32 value, i32 from, i32 to) {
     i32 mn = value < to ? value : to;
     return mn > from ? mn : from;
 }
 
-INLINE f32 clampedValue(f32 value, f32 to) {
+INLINE_XPU f32 clampedValue(f32 value, f32 to) {
     return value < to ? value : to;
 }
 
-INLINE i32 clampedValue(i32 value, i32 to) {
+INLINE_XPU i32 clampedValue(i32 value, i32 to) {
     return value < to ? value : to;
 }
 
-INLINE f32 clampedValue(f32 value) {
+INLINE_XPU f32 clampedValue(f32 value) {
     f32 mn = value < 1.0f ? value : 1.0f;
     return mn > 0.0f ? mn : 0.0f;
 }
 
-INLINE i32 clampedValue(i32 value) {
+INLINE_XPU i32 clampedValue(i32 value) {
     i32 mn = value < 1 ? value : 1;
     return mn > 0 ? mn : 0;
 }
@@ -282,12 +306,12 @@ struct Move {
     bool backward{false};
 };
 
-INLINE f32 smoothStep(f32 from, f32 to, f32 t) {
+INLINE_XPU f32 smoothStep(f32 from, f32 to, f32 t) {
     t = (t - from) / (to - from);
     return t * t * (3.0f - 2.0f * t);
 }
 
-INLINE f32 approach(f32 src, f32 trg, f32 diff) {
+INLINE_XPU f32 approach(f32 src, f32 trg, f32 diff) {
     f32 out;
 
     out = src + diff; if (trg > out) return out;
@@ -341,55 +365,55 @@ template <class T>
 struct Orientation {
     T rotation{};
 
-    Orientation() : rotation{T::Identity} {}
-    explicit Orientation(f32 x_radians, f32 y_radians = 0, f32 z_radians = 0) {
+    INLINE_XPU Orientation() : rotation{T::Identity} {}
+    INLINE_XPU explicit Orientation(f32 x_radians, f32 y_radians = 0, f32 z_radians = 0) {
         setRotation(x_radians, y_radians, z_radians);
     }
 
-    INLINE void rotate(f32 x_radians, f32 y_radians, f32 z_radians) {
+    INLINE_XPU void rotate(f32 x_radians, f32 y_radians, f32 z_radians) {
         setRotation(x + x_radians, y + y_radians, x + z_radians);
     }
 
-    INLINE void rotate(f32 x_radians, f32 y_radians) {
+    INLINE_XPU void rotate(f32 x_radians, f32 y_radians) {
         setRotation(x + x_radians, y + y_radians);
     }
 
-    INLINE void setRotation(f32 x_radians, f32 y_radians, f32 z_radians) {
+    INLINE_XPU void setRotation(f32 x_radians, f32 y_radians, f32 z_radians) {
         x = x_radians;
         y = y_radians;
         z = z_radians;
         _update();
     }
 
-    INLINE void setRotation(f32 x_radians, f32 y_radians) {
+    INLINE_XPU void setRotation(f32 x_radians, f32 y_radians) {
         x = x_radians;
         y = y_radians;
         _update();
     }
 
-    INLINE void rotateAroundX(f32 radians) {
+    INLINE_XPU void rotateAroundX(f32 radians) {
         setRotationAroundX(x + radians);
     }
 
-    INLINE void rotateAroundY(f32 radians) {
+    INLINE_XPU void rotateAroundY(f32 radians) {
         setRotationAroundY(y + radians);
     }
 
-    INLINE void rotateAroundZ(f32 radians) {
+    INLINE_XPU void rotateAroundZ(f32 radians) {
         setRotationAroundZ(z + radians);
     }
 
-    INLINE void setRotationAroundX(f32 radians) {
+    INLINE_XPU void setRotationAroundX(f32 radians) {
         x = radians;
         _update();
     }
 
-    INLINE void setRotationAroundY(f32 radians) {
+    INLINE_XPU void setRotationAroundY(f32 radians) {
         y = radians;
         _update();
     }
 
-    INLINE void setRotationAroundZ(f32 radians) {
+    INLINE_XPU void setRotationAroundZ(f32 radians) {
         z = radians;
         _update();
     }
@@ -397,8 +421,8 @@ struct Orientation {
 protected:
     f32 x, y, z;
 
-    void _update() {
-        rotation = T::Identity;
+    INLINE_XPU void _update() {
+        rotation = T{};
         if (z != 0.0f) rotation = T::RotationAroundZ(z);
         if (x != 0.0f) rotation *= T::RotationAroundX(x);
         if (y != 0.0f) rotation *= T::RotationAroundY(y);
@@ -443,9 +467,9 @@ struct Color {
         struct { f32 r  , g    , b   ; };
     };
 
-    Color(f32 value) : red{value}, green{value}, blue{value} {}
-    Color(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f) : red{red}, green{green}, blue{blue} {}
-    Color(enum ColorID color_id) : Color{} {
+    INLINE_XPU Color(f32 value) : red{value}, green{value}, blue{value} {}
+    INLINE_XPU Color(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f) : red{red}, green{green}, blue{blue} {}
+    INLINE_XPU Color(enum ColorID color_id) : Color{} {
         switch (color_id) {
             case Black: break;
             case White:

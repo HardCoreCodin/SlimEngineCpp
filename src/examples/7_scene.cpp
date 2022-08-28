@@ -41,14 +41,14 @@ struct SceneApp : SlimApp {
     Geometry coil_geo{{{4, 4, 2}}, GeometryType_Curve, Magenta, 1};
     Geometry suzanne_geo1{{{+8, 5, 0}}, GeometryType_Mesh, Yellow};
     Geometry suzanne_geo2{{{-8, 5, 0}}, GeometryType_Mesh, Cyan};
-    Geometry dragon_geo{{{0, 5, 5}}, GeometryType_Mesh, Blue, 1};
+    Geometry dog_geo{{{0, 5, 5}}, GeometryType_Mesh, Blue, 1};
     Geometry box_geo{{}, GeometryType_Box, Yellow}, *geometries{&grid_geo};
 
     char strings[3][100] = {};
     Mesh meshes[2];
     String mesh_files[2] = {
             String::getFilePath((char*)"suzanne.mesh",strings[1],(char*)__FILE__),
-            String::getFilePath((char*)"dragon.mesh" ,strings[2],(char*)__FILE__)
+            String::getFilePath((char*)"dog.mesh" ,strings[2],(char*)__FILE__)
     };
     String scene_file = String::getFilePath((char*)"this.scene",strings[0],(char*)__FILE__);
     SceneCounts counts{1, 7, 1, 1, 2, 2 };

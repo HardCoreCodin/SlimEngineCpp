@@ -6,25 +6,25 @@
 #include "./mat3.h"
 #include "./mat4.h"
 
-INLINE vec4 Vec4(const vec3 &v3, f32 w = 0.0f) {
+INLINE_XPU vec4 Vec4(const vec3 &v3, f32 w = 0.0f) {
     return {v3.x, v3.y, v3.z, w};
 }
 
-INLINE vec3 Vec3(const vec4 &v4) {
+INLINE_XPU vec3 Vec3(const vec4 &v4) {
     return {v4.x, v4.y, v4.z};
 }
 
-INLINE vec2 Vec2(const vec3 &v3) {
+INLINE_XPU vec2 Vec2(const vec3 &v3) {
     return {v3.x, v3.y};
 }
 
-INLINE mat3 Mat3(const quat &q) {
+INLINE_XPU mat3 Mat3(const quat &q) {
     mat3 mat;
     q.setXYZ(mat.X, mat.Y, mat.Z);
     return mat;
 }
 
-INLINE quat Quat(const mat3 &m) {
+INLINE_XPU quat Quat(const mat3 &m) {
     f32 fourXSquaredMinus1 = m.X.x - m.Y.y - m.Z.z;
     f32 fourYSquaredMinus1 = m.Y.y - m.X.x - m.Z.z;
     f32 fourZSquaredMinus1 = m.Z.z - m.X.x - m.Y.y;
@@ -90,11 +90,11 @@ INLINE quat Quat(const mat3 &m) {
     return {};
 }
 
-INLINE mat3 Mat3I(const quat &rotation)  {
+INLINE_XPU mat3 Mat3I(const quat &rotation)  {
     return Mat3(rotation.conjugate());
 }
 
-mat4 Mat4(const quat &rotation, const vec3 &scale, const vec3 &position) {
+INLINE_XPU mat4 Mat4(const quat &rotation, const vec3 &scale, const vec3 &position) {
     mat3 rotation_matrix{Mat3(rotation)};
     return {
             Vec4(rotation_matrix.X * scale.x),
@@ -104,16 +104,16 @@ mat4 Mat4(const quat &rotation, const vec3 &scale, const vec3 &position) {
     };
 }
 
-mat4 Mat4(const mat3 &m3, const vec4 &W = {0, 0, 0, 1}) {
+INLINE_XPU mat4 Mat4(const mat3 &m3, const vec4 &W = {0, 0, 0, 1}) {
     return {
-        Vec4(m3.X),
-        Vec4(m3.Y),
-        Vec4(m3.Z),
-        W
+            Vec4(m3.X),
+            Vec4(m3.Y),
+            Vec4(m3.Z),
+            W
     };
 }
 
-INLINE mat4 Mat4(const mat3 &rotation, const vec3 &position) {
+INLINE_XPU mat4 Mat4(const mat3 &rotation, const vec3 &position) {
     return {
             Vec4(rotation.X),
             Vec4(rotation.Y),

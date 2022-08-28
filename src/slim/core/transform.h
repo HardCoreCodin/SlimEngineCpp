@@ -6,40 +6,40 @@ struct Transform : OrientationUsingQuaternion {
     vec3 position{0.0f};
     vec3 scale{1.0f};
 
-    Transform() : OrientationUsingQuaternion{}, position{0.0f}, scale{1.0f} {}
-    Transform(const vec3 &position) : OrientationUsingQuaternion{}, position{position}, scale{1.0f} {}
-    Transform(const vec3 &position, const vec3 &orientation, const vec3 &scale = vec3{1.0f}) :
+    INLINE_XPU Transform() : OrientationUsingQuaternion{}, position{0.0f}, scale{1.0f} {}
+    INLINE_XPU Transform(const vec3 &position) : OrientationUsingQuaternion{}, position{position}, scale{1.0f} {}
+    INLINE_XPU Transform(const vec3 &position, const vec3 &orientation, const vec3 &scale = vec3{1.0f}) :
             OrientationUsingQuaternion{
-        orientation.x,
-        orientation.y,
-        orientation.z
-        }, position{position}, scale{scale} {}
+                    orientation.x,
+                    orientation.y,
+                    orientation.z
+            }, position{position}, scale{scale} {}
 
-    void externPosAndDir(const vec3 &pos, const vec3 &dir, vec3 &out_pos, vec3 &out_dir) const {
+    INLINE_XPU void externPosAndDir(const vec3 &pos, const vec3 &dir, vec3 &out_pos, vec3 &out_dir) const {
         out_pos = position + (rotation * (scale * position));
         out_dir = (rotation * (scale * dir)).normalized();
     }
 
-    void internPosAndDir(const vec3 &pos, const vec3 &dir, vec3 &out_pos, vec3 &out_dir) const {
+    INLINE_XPU void internPosAndDir(const vec3 &pos, const vec3 &dir, vec3 &out_pos, vec3 &out_dir) const {
         vec3 inv_scale = 1.0f / scale;
         quat inv_rotation = rotation.conjugate();
         out_pos = inv_scale * (inv_rotation * (pos - position));
         out_dir = (inv_scale * (inv_rotation * dir)).normalized();
     }
 
-    INLINE vec3 externPos(const vec3 &pos) const { return _translate(_rotate(_scale(pos))); }
-    INLINE vec3 internPos(const vec3 &pos) const { return _unscale(_unrotate(_untranslate(pos))); }
+    INLINE_XPU vec3 externPos(const vec3 &pos) const { return _translate(_rotate(_scale(pos))); }
+    INLINE_XPU vec3 internPos(const vec3 &pos) const { return _unscale(_unrotate(_untranslate(pos))); }
 
-    INLINE vec3 externDir(const vec3 &dir) const { return _rotate(_scale(dir)).normalized(); }
-    INLINE vec3 internDir(const vec3 &dir) const { return _unscale(_unrotate(dir)).normalized(); }
+    INLINE_XPU vec3 externDir(const vec3 &dir) const { return _rotate(_scale(dir)).normalized(); }
+    INLINE_XPU vec3 internDir(const vec3 &dir) const { return _unscale(_unrotate(dir)).normalized(); }
 
 private:
-    INLINE vec3 _scale(const vec3 &pos) const { return scale * pos; }
-    INLINE vec3 _rotate(const vec3 &pos) const { return rotation * pos; }
-    INLINE vec3 _translate(const vec3 &pos) const { return pos + position; }
-    INLINE vec3 _unscale(const vec3 &pos) const { return pos / scale; }
-    INLINE vec3 _unrotate(const vec3 &pos) const { return rotation.conjugate() * pos; }
-    INLINE vec3 _untranslate(const vec3 &pos) const { return pos - position; }
+    INLINE_XPU vec3 _scale(const vec3 &pos) const { return scale * pos; }
+    INLINE_XPU vec3 _rotate(const vec3 &pos) const { return rotation * pos; }
+    INLINE_XPU vec3 _translate(const vec3 &pos) const { return pos + position; }
+    INLINE_XPU vec3 _unscale(const vec3 &pos) const { return pos / scale; }
+    INLINE_XPU vec3 _unrotate(const vec3 &pos) const { return rotation.conjugate() * pos; }
+    INLINE_XPU vec3 _untranslate(const vec3 &pos) const { return pos - position; }
 };
 
 struct Geometry {
@@ -49,7 +49,7 @@ struct Geometry {
     u32 id{0};
 };
 
-AABB operator * (const AABB &aabb, const Transform &transform) {
+INLINE_XPU AABB operator * (const AABB &aabb, const Transform &transform) {
     const vec3 vertices[8] = {
             {aabb.min.x, aabb.min.y, aabb.min.z},
             {aabb.min.x, aabb.min.y, aabb.max.z},

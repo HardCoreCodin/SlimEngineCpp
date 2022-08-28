@@ -16,7 +16,7 @@ struct Frustum {
 
         Projection(f32 focal_length, f32 height_over_width, f32 n, f32 f,
                    ProjectionType projection_type = ProjectionType::PerspectiveGL) :
-                   scale{0}, shear{0}, type{projection_type} {
+                scale{0}, shear{0}, type{projection_type} {
             update(focal_length, height_over_width, n, f);
         }
         Projection(const Projection &other) : scale{other.scale}, shear{other.shear} {}
@@ -39,9 +39,9 @@ struct Frustum {
 
         vec3 project(const vec3 &position) const {
             vec3 projected_position{
-                position.x * scale.x,
-                position.y * scale.y,
-                position.z * scale.z + shear
+                    position.x * scale.x,
+                    position.y * scale.y,
+                    position.z * scale.z + shear
             };
             return projected_position / position.z;
         }

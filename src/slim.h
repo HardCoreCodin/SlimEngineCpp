@@ -21,20 +21,41 @@
         #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
         inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
             if (code != cudaSuccess) {
-                fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+                fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code) , file, line);
                 if (abort) exit(code);
             }
         }
+        #ifndef XPU
+            #define XPU __device__ __host__
+        #endif
+        #ifndef INLINE_XPU
+            #define INLINE_XPU __device__ __host__
+        #endif
         #ifndef INLINE
-            #define INLINE __device__ __host__
+            #define INLINE
         #endif
     #else
+        #ifndef XPU
+            #define XPU __device__ __host__
+        #endif
+        #ifndef INLINE_XPU
+            #define INLINE_XPU __device__ __host__ __forceinline__
+        #endif
         #ifndef INLINE
-            #define INLINE __device__ __host__ __forceinline__
+            #define INLINE __forceinline__
         #endif
         #define gpuErrchk(ans) (ans);
     #endif
+
+    #define checkErrors() gpuErrchk(cudaPeekAtLastError())
+    #define uploadNto(cpu_ptr, gpu_ptr, N, offset) gpuErrchk(cudaMemcpy(&((gpu_ptr)[(offset)]), (cpu_ptr), sizeof((cpu_ptr)[0]) * (N), cudaMemcpyHostToDevice))
+    #define uploadN(  cpu_ptr, gpu_ptr, N        ) gpuErrchk(cudaMemcpy(&((gpu_ptr)[0])       , (cpu_ptr), sizeof((cpu_ptr)[0]) * (N), cudaMemcpyHostToDevice))
+    #define downloadN(gpu_ptr, cpu_ptr, N)         gpuErrchk(cudaMemcpy((cpu_ptr), &((gpu_ptr)[0])       , sizeof((cpu_ptr)[0]) * (N), cudaMemcpyDeviceToHost))
+    #define downloadNTo(gpu_ptr,cpu_ptr,N, offset) gpuErrchk(cudaMemcpy((cpu_ptr), &((gpu_ptr)[(offset)]), sizeof((cpu_ptr)[0]) * (N), cudaMemcpyDeviceToHost))
 #else
+    #ifndef XPU
+        #define XPU
+    #endif
     #ifndef INLINE
         #if (defined(SLIMMER) || !defined(NDEBUG))
             #define INLINE
@@ -45,6 +66,9 @@
         #else
             #define INLINE inline
         #endif
+    #endif
+    #ifndef INLINE_XPU
+        #define INLINE_XPU INLINE
     #endif
 #endif
 
@@ -149,30 +173,30 @@ typedef double f64;
 #define fractionOf(x) ((x) - floorf(x))
 #define oneMinusFractionOf(x) (1 - fractionOf(x))
 
-INLINE f32 clampedValue(f32 value, f32 from, f32 to) {
+INLINE_XPU f32 clampedValue(f32 value, f32 from, f32 to) {
     f32 mn = value < to ? value : to;
     return mn > from ? mn : from;
 }
 
-INLINE i32 clampedValue(i32 value, i32 from, i32 to) {
+INLINE_XPU i32 clampedValue(i32 value, i32 from, i32 to) {
     i32 mn = value < to ? value : to;
     return mn > from ? mn : from;
 }
 
-INLINE f32 clampedValue(f32 value, f32 to) {
+INLINE_XPU f32 clampedValue(f32 value, f32 to) {
     return value < to ? value : to;
 }
 
-INLINE i32 clampedValue(i32 value, i32 to) {
+INLINE_XPU i32 clampedValue(i32 value, i32 to) {
     return value < to ? value : to;
 }
 
-INLINE f32 clampedValue(f32 value) {
+INLINE_XPU f32 clampedValue(f32 value) {
     f32 mn = value < 1.0f ? value : 1.0f;
     return mn > 0.0f ? mn : 0.0f;
 }
 
-INLINE i32 clampedValue(i32 value) {
+INLINE_XPU i32 clampedValue(i32 value) {
     i32 mn = value < 1 ? value : 1;
     return mn > 0 ? mn : 0;
 }
@@ -284,12 +308,12 @@ struct Move {
     bool backward{false};
 };
 
-INLINE f32 smoothStep(f32 from, f32 to, f32 t) {
+INLINE_XPU f32 smoothStep(f32 from, f32 to, f32 t) {
     t = (t - from) / (to - from);
     return t * t * (3.0f - 2.0f * t);
 }
 
-INLINE f32 approach(f32 src, f32 trg, f32 diff) {
+INLINE_XPU f32 approach(f32 src, f32 trg, f32 diff) {
     f32 out;
 
     out = src + diff; if (trg > out) return out;
@@ -343,55 +367,55 @@ template <class T>
 struct Orientation {
     T rotation{};
 
-    Orientation() : rotation{T::Identity} {}
-    explicit Orientation(f32 x_radians, f32 y_radians = 0, f32 z_radians = 0) {
+    INLINE_XPU Orientation() : rotation{T::Identity} {}
+    INLINE_XPU explicit Orientation(f32 x_radians, f32 y_radians = 0, f32 z_radians = 0) {
         setRotation(x_radians, y_radians, z_radians);
     }
 
-    INLINE void rotate(f32 x_radians, f32 y_radians, f32 z_radians) {
+    INLINE_XPU void rotate(f32 x_radians, f32 y_radians, f32 z_radians) {
         setRotation(x + x_radians, y + y_radians, x + z_radians);
     }
 
-    INLINE void rotate(f32 x_radians, f32 y_radians) {
+    INLINE_XPU void rotate(f32 x_radians, f32 y_radians) {
         setRotation(x + x_radians, y + y_radians);
     }
 
-    INLINE void setRotation(f32 x_radians, f32 y_radians, f32 z_radians) {
+    INLINE_XPU void setRotation(f32 x_radians, f32 y_radians, f32 z_radians) {
         x = x_radians;
         y = y_radians;
         z = z_radians;
         _update();
     }
 
-    INLINE void setRotation(f32 x_radians, f32 y_radians) {
+    INLINE_XPU void setRotation(f32 x_radians, f32 y_radians) {
         x = x_radians;
         y = y_radians;
         _update();
     }
 
-    INLINE void rotateAroundX(f32 radians) {
+    INLINE_XPU void rotateAroundX(f32 radians) {
         setRotationAroundX(x + radians);
     }
 
-    INLINE void rotateAroundY(f32 radians) {
+    INLINE_XPU void rotateAroundY(f32 radians) {
         setRotationAroundY(y + radians);
     }
 
-    INLINE void rotateAroundZ(f32 radians) {
+    INLINE_XPU void rotateAroundZ(f32 radians) {
         setRotationAroundZ(z + radians);
     }
 
-    INLINE void setRotationAroundX(f32 radians) {
+    INLINE_XPU void setRotationAroundX(f32 radians) {
         x = radians;
         _update();
     }
 
-    INLINE void setRotationAroundY(f32 radians) {
+    INLINE_XPU void setRotationAroundY(f32 radians) {
         y = radians;
         _update();
     }
 
-    INLINE void setRotationAroundZ(f32 radians) {
+    INLINE_XPU void setRotationAroundZ(f32 radians) {
         z = radians;
         _update();
     }
@@ -399,8 +423,8 @@ struct Orientation {
 protected:
     f32 x, y, z;
 
-    void _update() {
-        rotation = T::Identity;
+    INLINE_XPU void _update() {
+        rotation = T{};
         if (z != 0.0f) rotation = T::RotationAroundZ(z);
         if (x != 0.0f) rotation *= T::RotationAroundX(x);
         if (y != 0.0f) rotation *= T::RotationAroundY(y);
@@ -445,9 +469,9 @@ struct Color {
         struct { f32 r  , g    , b   ; };
     };
 
-    Color(f32 value) : red{value}, green{value}, blue{value} {}
-    Color(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f) : red{red}, green{green}, blue{blue} {}
-    Color(enum ColorID color_id) : Color{} {
+    INLINE_XPU Color(f32 value) : red{value}, green{value}, blue{value} {}
+    INLINE_XPU Color(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f) : red{red}, green{green}, blue{blue} {}
+    INLINE_XPU Color(enum ColorID color_id) : Color{} {
         switch (color_id) {
             case Black: break;
             case White:
@@ -1263,243 +1287,243 @@ struct HUD {
 struct vec2i {
     i32 x, y;
 
-    vec2i() noexcept : vec2i{0} {}
-    vec2i(i32 x, i32 y) noexcept : x(x), y(y) {}
-    vec2i(vec2i &other) noexcept : vec2i{other.x, other.y} {}
-    vec2i(const vec2i &other) noexcept : vec2i{other.x, other.y} {}
-    explicit vec2i(i32 value) noexcept : vec2i{value, value} {}
+    INLINE_XPU vec2i() noexcept : vec2i{0} {}
+    INLINE_XPU vec2i(i32 x, i32 y) noexcept : x(x), y(y) {}
+    INLINE_XPU vec2i(vec2i &other) noexcept : vec2i{other.x, other.y} {}
+    INLINE_XPU vec2i(const vec2i &other) noexcept : vec2i{other.x, other.y} {}
+    INLINE_XPU explicit vec2i(i32 value) noexcept : vec2i{value, value} {}
 
-    INLINE bool operator == (const vec2i &other) const {
+    INLINE_XPU bool operator == (const vec2i &other) const {
         return (other.x == x) &&
                (other.y == y);
     }
 
-    INLINE vec2i & operator = (f32 value) {
+    INLINE_XPU vec2i & operator = (f32 value) {
         x = y = (i32)value;
         return *this;
     }
 
-    INLINE vec2i & operator = (i32 value) {
+    INLINE_XPU vec2i & operator = (i32 value) {
         x = y = value;
         return *this;
     }
 
-    INLINE bool operator ! () const {
+    INLINE_XPU bool operator ! () const {
         return nonZero();
     }
 
-    INLINE vec2i operator - () const {
+    INLINE_XPU vec2i operator - () const {
         return {
                 -x,
                 -y
         };
     }
 
-    INLINE vec2i operator - (const vec2i &rhs) const {
+    INLINE_XPU vec2i operator - (const vec2i &rhs) const {
         return {
                 x - rhs.x,
                 y - rhs.y
         };
     }
 
-    INLINE vec2i operator + (const vec2i &rhs) const {
+    INLINE_XPU vec2i operator + (const vec2i &rhs) const {
         return {
                 x + rhs.x,
                 y + rhs.y
         };
     }
 
-    INLINE vec2i operator * (const vec2i &rhs) const {
+    INLINE_XPU vec2i operator * (const vec2i &rhs) const {
         return {
                 x * rhs.x,
                 y * rhs.y
         };
     }
 
-    INLINE vec2i operator / (const vec2i &rhs) const {
+    INLINE_XPU vec2i operator / (const vec2i &rhs) const {
         return {
                 x / rhs.x,
                 y / rhs.y
         };
     }
 
-    INLINE vec2i& operator -= (const vec2i &rhs) {
+    INLINE_XPU vec2i& operator -= (const vec2i &rhs) {
         x -= rhs.x;
         y -= rhs.y;
         return *this;
     }
 
-    INLINE vec2i& operator += (const vec2i &rhs) {
+    INLINE_XPU vec2i& operator += (const vec2i &rhs) {
         x += rhs.x;
         y += rhs.y;
         return *this;
     }
 
-    INLINE vec2i& operator *= (const vec2i &rhs) {
+    INLINE_XPU vec2i& operator *= (const vec2i &rhs) {
         x *= rhs.x;
         y *= rhs.y;
         return *this;
     }
 
-    INLINE vec2i& operator /= (const vec2i &rhs) {
+    INLINE_XPU vec2i& operator /= (const vec2i &rhs) {
         x /= rhs.x;
         y /= rhs.y;
         return *this;
     }
 
-    INLINE vec2i operator - (i32 rhs) const {
+    INLINE_XPU vec2i operator - (i32 rhs) const {
         return {
                 x - rhs,
                 y - rhs
         };
     }
 
-    INLINE vec2i operator + (i32 rhs) const {
+    INLINE_XPU vec2i operator + (i32 rhs) const {
         return {
                 x + rhs,
                 y + rhs
         };
     }
 
-    INLINE vec2i operator * (i32 rhs) const {
+    INLINE_XPU vec2i operator * (i32 rhs) const {
         return {
                 x * rhs,
                 y * rhs
         };
     }
 
-    INLINE vec2i operator / (i32 rhs) const {
+    INLINE_XPU vec2i operator / (i32 rhs) const {
         return {
                 x / rhs,
                 y / rhs
         };
     }
 
-    INLINE vec2i& operator -= (i32 rhs) {
+    INLINE_XPU vec2i& operator -= (i32 rhs) {
         x -= rhs;
         y -= rhs;
         return *this;
     }
 
-    INLINE vec2i& operator += (i32 rhs) {
+    INLINE_XPU vec2i& operator += (i32 rhs) {
         x += rhs;
         y += rhs;
         return *this;
     }
 
-    INLINE vec2i& operator *= (i32 rhs) {
+    INLINE_XPU vec2i& operator *= (i32 rhs) {
         x *= rhs;
         y *= rhs;
         return *this;
     }
 
-    INLINE vec2i& operator /= (i32 rhs) {
+    INLINE_XPU vec2i& operator /= (i32 rhs) {
         x /= rhs;
         y /= rhs;
         return *this;
     }
 
-    INLINE vec2i operator - (f32 rhs) const {
+    INLINE_XPU vec2i operator - (f32 rhs) const {
         return {
                 (i32)((f32)x - rhs),
                 (i32)((f32)y - rhs)
         };
     }
 
-    INLINE vec2i operator + (f32 rhs) const {
+    INLINE_XPU vec2i operator + (f32 rhs) const {
         return {
                 (i32)((f32)x + rhs),
                 (i32)((f32)y + rhs)
         };
     }
 
-    INLINE vec2i operator * (f32 rhs) const {
+    INLINE_XPU vec2i operator * (f32 rhs) const {
         return {
                 (i32)((f32)x * rhs),
                 (i32)((f32)y * rhs)
         };
     }
 
-    INLINE vec2i operator / (f32 rhs) const {
+    INLINE_XPU vec2i operator / (f32 rhs) const {
         return {
                 (i32)((f32)x / rhs),
                 (i32)((f32)y / rhs)
         };
     }
 
-    INLINE vec2i& operator -= (f32 rhs) {
+    INLINE_XPU vec2i& operator -= (f32 rhs) {
         x -= (i32)rhs;
         y -= (i32)rhs;
         return *this;
     }
 
-    INLINE vec2i& operator += (f32 rhs) {
+    INLINE_XPU vec2i& operator += (f32 rhs) {
         x += (i32)rhs;
         y += (i32)rhs;
         return *this;
     }
 
-    INLINE vec2i& operator *= (f32 rhs) {
+    INLINE_XPU vec2i& operator *= (f32 rhs) {
         x *= (i32)rhs;
         y *= (i32)rhs;
         return *this;
     }
 
-    INLINE vec2i& operator /= (f32 rhs) {
+    INLINE_XPU vec2i& operator /= (f32 rhs) {
         x /= (i32)rhs;
         y /= (i32)rhs;
         return *this;
     }
 
-    INLINE bool nonZero() const {
+    INLINE_XPU bool nonZero() const {
         return x != 0 ||
                y != 0;
     }
 
-    INLINE i32 minimum() const {
+    INLINE_XPU i32 minimum() const {
         return x < y ? x : y;
     }
 
-    INLINE i32 maximum() const {
+    INLINE_XPU i32 maximum() const {
         return x > y ? x : y;
     }
 
-    INLINE vec2i clamped() const {
+    INLINE_XPU vec2i clamped() const {
         return {
                 clampedValue(x),
                 clampedValue(y)
         };
     }
 
-    INLINE vec2i clamped(const vec2i &upper) const {
+    INLINE_XPU vec2i clamped(const vec2i &upper) const {
         return {
                 clampedValue(x, upper.x),
                 clampedValue(y, upper.y)
         };
     }
 
-    INLINE vec2i clamped(const f32 min_value, const f32 max_value) const {
+    INLINE_XPU vec2i clamped(const f32 min_value, const f32 max_value) const {
         return {
                 (i32)(clampedValue((f32)x, min_value, max_value)),
                 (i32)(clampedValue((f32)y, min_value, max_value))
         };
     }
 
-    INLINE vec2i clamped(const i32 min_value, const i32 max_value) const {
+    INLINE_XPU vec2i clamped(const i32 min_value, const i32 max_value) const {
         return {
                 clampedValue(x, min_value, max_value),
                 clampedValue(y, min_value, max_value)
         };
     }
 
-    INLINE vec2i approachTo(const vec2i &trg, f32 diff) const {
+    INLINE_XPU vec2i approachTo(const vec2i &trg, f32 diff) const {
         return {
                 (i32)(approach((f32)x, (f32)trg.x, diff)),
                 (i32)(approach((f32)y, (f32)trg.y, diff))
         };
     }
 
-    INLINE vec2i scaleAdd(f32 factor, const vec2i &to_be_added) const {
+    INLINE_XPU vec2i scaleAdd(f32 factor, const vec2i &to_be_added) const {
         return {
                 (i32)fast_mul_add((f32)x, factor, (f32)to_be_added.x),
                 (i32)fast_mul_add((f32)y, factor, (f32)to_be_added.y)
@@ -1517,115 +1541,115 @@ struct vec2 {
 
     static vec2 X, Y;
 
-    vec2() : vec2{0} {}
-    vec2(f32 x, f32 y) noexcept : x(x), y(y) {}
-    vec2(i32 x, i32 y) noexcept : x((f32)x), y((f32)y) {}
-    vec2(vec2 &other) noexcept : vec2{other.x, other.y} {}
-    vec2(const vec2 &other) noexcept : vec2{other.x, other.y} {}
-    explicit vec2(f32 value) noexcept : vec2{value, value} {}
-    explicit vec2(vec2i &other) noexcept : vec2{(f32)other.x, (f32)other.y} {}
-    explicit vec2(const vec2i &other) noexcept : vec2{(f32)other.x, (f32)other.y} {}
+    INLINE_XPU vec2() : vec2{0} {}
+    INLINE_XPU vec2(f32 x, f32 y) noexcept : x(x), y(y) {}
+    INLINE_XPU vec2(i32 x, i32 y) noexcept : x((f32)x), y((f32)y) {}
+    INLINE_XPU vec2(vec2 &other) noexcept : vec2{other.x, other.y} {}
+    INLINE_XPU vec2(const vec2 &other) noexcept : vec2{other.x, other.y} {}
+    INLINE_XPU explicit vec2(f32 value) noexcept : vec2{value, value} {}
+    INLINE_XPU explicit vec2(vec2i &other) noexcept : vec2{(f32)other.x, (f32)other.y} {}
+    INLINE_XPU explicit vec2(const vec2i &other) noexcept : vec2{(f32)other.x, (f32)other.y} {}
 
-    INLINE bool operator == (const vec2 &other) const {
+    INLINE_XPU bool operator == (const vec2 &other) const {
         return (other.x == x) &&
                (other.y == y);
     }
 
-    INLINE vec2 & operator = (f32 value) {
+    INLINE_XPU vec2 & operator = (f32 value) {
         x = y = value;
         return *this;
     }
 
-    INLINE vec2 & operator = (i32 value) {
+    INLINE_XPU vec2 & operator = (i32 value) {
         x = y = (f32)value;
         return *this;
     }
 
-    INLINE bool operator ! () const {
+    INLINE_XPU bool operator ! () const {
         return nonZero();
     }
 
-    INLINE vec2 operator - () const {
+    INLINE_XPU vec2 operator - () const {
         return {
                 -x,
                 -y
         };
     }
 
-    INLINE vec2 operator - (const vec2 &rhs) const {
+    INLINE_XPU vec2 operator - (const vec2 &rhs) const {
         return {
                 x - rhs.x,
                 y - rhs.y
         };
     }
 
-    INLINE vec2 operator + (const vec2 &rhs) const {
+    INLINE_XPU vec2 operator + (const vec2 &rhs) const {
         return {
                 x + rhs.x,
                 y + rhs.y
         };
     }
 
-    INLINE vec2 operator * (const vec2 &rhs) const {
+    INLINE_XPU vec2 operator * (const vec2 &rhs) const {
         return {
                 x * rhs.x,
                 y * rhs.y
         };
     }
 
-    INLINE vec2 operator / (const vec2 &rhs) const {
+    INLINE_XPU vec2 operator / (const vec2 &rhs) const {
         return {
                 x / rhs.x,
                 y / rhs.y
         };
     }
 
-    INLINE vec2& operator -= (const vec2 &rhs) {
+    INLINE_XPU vec2& operator -= (const vec2 &rhs) {
         x -= rhs.x;
         y -= rhs.y;
         return *this;
     }
 
-    INLINE vec2& operator += (const vec2 &rhs) {
+    INLINE_XPU vec2& operator += (const vec2 &rhs) {
         x += rhs.x;
         y += rhs.y;
         return *this;
     }
 
-    INLINE vec2& operator *= (const vec2 &rhs) {
+    INLINE_XPU vec2& operator *= (const vec2 &rhs) {
         x *= rhs.x;
         y *= rhs.y;
         return *this;
     }
 
-    INLINE vec2& operator /= (const vec2 &rhs) {
+    INLINE_XPU vec2& operator /= (const vec2 &rhs) {
         x /= rhs.x;
         y /= rhs.y;
         return *this;
     }
 
-    INLINE vec2 operator - (f32 rhs) const {
+    INLINE_XPU vec2 operator - (f32 rhs) const {
         return {
                 x - rhs,
                 y - rhs
         };
     }
 
-    INLINE vec2 operator + (f32 rhs) const {
+    INLINE_XPU vec2 operator + (f32 rhs) const {
         return {
                 x + rhs,
                 y + rhs
         };
     }
 
-    INLINE vec2 operator * (f32 rhs) const {
+    INLINE_XPU vec2 operator * (f32 rhs) const {
         return {
                 x * rhs,
                 y * rhs
         };
     }
 
-    INLINE vec2 operator / (f32 rhs) const {
+    INLINE_XPU vec2 operator / (f32 rhs) const {
         f32 factor = 1.0f / rhs;
         return {
                 x * factor,
@@ -1633,53 +1657,53 @@ struct vec2 {
         };
     }
 
-    INLINE vec2& operator -= (f32 rhs) {
+    INLINE_XPU vec2& operator -= (f32 rhs) {
         x -= rhs;
         y -= rhs;
         return *this;
     }
 
-    INLINE vec2& operator += (f32 rhs) {
+    INLINE_XPU vec2& operator += (f32 rhs) {
         x += rhs;
         y += rhs;
         return *this;
     }
 
-    INLINE vec2& operator *= (f32 rhs) {
+    INLINE_XPU vec2& operator *= (f32 rhs) {
         x *= rhs;
         y *= rhs;
         return *this;
     }
 
-    INLINE vec2& operator /= (f32 rhs) {
+    INLINE_XPU vec2& operator /= (f32 rhs) {
         f32 factor = 1.0f / rhs;
         x *= factor;
         y *= factor;
         return *this;
     }
 
-    INLINE vec2 operator - (i32 rhs) const {
+    INLINE_XPU vec2 operator - (i32 rhs) const {
         return {
                 x - (f32)rhs,
                 y - (f32)rhs
         };
     }
 
-    INLINE vec2 operator + (i32 rhs) const {
+    INLINE_XPU vec2 operator + (i32 rhs) const {
         return {
                 x + (f32)rhs,
                 y + (f32)rhs
         };
     }
 
-    INLINE vec2 operator * (i32 rhs) const {
+    INLINE_XPU vec2 operator * (i32 rhs) const {
         return {
                 x * (f32)rhs,
                 y * (f32)rhs
         };
     }
 
-    INLINE vec2 operator / (i32 rhs) const {
+    INLINE_XPU vec2 operator / (i32 rhs) const {
         f32 factor = 1.0f / (f32)rhs;
         return {
                 x * factor,
@@ -1687,174 +1711,174 @@ struct vec2 {
         };
     }
 
-    INLINE vec2& operator -= (i32 rhs) {
+    INLINE_XPU vec2& operator -= (i32 rhs) {
         x -= (f32)rhs;
         y -= (f32)rhs;
         return *this;
     }
 
-    INLINE vec2& operator += (i32 rhs) {
+    INLINE_XPU vec2& operator += (i32 rhs) {
         x += (f32)rhs;
         y += (f32)rhs;
         return *this;
     }
 
-    INLINE vec2& operator *= (i32 rhs) {
+    INLINE_XPU vec2& operator *= (i32 rhs) {
         x *= (f32)rhs;
         y *= (f32)rhs;
         return *this;
     }
 
-    INLINE vec2& operator /= (i32 rhs) {
+    INLINE_XPU vec2& operator /= (i32 rhs) {
         f32 factor = 1.0f / (f32)rhs;
         x *= factor;
         y *= factor;
         return *this;
     }
 
-    INLINE vec2 operator - (const vec2i &rhs) const {
+    INLINE_XPU vec2 operator - (const vec2i &rhs) const {
         return {
                 x - (f32)rhs.x,
                 y - (f32)rhs.y
         };
     }
 
-    INLINE vec2 operator + (const vec2i &rhs) const {
+    INLINE_XPU vec2 operator + (const vec2i &rhs) const {
         return {
                 x + (f32)rhs.x,
                 y + (f32)rhs.y
         };
     }
 
-    INLINE vec2 operator * (const vec2i &rhs) const {
+    INLINE_XPU vec2 operator * (const vec2i &rhs) const {
         return {
                 x * (f32)rhs.x,
                 y * (f32)rhs.y
         };
     }
 
-    INLINE vec2 operator / (const vec2i &rhs) const {
+    INLINE_XPU vec2 operator / (const vec2i &rhs) const {
         return {
                 x / (f32)rhs.x,
                 y / (f32)rhs.y
         };
     }
 
-    INLINE vec2& operator -= (const vec2i &rhs) {
+    INLINE_XPU vec2& operator -= (const vec2i &rhs) {
         x -= (f32)rhs.x;
         y -= (f32)rhs.y;
         return *this;
     }
 
-    INLINE vec2& operator += (const vec2i &rhs) {
+    INLINE_XPU vec2& operator += (const vec2i &rhs) {
         x += (f32)rhs.x;
         y += (f32)rhs.y;
         return *this;
     }
 
-    INLINE vec2& operator *= (const vec2i &rhs) {
+    INLINE_XPU vec2& operator *= (const vec2i &rhs) {
         x *= (f32)rhs.x;
         y *= (f32)rhs.y;
         return *this;
     }
 
-    INLINE vec2& operator /= (const vec2i &rhs) {
+    INLINE_XPU vec2& operator /= (const vec2i &rhs) {
         x /= (f32)rhs.x;
         y /= (f32)rhs.y;
         return *this;
     }
 
-    INLINE bool nonZero() const {
+    INLINE_XPU bool nonZero() const {
         return x != 0.0f ||
                y != 0.0f;
     }
 
-    INLINE f32 minimum() const {
+    INLINE_XPU f32 minimum() const {
         return x < y ? x : y;
     }
 
-    INLINE f32 maximum() const {
+    INLINE_XPU f32 maximum() const {
         return x > y ? x : y;
     }
 
-    INLINE vec2 perp() const {
+    INLINE_XPU vec2 perp() const {
         return {
                 -y,
                 x
         };
     }
 
-    INLINE f32 dot(const vec2 &rhs) const {
+    INLINE_XPU f32 dot(const vec2 &rhs) const {
         return (x * rhs.x) + (y * rhs.y);
     }
 
-    INLINE f32 cross(const vec2 &rhs) const {
+    INLINE_XPU f32 cross(const vec2 &rhs) const {
         return (x * rhs.y) - (y * rhs.x);
     }
 
-    INLINE f32 squaredLength() const {
+    INLINE_XPU f32 squaredLength() const {
         return x*x + y*y;
     }
 
-    INLINE f32 length() const {
+    INLINE_XPU f32 length() const {
         return sqrtf(squaredLength());
     }
 
-    INLINE vec2 normalized() const {
+    INLINE_XPU vec2 normalized() const {
         return *this / length();
     }
 
-    INLINE vec2 reflectedAround(const vec2 &N) const {
+    INLINE_XPU vec2 reflectedAround(const vec2 &N) const {
         return N.scaleAdd(-2 * dot(N), *this);
     }
 
-    INLINE vec2 clamped() const {
+    INLINE_XPU vec2 clamped() const {
         return {
                 clampedValue(x),
                 clampedValue(y)
         };
     }
 
-    INLINE vec2 clamped(const vec2 &upper) const {
+    INLINE_XPU vec2 clamped(const vec2 &upper) const {
         return {
                 clampedValue(x, upper.x),
                 clampedValue(y, upper.y)
         };
     }
 
-    INLINE vec2 clamped(const vec2 &lower, const vec2 &upper) const {
+    INLINE_XPU vec2 clamped(const vec2 &lower, const vec2 &upper) const {
         return {
                 clampedValue(x, lower.x, upper.x),
                 clampedValue(y, lower.y, upper.y)
         };
     }
 
-    INLINE vec2 clamped(const f32 min_value, const f32 max_value) const {
+    INLINE_XPU vec2 clamped(const f32 min_value, const f32 max_value) const {
         return {
                 clampedValue(x, min_value, max_value),
                 clampedValue(y, min_value, max_value)
         };
     }
 
-    INLINE vec2 approachTo(const vec2 &trg, f32 diff) const {
+    INLINE_XPU vec2 approachTo(const vec2 &trg, f32 diff) const {
         return {
                 approach(x, trg.x, diff),
                 approach(y, trg.y, diff)
         };
     }
 
-    INLINE vec2 lerpTo(const vec2 &to, f32 by) const {
+    INLINE_XPU vec2 lerpTo(const vec2 &to, f32 by) const {
         return (to - *this).scaleAdd(by, *this);
     }
 
-    INLINE vec2 scaleAdd(f32 factor, const vec2 &to_be_added) const {
+    INLINE_XPU vec2 scaleAdd(f32 factor, const vec2 &to_be_added) const {
         return {
                 fast_mul_add(x, factor, to_be_added.x),
                 fast_mul_add(y, factor, to_be_added.y)
         };
     }
 
-    INLINE vec2 mulAdd(const vec2 &factors, const vec2 &to_be_added) const {
+    INLINE_XPU vec2 mulAdd(const vec2 &factors, const vec2 &to_be_added) const {
         return {
                 fast_mul_add(x, factors.x, to_be_added.x),
                 fast_mul_add(y, factors.y, to_be_added.y)
@@ -1865,42 +1889,42 @@ struct vec2 {
 vec2 vec2::X{1.0f, 0.0f};
 vec2 vec2::Y{0.0f, 1.0f};
 
-INLINE vec2 minimum(const vec2 &a, const vec2 &b) {
+INLINE_XPU vec2 minimum(const vec2 &a, const vec2 &b) {
     return {
             a.x < b.x ? a.x : b.x,
             a.y < b.y ? a.y : b.y
     };
 }
 
-INLINE vec2 maximum(const vec2 &a, const vec2 &b) {
+INLINE_XPU vec2 maximum(const vec2 &a, const vec2 &b) {
     return {
             a.x > b.x ? a.x : b.x,
             a.y > b.y ? a.y : b.y
     };
 }
 
-INLINE vec2i minimum(const vec2i &a, const vec2i &b) {
+INLINE_XPU vec2i minimum(const vec2i &a, const vec2i &b) {
     return {
             a.x < b.x ? a.x : b.x,
             a.y < b.y ? a.y : b.y
     };
 }
 
-INLINE vec2i maximum(const vec2i &a, const vec2i &b) {
+INLINE_XPU vec2i maximum(const vec2i &a, const vec2i &b) {
     return {
             a.x > b.x ? a.x : b.x,
             a.y > b.y ? a.y : b.y
     };
 }
 
-INLINE vec2i operator - (const vec2i &lhs, const vec2 &rhs) {
+INLINE_XPU vec2i operator - (const vec2i &lhs, const vec2 &rhs) {
     return {
             lhs.x - (i32)rhs.x,
             lhs.y - (i32)rhs.y
     };
 }
 
-INLINE vec2i operator + (const vec2i &lhs, const vec2 &rhs) {
+INLINE_XPU vec2i operator + (const vec2i &lhs, const vec2 &rhs) {
     return {
             lhs.x + (i32)rhs.x,
             lhs.y + (i32)rhs.y
@@ -1914,14 +1938,14 @@ INLINE vec2i operator * (const vec2i &lhs, const vec2 &rhs) {
     };
 }
 
-INLINE vec2i operator / (const vec2i &lhs, const vec2 &rhs) {
+INLINE_XPU vec2i operator / (const vec2i &lhs, const vec2 &rhs) {
     return {
             lhs.x / (i32)rhs.x,
             lhs.y / (i32)rhs.y
     };
 }
 
-INLINE vec2i operator - (i32 lhs, const vec2 &rhs) {
+INLINE_XPU vec2i operator - (i32 lhs, const vec2 &rhs) {
     return {
             lhs - (i32)rhs.x,
             lhs - (i32)rhs.y
@@ -1942,70 +1966,70 @@ INLINE vec2i operator * (i32 lhs, const vec2 &rhs) {
     };
 }
 
-INLINE vec2i operator / (i32 lhs, const vec2 &rhs) {
+INLINE_XPU vec2i operator / (i32 lhs, const vec2 &rhs) {
     return {
             lhs / (i32)rhs.x,
             lhs / (i32)rhs.y
     };
 }
 
-INLINE vec2i operator - (i32 lhs, const vec2i &rhs) {
+INLINE_XPU vec2i operator - (i32 lhs, const vec2i &rhs) {
     return {
             lhs - rhs.x,
             lhs - rhs.y
     };
 }
 
-INLINE vec2i operator + (i32 lhs, const vec2i &rhs) {
+INLINE_XPU vec2i operator + (i32 lhs, const vec2i &rhs) {
     return {
             lhs + rhs.x,
             lhs + rhs.y
     };
 }
 
-INLINE vec2i operator * (i32 lhs, const vec2i &rhs) {
+INLINE_XPU vec2i operator * (i32 lhs, const vec2i &rhs) {
     return {
             lhs * rhs.x,
             lhs * rhs.y
     };
 }
 
-INLINE vec2i operator / (i32 lhs, const vec2i &rhs) {
+INLINE_XPU vec2i operator / (i32 lhs, const vec2i &rhs) {
     return {
             lhs / rhs.x,
             lhs / rhs.y
     };
 }
 
-INLINE vec2 operator - (f32 lhs, const vec2 &rhs) {
+INLINE_XPU vec2 operator - (f32 lhs, const vec2 &rhs) {
     return {
             lhs - rhs.x,
             lhs - rhs.y
     };
 }
 
-INLINE vec2 operator + (f32 lhs, const vec2 &rhs) {
+INLINE_XPU vec2 operator + (f32 lhs, const vec2 &rhs) {
     return {
             lhs + rhs.x,
             lhs + rhs.y
     };
 }
 
-INLINE vec2 operator / (f32 lhs, const vec2 &rhs) {
+INLINE_XPU vec2 operator / (f32 lhs, const vec2 &rhs) {
     return {
             lhs / rhs.x,
             lhs / rhs.y
     };
 }
 
-INLINE vec2 operator * (f32 lhs, const vec2 &rhs) {
+INLINE_XPU vec2 operator * (f32 lhs, const vec2 &rhs) {
     return {
             lhs * rhs.x,
             lhs * rhs.y
     };
 }
 
-INLINE vec2 lerp(const vec2 &from, const vec2 &to, f32 by) {
+INLINE_XPU vec2 lerp(const vec2 &from, const vec2 &to, f32 by) {
     return (to - from).scaleAdd(by, from);
 }
 
@@ -2022,39 +2046,39 @@ struct vec3 {
 
     static vec3 X, Y, Z;
 
-    vec3() noexcept : vec3{0} {}
-    vec3(f32 x, f32 y, f32 z) noexcept : x(x), y(y), z(z) {}
-    vec3(vec3 &other) noexcept : vec3{other.x, other.y, other.z} {}
-    vec3(const vec3 &other) noexcept : vec3{other.x, other.y, other.z} {}
-    vec3(f32 value) noexcept : vec3{value, value, value} {}
-    vec3(enum ColorID color_id) noexcept : vec3{Color{color_id}} {}
-    vec3(const Color &color) noexcept : vec3{color.red, color.green, color.blue} {}
+    INLINE_XPU vec3() noexcept : vec3{0} {}
+    INLINE_XPU vec3(f32 x, f32 y, f32 z) noexcept : x(x), y(y), z(z) {}
+    INLINE_XPU vec3(vec3 &other) noexcept : vec3{other.x, other.y, other.z} {}
+    INLINE_XPU vec3(const vec3 &other) noexcept : vec3{other.x, other.y, other.z} {}
+    INLINE_XPU vec3(f32 value) noexcept : vec3{value, value, value} {}
+    INLINE_XPU vec3(enum ColorID color_id) noexcept : vec3{Color{color_id}} {}
+    INLINE_XPU vec3(const Color &color) noexcept : vec3{color.red, color.green, color.blue} {}
 
-    INLINE vec3& operator = (f32 value) {
+    INLINE_XPU vec3& operator = (f32 value) {
         x = y = z = value;
         return *this;
     }
 
-    INLINE vec3& operator = (i32 value) {
+    INLINE_XPU vec3& operator = (i32 value) {
         x = y = z = (f32)value;
         return *this;
     }
 
-    INLINE Color toColor() const {
+    INLINE_XPU Color toColor() const {
         return {r, g, b};
     }
 
-    INLINE bool operator == (const vec3 &other) const {
+    INLINE_XPU bool operator == (const vec3 &other) const {
         return (other.x == x) &&
                (other.y == y) &&
                (other.z == z);
     }
 
-    INLINE bool operator ! () const {
+    INLINE_XPU bool operator ! () const {
         return nonZero();
     }
 
-    INLINE vec3 operator - () const {
+    INLINE_XPU vec3 operator - () const {
         return {
                 -x,
                 -y,
@@ -2062,7 +2086,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 operator - (const vec3 &rhs) const {
+    INLINE_XPU vec3 operator - (const vec3 &rhs) const {
         return {
                 x - rhs.x,
                 y - rhs.y,
@@ -2070,7 +2094,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 operator + (const vec3 &rhs) const {
+    INLINE_XPU vec3 operator + (const vec3 &rhs) const {
         return {
                 x + rhs.x,
                 y + rhs.y,
@@ -2078,7 +2102,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 operator * (const vec3 &rhs) const {
+    INLINE_XPU vec3 operator * (const vec3 &rhs) const {
         return {
                 x * rhs.x,
                 y * rhs.y,
@@ -2086,7 +2110,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 operator / (const vec3 &rhs) const {
+    INLINE_XPU vec3 operator / (const vec3 &rhs) const {
         return {
                 x / rhs.x,
                 y / rhs.y,
@@ -2094,35 +2118,35 @@ struct vec3 {
         };
     }
 
-    INLINE vec3& operator -= (const vec3 &rhs) {
+    INLINE_XPU vec3& operator -= (const vec3 &rhs) {
         x -= rhs.x;
         y -= rhs.y;
         z -= rhs.z;
         return *this;
     }
 
-    INLINE vec3& operator += (const vec3 &rhs) {
+    INLINE_XPU vec3& operator += (const vec3 &rhs) {
         x += rhs.x;
         y += rhs.y;
         z += rhs.z;
         return *this;
     }
 
-    INLINE vec3& operator *= (const vec3 &rhs) {
+    INLINE_XPU vec3& operator *= (const vec3 &rhs) {
         x *= rhs.x;
         y *= rhs.y;
         z *= rhs.z;
         return *this;
     }
 
-    INLINE vec3& operator /= (const vec3 &rhs) {
+    INLINE_XPU vec3& operator /= (const vec3 &rhs) {
         x /= rhs.x;
         y /= rhs.y;
         z /= rhs.z;
         return *this;
     }
 
-    INLINE vec3 operator - (f32 rhs) const {
+    INLINE_XPU vec3 operator - (f32 rhs) const {
         return {
                 x - rhs,
                 y - rhs,
@@ -2130,7 +2154,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 operator + (f32 rhs) const {
+    INLINE_XPU vec3 operator + (f32 rhs) const {
         return {
                 x + rhs,
                 y + rhs,
@@ -2138,7 +2162,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 operator * (f32 rhs) const {
+    INLINE_XPU vec3 operator * (f32 rhs) const {
         return {
                 x * rhs,
                 y * rhs,
@@ -2146,7 +2170,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 operator / (f32 rhs) const {
+    INLINE_XPU vec3 operator / (f32 rhs) const {
         const f32 factor = 1.0f / rhs;
         return {
                 x * factor,
@@ -2155,28 +2179,28 @@ struct vec3 {
         };
     }
 
-    INLINE vec3& operator -= (f32 rhs) {
+    INLINE_XPU vec3& operator -= (f32 rhs) {
         x -= rhs;
         y -= rhs;
         z -= rhs;
         return *this;
     }
 
-    INLINE vec3& operator += (f32 rhs) {
+    INLINE_XPU vec3& operator += (f32 rhs) {
         x += rhs;
         y += rhs;
         z += rhs;
         return *this;
     }
 
-    INLINE vec3& operator *= (f32 rhs) {
+    INLINE_XPU vec3& operator *= (f32 rhs) {
         x *= rhs;
         y *= rhs;
         z *= rhs;
         return *this;
     }
 
-    INLINE vec3& operator /= (f32 rhs) {
+    INLINE_XPU vec3& operator /= (f32 rhs) {
         f32 factor = 1.0f / rhs;
         x *= factor;
         y *= factor;
@@ -2184,7 +2208,7 @@ struct vec3 {
         return *this;
     }
 
-    INLINE vec3 operator - (i32 rhs) const {
+    INLINE_XPU vec3 operator - (i32 rhs) const {
         return {
                 x - (f32)rhs,
                 y - (f32)rhs,
@@ -2192,7 +2216,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 operator + (i32 rhs) const {
+    INLINE_XPU vec3 operator + (i32 rhs) const {
         return {
                 x + (f32)rhs,
                 y + (f32)rhs,
@@ -2200,7 +2224,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 operator * (i32 rhs) const {
+    INLINE_XPU vec3 operator * (i32 rhs) const {
         return {
                 x * (f32)rhs,
                 y * (f32)rhs,
@@ -2208,7 +2232,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 operator / (i32 rhs) const {
+    INLINE_XPU vec3 operator / (i32 rhs) const {
         f32 factor = 1.0f / (f32)rhs;
         return {
                 x * factor,
@@ -2217,28 +2241,28 @@ struct vec3 {
         };
     }
 
-    INLINE vec3& operator -= (i32 rhs) {
+    INLINE_XPU vec3& operator -= (i32 rhs) {
         x -= (f32)rhs;
         y -= (f32)rhs;
         z -= (f32)rhs;
         return *this;
     }
 
-    INLINE vec3& operator += (i32 rhs) {
+    INLINE_XPU vec3& operator += (i32 rhs) {
         x += (f32)rhs;
         y += (f32)rhs;
         z += (f32)rhs;
         return *this;
     }
 
-    INLINE vec3& operator *= (i32 rhs) {
+    INLINE_XPU vec3& operator *= (i32 rhs) {
         x *= (f32)rhs;
         y *= (f32)rhs;
         z *= (f32)rhs;
         return *this;
     }
 
-    INLINE vec3& operator /= (i32 rhs) {
+    INLINE_XPU vec3& operator /= (i32 rhs) {
         f32 factor = 1.0f / (f32)rhs;
         x *= factor;
         y *= factor;
@@ -2246,13 +2270,13 @@ struct vec3 {
         return *this;
     }
 
-    INLINE bool nonZero() const {
+    INLINE_XPU bool nonZero() const {
         return x != 0.0f ||
                y != 0.0f ||
                z != 0.0f;
     }
 
-    INLINE vec3 perpZ() const {
+    INLINE_XPU vec3 perpZ() const {
         return {
                 -y,
                 x,
@@ -2260,7 +2284,7 @@ struct vec3 {
         };
     }
 
-    INLINE f32 minimum(Axis *axis = nullptr) const {
+    INLINE_XPU f32 minimum(Axis *axis = nullptr) const {
         if (axis) {
             *axis = Axis_X;
             f32 result = x;
@@ -2277,7 +2301,7 @@ struct vec3 {
             return x < y ? (x < z ? x : z) : (y < z ? y : z);
     }
 
-    INLINE f32 maximum(Axis *axis = nullptr) const {
+    INLINE_XPU f32 maximum(Axis *axis = nullptr) const {
         if (axis) {
             *axis = Axis_X;
             f32 result = x;
@@ -2294,11 +2318,11 @@ struct vec3 {
             return x > y ? (x > z ? x : z) : (y > z ? y : z);
     }
 
-    INLINE f32 dot(const vec3 &rhs) const {
+    INLINE_XPU f32 dot(const vec3 &rhs) const {
         return (x * rhs.x) + (y * rhs.y) + (z * rhs.z);
     }
 
-    INLINE vec3 cross(const vec3 &rhs) const {
+    INLINE_XPU vec3 cross(const vec3 &rhs) const {
         return {
                 (y * rhs.z) - (z * rhs.y),
                 (z * rhs.x) - (x * rhs.z),
@@ -2306,23 +2330,23 @@ struct vec3 {
         };
     }
 
-    INLINE f32 squaredLength() const {
+    INLINE_XPU f32 squaredLength() const {
         return x*x + y*y + z*z;
     }
 
-    INLINE f32 length() const {
+    INLINE_XPU f32 length() const {
         return sqrtf(squaredLength());
     }
 
-    INLINE vec3 normalized() const {
+    INLINE_XPU vec3 normalized() const {
         return *this / length();
     }
 
-    INLINE vec3 reflectedAround(const vec3 &N) const {
+    INLINE_XPU vec3 reflectedAround(const vec3 &N) const {
         return N.scaleAdd(-2 * dot(N), *this);
     }
 
-    INLINE vec3 clamped() const {
+    INLINE_XPU vec3 clamped() const {
         return {
                 clampedValue(x),
                 clampedValue(y),
@@ -2330,7 +2354,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 clamped(const vec3 &upper) const {
+    INLINE_XPU vec3 clamped(const vec3 &upper) const {
         return {
                 clampedValue(x, upper.x),
                 clampedValue(y, upper.y),
@@ -2338,7 +2362,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 clamped(const vec3 &lower, const vec3 &upper) const {
+    INLINE_XPU vec3 clamped(const vec3 &lower, const vec3 &upper) const {
         return {
                 clampedValue(x, lower.x, upper.x),
                 clampedValue(y, lower.y, upper.y),
@@ -2346,7 +2370,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 clamped(const f32 min_value, const f32 max_value) const {
+    INLINE_XPU vec3 clamped(const f32 min_value, const f32 max_value) const {
         return {
                 clampedValue(x, min_value, max_value),
                 clampedValue(y, min_value, max_value),
@@ -2354,7 +2378,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 approachTo(const vec3 &trg, f32 diff) const {
+    INLINE_XPU vec3 approachTo(const vec3 &trg, f32 diff) const {
         return {
                 approach(x, trg.x, diff),
                 approach(y, trg.y, diff),
@@ -2362,11 +2386,11 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 lerpTo(const vec3 &to, f32 by) const {
+    INLINE_XPU vec3 lerpTo(const vec3 &to, f32 by) const {
         return (to - *this).scaleAdd(by, *this);
     }
 
-    INLINE vec3 scaleAdd(f32 factor, const vec3 &to_be_added) const {
+    INLINE_XPU vec3 scaleAdd(f32 factor, const vec3 &to_be_added) const {
         return {
                 fast_mul_add(x, factor, to_be_added.x),
                 fast_mul_add(y, factor, to_be_added.y),
@@ -2374,7 +2398,7 @@ struct vec3 {
         };
     }
 
-    INLINE vec3 mulAdd(const vec3 &factors, const vec3 &to_be_added) const {
+    INLINE_XPU vec3 mulAdd(const vec3 &factors, const vec3 &to_be_added) const {
         return {
                 fast_mul_add(x, factors.x, to_be_added.x),
                 fast_mul_add(y, factors.y, to_be_added.y),
@@ -2387,7 +2411,7 @@ vec3 vec3::X{1, 0, 0};
 vec3 vec3::Y{0, 1, 0};
 vec3 vec3::Z{0, 0, 1};
 
-INLINE vec3 minimum(const vec3 &a, const vec3 &b) {
+INLINE_XPU vec3 minimum(const vec3 &a, const vec3 &b) {
     return {
             a.x < b.x ? a.x : b.x,
             a.y < b.y ? a.y : b.y,
@@ -2395,7 +2419,7 @@ INLINE vec3 minimum(const vec3 &a, const vec3 &b) {
     };
 }
 
-INLINE vec3 maximum(const vec3 &a, const vec3 &b) {
+INLINE_XPU vec3 maximum(const vec3 &a, const vec3 &b) {
     return {
             a.x > b.x ? a.x : b.x,
             a.y > b.y ? a.y : b.y,
@@ -2403,7 +2427,7 @@ INLINE vec3 maximum(const vec3 &a, const vec3 &b) {
     };
 }
 
-INLINE vec3 operator - (f32 lhs, const vec3 &rhs) {
+INLINE_XPU vec3 operator - (f32 lhs, const vec3 &rhs) {
     return {
             lhs - rhs.x,
             lhs - rhs.y,
@@ -2411,7 +2435,7 @@ INLINE vec3 operator - (f32 lhs, const vec3 &rhs) {
     };
 }
 
-INLINE vec3 operator + (f32 lhs, const vec3 &rhs) {
+INLINE_XPU vec3 operator + (f32 lhs, const vec3 &rhs) {
     return {
             lhs + rhs.x,
             lhs + rhs.y,
@@ -2419,7 +2443,7 @@ INLINE vec3 operator + (f32 lhs, const vec3 &rhs) {
     };
 }
 
-INLINE vec3 operator / (f32 lhs, const vec3 &rhs) {
+INLINE_XPU vec3 operator / (f32 lhs, const vec3 &rhs) {
     return {
             lhs / rhs.x,
             lhs / rhs.y,
@@ -2427,7 +2451,7 @@ INLINE vec3 operator / (f32 lhs, const vec3 &rhs) {
     };
 }
 
-INLINE vec3 operator * (f32 lhs, const vec3 &rhs) {
+INLINE_XPU vec3 operator * (f32 lhs, const vec3 &rhs) {
     return {
             lhs * rhs.x,
             lhs * rhs.y,
@@ -2435,7 +2459,7 @@ INLINE vec3 operator * (f32 lhs, const vec3 &rhs) {
     };
 }
 
-INLINE vec3 lerp(const vec3 &from, const vec3 &to, f32 by) {
+INLINE_XPU vec3 lerp(const vec3 &from, const vec3 &to, f32 by) {
     return (to - from).scaleAdd(by, from);
 }
 
@@ -2446,28 +2470,28 @@ struct Edge {
 struct AABB {
     vec3 min, max;
 
-    AABB(f32 min_x, f32 min_y, f32 min_z,
+    INLINE_XPU AABB(f32 min_x, f32 min_y, f32 min_z,
          f32 max_x, f32 max_y, f32 max_z) : AABB{
             vec3{min_x, min_y, min_z},
             vec3{max_x, max_y, max_z}
     } {}
-    AABB(f32 min_value, f32 max_value) : AABB{vec3{min_value}, vec3{max_value}} {}
-    AABB(const vec3 &min, const vec3 &max) : min{min}, max{max} {}
-    AABB() : AABB{0, 0} {}
+    INLINE_XPU AABB(f32 min_value, f32 max_value) : AABB{vec3{min_value}, vec3{max_value}} {}
+    INLINE_XPU AABB(const vec3 &min, const vec3 &max) : min{min}, max{max} {}
+    INLINE_XPU AABB() : AABB{0, 0} {}
 
-    INLINE AABB operator + (const AABB &rhs) const {
+    INLINE_XPU AABB operator + (const AABB &rhs) const {
         return {
-            min.x < rhs.min.x ? min.x : rhs.min.x,
-            min.y < rhs.min.y ? min.y : rhs.min.y,
-            min.z < rhs.min.z ? min.z : rhs.min.z,
+                min.x < rhs.min.x ? min.x : rhs.min.x,
+                min.y < rhs.min.y ? min.y : rhs.min.y,
+                min.z < rhs.min.z ? min.z : rhs.min.z,
 
-            max.x > rhs.max.x ? max.x : rhs.max.x,
-            max.y > rhs.max.y ? max.y : rhs.max.y,
-            max.z > rhs.max.z ? max.z : rhs.max.z,
+                max.x > rhs.max.x ? max.x : rhs.max.x,
+                max.y > rhs.max.y ? max.y : rhs.max.y,
+                max.z > rhs.max.z ? max.z : rhs.max.z,
         };
     }
 
-    INLINE const AABB& operator += (const AABB &rhs) {
+    INLINE_XPU const AABB& operator += (const AABB &rhs) {
         min.x = min.x < rhs.min.x ? min.x : rhs.min.x;
         min.y = min.y < rhs.min.y ? min.y : rhs.min.y;
         min.z = min.z < rhs.min.z ? min.z : rhs.min.z;
@@ -2479,13 +2503,13 @@ struct AABB {
         return *this;
     }
 
-    INLINE bool contains(const vec3& point) const {
+    INLINE_XPU bool contains(const vec3& point) const {
         return (min.x <= point.x && point.x <= max.x &&
                 min.y <= point.y && point.y <= max.y &&
                 min.z <= point.z && point.z <= max.z);
     }
 
-    INLINE bool overlapSphere(const vec3 &center, f32 radius) {
+    INLINE_XPU bool overlapSphere(const vec3 &center, f32 radius) {
         vec3 min_delta{min - center};
         vec3 max_delta{center - max};
         f32 squared_distance = 0;
@@ -2496,7 +2520,7 @@ struct AABB {
         return squared_distance <= radius * radius;
     }
 
-    INLINE f32 area() const {
+    INLINE_XPU f32 area() const {
         vec3 extents = max - min;
         return extents.x*extents.y + extents.y*extents.z + extents.z*extents.x;
     }
@@ -2526,34 +2550,34 @@ struct vec4 {
     };
     static vec4 X, Y, Z, W;
 
-    vec4() noexcept : vec4{0} {}
-    vec4(f32 x, f32 y, f32 z, f32 w) noexcept : x(x), y(y), z(z), w(w) {}
-    vec4(vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
-    vec4(const vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
-    explicit vec4(f32 value) noexcept : vec4{value, value, value, value} {}
+    INLINE_XPU vec4() noexcept : vec4{0} {}
+    INLINE_XPU vec4(f32 x, f32 y, f32 z, f32 w) noexcept : x(x), y(y), z(z), w(w) {}
+    INLINE_XPU vec4(vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
+    INLINE_XPU vec4(const vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
+    INLINE_XPU explicit vec4(f32 value) noexcept : vec4{value, value, value, value} {}
 
-    INLINE bool operator == (const vec4 &other) const {
+    INLINE_XPU bool operator == (const vec4 &other) const {
         return (other.x == x) &&
                (other.y == y) &&
                (other.z == z) &&
                (other.w == w);
     }
 
-    INLINE vec4& operator = (f32 value) {
+    INLINE_XPU vec4& operator = (f32 value) {
         x = y = z = value;
         return *this;
     }
 
-    INLINE vec4& operator = (i32 value) {
+    INLINE_XPU vec4& operator = (i32 value) {
         x = y = z = (f32)value;
         return *this;
     }
 
-    INLINE bool operator ! () const {
+    INLINE_XPU bool operator ! () const {
         return nonZero();
     }
 
-    INLINE vec4 operator - () const {
+    INLINE_XPU vec4 operator - () const {
         return {
                 -x,
                 -y,
@@ -2562,7 +2586,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 operator - (const vec4 &rhs) const {
+    INLINE_XPU vec4 operator - (const vec4 &rhs) const {
         return {
                 x - rhs.x,
                 y - rhs.y,
@@ -2571,7 +2595,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 operator + (const vec4 &rhs) const {
+    INLINE_XPU vec4 operator + (const vec4 &rhs) const {
         return {
                 x + rhs.x,
                 y + rhs.y,
@@ -2580,7 +2604,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 operator * (const vec4 &rhs) const {
+    INLINE_XPU vec4 operator * (const vec4 &rhs) const {
         return {
                 x * rhs.x,
                 y * rhs.y,
@@ -2589,7 +2613,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 operator / (const vec4 &rhs) const {
+    INLINE_XPU vec4 operator / (const vec4 &rhs) const {
         return {
                 x / rhs.x,
                 y / rhs.y,
@@ -2598,7 +2622,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4& operator -= (const vec4 &rhs) {
+    INLINE_XPU vec4& operator -= (const vec4 &rhs) {
         x -= rhs.x;
         y -= rhs.y;
         z -= rhs.z;
@@ -2606,7 +2630,7 @@ struct vec4 {
         return *this;
     }
 
-    INLINE vec4& operator += (const vec4 &rhs) {
+    INLINE_XPU vec4& operator += (const vec4 &rhs) {
         x += rhs.x;
         y += rhs.y;
         z += rhs.z;
@@ -2614,7 +2638,7 @@ struct vec4 {
         return *this;
     }
 
-    INLINE vec4& operator *= (const vec4 &rhs) {
+    INLINE_XPU vec4& operator *= (const vec4 &rhs) {
         x *= rhs.x;
         y *= rhs.y;
         z *= rhs.z;
@@ -2622,7 +2646,7 @@ struct vec4 {
         return *this;
     }
 
-    INLINE vec4& operator /= (const vec4 &rhs) {
+    INLINE_XPU vec4& operator /= (const vec4 &rhs) {
         x /= rhs.x;
         y /= rhs.y;
         z /= rhs.z;
@@ -2630,7 +2654,7 @@ struct vec4 {
         return *this;
     }
 
-    INLINE vec4 operator - (f32 rhs) const {
+    INLINE_XPU vec4 operator - (f32 rhs) const {
         return {
                 x - rhs,
                 y - rhs,
@@ -2639,7 +2663,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 operator + (f32 rhs) const {
+    INLINE_XPU vec4 operator + (f32 rhs) const {
         return {
                 x + rhs,
                 y + rhs,
@@ -2648,7 +2672,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 operator * (f32 rhs) const {
+    INLINE_XPU vec4 operator * (f32 rhs) const {
         return {
                 x * rhs,
                 y * rhs,
@@ -2657,7 +2681,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 operator / (f32 rhs) const {
+    INLINE_XPU vec4 operator / (f32 rhs) const {
         f32 factor = 1.0f / rhs;
         return {
                 x * factor,
@@ -2667,7 +2691,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4& operator -= (f32 rhs) {
+    INLINE_XPU vec4& operator -= (f32 rhs) {
         x -= rhs;
         y -= rhs;
         z -= rhs;
@@ -2675,7 +2699,7 @@ struct vec4 {
         return *this;
     }
 
-    INLINE vec4& operator += (f32 rhs) {
+    INLINE_XPU vec4& operator += (f32 rhs) {
         x += rhs;
         y += rhs;
         z += rhs;
@@ -2683,7 +2707,7 @@ struct vec4 {
         return *this;
     }
 
-    INLINE vec4& operator *= (f32 rhs) {
+    INLINE_XPU vec4& operator *= (f32 rhs) {
         x *= rhs;
         y *= rhs;
         z *= rhs;
@@ -2691,7 +2715,7 @@ struct vec4 {
         return *this;
     }
 
-    INLINE vec4& operator /= (f32 rhs) {
+    INLINE_XPU vec4& operator /= (f32 rhs) {
         f32 factor = 1.0f / rhs;
         x *= factor;
         y *= factor;
@@ -2700,7 +2724,7 @@ struct vec4 {
         return *this;
     }
 
-    INLINE vec4 operator - (i32 rhs) const {
+    INLINE_XPU vec4 operator - (i32 rhs) const {
         return {
                 x - (f32)rhs,
                 y - (f32)rhs,
@@ -2709,7 +2733,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 operator + (i32 rhs) const {
+    INLINE_XPU vec4 operator + (i32 rhs) const {
         return {
                 x + (f32)rhs,
                 y + (f32)rhs,
@@ -2718,7 +2742,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 operator * (i32 rhs) const {
+    INLINE_XPU vec4 operator * (i32 rhs) const {
         return {
                 x * (f32)rhs,
                 y * (f32)rhs,
@@ -2727,7 +2751,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 operator / (i32 rhs) const {
+    INLINE_XPU vec4 operator / (i32 rhs) const {
         f32 factor = 1.0f / (f32)rhs;
         return {
                 x * factor,
@@ -2737,7 +2761,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4& operator -= (i32 rhs) {
+    INLINE_XPU vec4& operator -= (i32 rhs) {
         x -= (f32)rhs;
         y -= (f32)rhs;
         z -= (f32)rhs;
@@ -2745,7 +2769,7 @@ struct vec4 {
         return *this;
     }
 
-    INLINE vec4& operator += (i32 rhs) {
+    INLINE_XPU vec4& operator += (i32 rhs) {
         x += (f32)rhs;
         y += (f32)rhs;
         z += (f32)rhs;
@@ -2753,7 +2777,7 @@ struct vec4 {
         return *this;
     }
 
-    INLINE vec4& operator *= (i32 rhs) {
+    INLINE_XPU vec4& operator *= (i32 rhs) {
         x *= (f32)rhs;
         y *= (f32)rhs;
         z *= (f32)rhs;
@@ -2761,7 +2785,7 @@ struct vec4 {
         return *this;
     }
 
-    INLINE vec4& operator /= (i32 rhs) {
+    INLINE_XPU vec4& operator /= (i32 rhs) {
         f32 factor = 1.0f / (f32)rhs;
         x *= factor;
         y *= factor;
@@ -2770,48 +2794,48 @@ struct vec4 {
         return *this;
     }
 
-    INLINE bool nonZero() const {
+    INLINE_XPU bool nonZero() const {
         return x != 0.0f ||
                y != 0.0f ||
                z != 0.0f ||
                w != 0.0f;
     }
 
-    INLINE f32 minimum() const {
+    INLINE_XPU f32 minimum() const {
         f32 mn = x < y ? x : y;
         mn = mn < z ? mn : z;
         mn = mn < w ? mn : w;
         return mn;
     }
 
-    INLINE f32 maximum() const {
+    INLINE_XPU f32 maximum() const {
         f32 mx = x > y ? x : y;
         mx = mx > z ? mx : z;
         mx = mx > w ? mx : w;
         return mx;
     }
 
-    INLINE f32 dot(const vec4 &rhs) const {
+    INLINE_XPU f32 dot(const vec4 &rhs) const {
         return (x * rhs.x) + (y * rhs.y) + (z * rhs.z) + (z * rhs.w);
     }
 
-    INLINE f32 squaredLength() const {
+    INLINE_XPU f32 squaredLength() const {
         return x*x + y*y + z*z + w*w;
     }
 
-    INLINE f32 length() const {
+    INLINE_XPU f32 length() const {
         return sqrtf(squaredLength());
     }
 
-    INLINE vec4 normalized() const {
+    INLINE_XPU vec4 normalized() const {
         return *this / length();
     }
 
-    INLINE vec4 reflectedAround(const vec4 &N) const {
+    INLINE_XPU vec4 reflectedAround(const vec4 &N) const {
         return N.scaleAdd(-2 * dot(N), *this);
     }
 
-    INLINE vec4 clamped() const {
+    INLINE_XPU vec4 clamped() const {
         return {
                 clampedValue(x),
                 clampedValue(y),
@@ -2820,7 +2844,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 clamped(const vec4 &upper) const {
+    INLINE_XPU vec4 clamped(const vec4 &upper) const {
         return {
                 clampedValue(x, upper.x),
                 clampedValue(y, upper.y),
@@ -2829,7 +2853,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 clamped(const vec4 &lower, const vec4 &upper) const {
+    INLINE_XPU vec4 clamped(const vec4 &lower, const vec4 &upper) const {
         return {
                 clampedValue(x, lower.x, upper.x),
                 clampedValue(y, lower.y, upper.y),
@@ -2838,7 +2862,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 clamped(const f32 min_value, const f32 max_value) const {
+    INLINE_XPU vec4 clamped(const f32 min_value, const f32 max_value) const {
         return {
                 clampedValue(x, min_value, max_value),
                 clampedValue(y, min_value, max_value),
@@ -2847,7 +2871,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 approachTo(const vec4 &trg, f32 diff) const {
+    INLINE_XPU vec4 approachTo(const vec4 &trg, f32 diff) const {
         return {
                 approach(x, trg.x, diff),
                 approach(y, trg.y, diff),
@@ -2856,11 +2880,11 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 lerpTo(const vec4 &to, f32 by) const {
+    INLINE_XPU vec4 lerpTo(const vec4 &to, f32 by) const {
         return (to - *this).scaleAdd(by, *this);
     }
 
-    INLINE vec4 scaleAdd(f32 factor, const vec4 &to_be_added) const {
+    INLINE_XPU vec4 scaleAdd(f32 factor, const vec4 &to_be_added) const {
         return {
                 fast_mul_add(x, factor, to_be_added.x),
                 fast_mul_add(y, factor, to_be_added.y),
@@ -2869,7 +2893,7 @@ struct vec4 {
         };
     }
 
-    INLINE vec4 mulAdd(const vec4 &factors, const vec4 &to_be_added) const {
+    INLINE_XPU vec4 mulAdd(const vec4 &factors, const vec4 &to_be_added) const {
         return {
                 fast_mul_add(x, factors.x, to_be_added.x),
                 fast_mul_add(y, factors.y, to_be_added.y),
@@ -2884,7 +2908,7 @@ vec4 vec4::Y{0, 1, 0, 0};
 vec4 vec4::Z{0, 0, 1, 0};
 vec4 vec4::W{0, 0, 0, 1};
 
-INLINE vec4 minimum(const vec4 &a, const vec4 &b) {
+INLINE_XPU vec4 minimum(const vec4 &a, const vec4 &b) {
     return {
             a.x < b.x ? a.x : b.x,
             a.y < b.y ? a.y : b.y,
@@ -2893,7 +2917,7 @@ INLINE vec4 minimum(const vec4 &a, const vec4 &b) {
     };
 }
 
-INLINE vec4 maximum(const vec4 &a, const vec4 &b) {
+INLINE_XPU vec4 maximum(const vec4 &a, const vec4 &b) {
     return {
             a.x > b.x ? a.x : b.x,
             a.y > b.y ? a.y : b.y,
@@ -2902,7 +2926,7 @@ INLINE vec4 maximum(const vec4 &a, const vec4 &b) {
     };
 }
 
-INLINE vec4 operator - (f32 lhs, const vec4 &rhs) {
+INLINE_XPU vec4 operator - (f32 lhs, const vec4 &rhs) {
     return {
             lhs - rhs.x,
             lhs - rhs.y,
@@ -2911,7 +2935,7 @@ INLINE vec4 operator - (f32 lhs, const vec4 &rhs) {
     };
 }
 
-INLINE vec4 operator + (f32 lhs, const vec4 &rhs) {
+INLINE_XPU vec4 operator + (f32 lhs, const vec4 &rhs) {
     return {
             lhs + rhs.x,
             lhs + rhs.y,
@@ -2920,7 +2944,7 @@ INLINE vec4 operator + (f32 lhs, const vec4 &rhs) {
     };
 }
 
-INLINE vec4 operator / (f32 lhs, const vec4 &rhs) {
+INLINE_XPU vec4 operator / (f32 lhs, const vec4 &rhs) {
     return {
             lhs / rhs.x,
             lhs / rhs.y,
@@ -2929,7 +2953,7 @@ INLINE vec4 operator / (f32 lhs, const vec4 &rhs) {
     };
 }
 
-INLINE vec4 operator * (f32 lhs, const vec4 &rhs) {
+INLINE_XPU vec4 operator * (f32 lhs, const vec4 &rhs) {
     return {
             lhs * rhs.x,
             lhs * rhs.y,
@@ -2938,7 +2962,7 @@ INLINE vec4 operator * (f32 lhs, const vec4 &rhs) {
     };
 }
 
-INLINE vec4 lerp(const vec4 &from, const vec4 &to, f32 by) {
+INLINE_XPU vec4 lerp(const vec4 &from, const vec4 &to, f32 by) {
     return (to - from).scaleAdd(by, from);
 }
 
@@ -2949,32 +2973,32 @@ struct quat {
 
     static quat Identity;
 
-    quat() noexcept : quat{vec3{0}, 1.0f} {}
-    quat(f32 axis_x, f32 axis_y, f32 axis_z, f32 amount) noexcept : axis{axis_x, axis_y, axis_z}, amount{amount} {}
-    quat(vec3 axis, f32 amount) noexcept : axis{axis}, amount{amount} {}
-    quat(quat &other) noexcept : quat{other.axis, other.amount} {}
-    quat(const quat &other) noexcept : quat{other.axis, other.amount} {}
+    INLINE_XPU quat() noexcept : quat{vec3{0}, 1.0f} {}
+    INLINE_XPU quat(f32 axis_x, f32 axis_y, f32 axis_z, f32 amount) noexcept : axis{axis_x, axis_y, axis_z}, amount{amount} {}
+    INLINE_XPU quat(vec3 axis, f32 amount) noexcept : axis{axis}, amount{amount} {}
+    INLINE_XPU quat(quat &other) noexcept : quat{other.axis, other.amount} {}
+    INLINE_XPU quat(const quat &other) noexcept : quat{other.axis, other.amount} {}
 
-    INLINE f32 length() const {
+    INLINE_XPU f32 length() const {
         return sqrtf(axis.x * axis.x + axis.y * axis.y + axis.z * axis.z + amount * amount);
     }
 
-    INLINE quat normalized() const {
+    INLINE_XPU quat normalized() const {
         return *this / length();
     }
 
-    INLINE quat operator * (f32 rhs) const {
+    INLINE_XPU quat operator * (f32 rhs) const {
         return {
                 axis * rhs,
                 amount * rhs
         };
     }
 
-    INLINE quat operator / (f32 rhs) const {
+    INLINE_XPU quat operator / (f32 rhs) const {
         return *this * (1.0f / rhs);
     }
 
-    INLINE vec3 operator * (const vec3 &rhs) const {
+    INLINE_XPU vec3 operator * (const vec3 &rhs) const {
         vec3 out{axis.cross(rhs)};
         vec3 qqv{axis.cross(out)};
         out = out.scaleAdd(amount, qqv);
@@ -2982,7 +3006,7 @@ struct quat {
         return out;
     }
 
-    INLINE quat operator * (const quat &rhs) const {
+    INLINE_XPU quat operator * (const quat &rhs) const {
         return {
                 {
                         amount * rhs.axis.x + axis.x * rhs.amount + axis.y * rhs.axis.z - axis.z * rhs.axis.y,
@@ -2993,7 +3017,7 @@ struct quat {
         };
     }
 
-    INLINE void operator *= (const quat &rhs) {
+    INLINE_XPU void operator *= (const quat &rhs) {
         f32 x = axis.x; f32 X = rhs.axis.x;
         f32 y = axis.y; f32 Y = rhs.axis.y;
         f32 z = axis.z; f32 Z = rhs.axis.z;
@@ -3004,18 +3028,18 @@ struct quat {
         amount = W*w - X*x - Y*y - Z*z;
     }
 
-    INLINE quat conjugate() const {
+    INLINE_XPU quat conjugate() const {
         return {
                 -axis,
                 amount
         };
     }
 
-    INLINE quat rotated(const vec3 &Axis, f32 radians) const {
+    INLINE_XPU quat rotated(const vec3 &Axis, f32 radians) const {
         return *this * AxisAngle(Axis, radians);
     }
 
-    static INLINE quat AxisAngle(const vec3 &axis, f32 radians) {
+    static INLINE_XPU quat AxisAngle(const vec3 &axis, f32 radians) {
         radians *= 0.5f;
         return quat{
                 axis * sinf(radians),
@@ -3023,14 +3047,14 @@ struct quat {
         }.normalized();
     }
 
-    static INLINE quat RotationAroundX(f32 radians) { return AxisAngle(vec3::X, radians); }
-    static INLINE quat RotationAroundY(f32 radians) { return AxisAngle(vec3::Y, radians); }
-    static INLINE quat RotationAroundZ(f32 radians) { return AxisAngle(vec3::Z, radians); }
-    INLINE void setRotationAroundX(f32 radians) { *this = RotationAroundX(radians); }
-    INLINE void setRotationAroundY(f32 radians) { *this = RotationAroundY(radians); }
-    INLINE void setRotationAroundZ(f32 radians) { *this = RotationAroundZ(radians); }
+    static INLINE_XPU quat RotationAroundX(f32 radians) { return AxisAngle(vec3{1.0f, 0.0f, 0.0f}, radians); }
+    static INLINE_XPU quat RotationAroundY(f32 radians) { return AxisAngle(vec3{0.0f, 1.0f, 0.0f}, radians); }
+    static INLINE_XPU quat RotationAroundZ(f32 radians) { return AxisAngle(vec3{0.0f, 0.0f, 1.0f}, radians); }
+    INLINE_XPU void setRotationAroundX(f32 radians) { *this = RotationAroundX(radians); }
+    INLINE_XPU void setRotationAroundY(f32 radians) { *this = RotationAroundY(radians); }
+    INLINE_XPU void setRotationAroundZ(f32 radians) { *this = RotationAroundZ(radians); }
 
-    INLINE void setXYZ(vec3 &X, vec3 &Y, vec3 &Z) const {
+    INLINE_XPU void setXYZ(vec3 &X, vec3 &Y, vec3 &Z) const {
         f32 q0 = amount;
         f32 q1 = -axis.x;
         f32 q2 = -axis.y;
@@ -3052,7 +3076,7 @@ struct quat {
 quat quat::Identity = {};
 
 struct OrientationUsingQuaternion : Orientation<quat> {
-    OrientationUsingQuaternion(f32 x_radians = 0.0f, f32 y_radians = 0.0f, f32 z_radians = 0.0f) :
+    INLINE_XPU OrientationUsingQuaternion(f32 x_radians = 0.0f, f32 y_radians = 0.0f, f32 z_radians = 0.0f) :
             Orientation<quat>{x_radians, y_radians, z_radians} {}
 };
 
@@ -3062,57 +3086,57 @@ struct mat2 {
 
     static mat2 Identity;
 
-    mat2() : mat2{
+    INLINE_XPU mat2() : mat2{
             vec2{1.0f, 0.0f},
             vec2{0.0f, 1.0f}
     } {}
-    mat2(vec2i x, vec2i y) noexcept : X{x}, Y{y} {}
-    mat2(vec2i x, vec2 y) noexcept : X{x}, Y{y} {}
-    mat2(vec2 x, vec2i y) noexcept : X{x}, Y{y} {}
-    mat2(vec2 x, vec2 y) noexcept : X{x}, Y{y} {}
-    mat2(f32 Xx, f32 Xy, f32 Yx, f32 Yy) noexcept : X{Xx, Xy}, Y{Yx, Yy} {}
-    mat2(i32 Xx, i32 Xy, i32 Yx, i32 Yy) noexcept : X{(f32)Xx, (f32)Xy}, Y{(f32)Yx, (f32)Yy} {}
-    mat2(mat2 &other) noexcept : mat2{other.X, other.Y} {}
-    mat2(const mat2 &other) noexcept : mat2{other.X, other.Y} {}
+    INLINE_XPU mat2(vec2i x, vec2i y) noexcept : X{x}, Y{y} {}
+    INLINE_XPU mat2(vec2i x, vec2 y) noexcept : X{x}, Y{y} {}
+    INLINE_XPU mat2(vec2 x, vec2i y) noexcept : X{x}, Y{y} {}
+    INLINE_XPU mat2(vec2 x, vec2 y) noexcept : X{x}, Y{y} {}
+    INLINE_XPU mat2(f32 Xx, f32 Xy, f32 Yx, f32 Yy) noexcept : X{Xx, Xy}, Y{Yx, Yy} {}
+    INLINE_XPU mat2(i32 Xx, i32 Xy, i32 Yx, i32 Yy) noexcept : X{(f32)Xx, (f32)Xy}, Y{(f32)Yx, (f32)Yy} {}
+    INLINE_XPU mat2(mat2 &other) noexcept : mat2{other.X, other.Y} {}
+    INLINE_XPU mat2(const mat2 &other) noexcept : mat2{other.X, other.Y} {}
 
-    INLINE f32 det() const {
+    INLINE_XPU f32 det() const {
         return X.x*Y.y - X.y*Y.x;
     }
 
-    INLINE bool has_inverse() const {
+    INLINE_XPU bool has_inverse() const {
         return det() != 0;
     }
 
-    INLINE mat2 operator ! () const {
+    INLINE_XPU mat2 operator ! () const {
         return inverted();
     }
 
-    INLINE mat2 operator ~ () const {
+    INLINE_XPU mat2 operator ~ () const {
         return transposed();
     }
 
-    INLINE mat2 operator + (f32 rhs) const {
+    INLINE_XPU mat2 operator + (f32 rhs) const {
         return {
                 X.x + rhs, X.y + rhs,
                 Y.x + rhs, Y.y + rhs
         };
     }
 
-    INLINE mat2 operator - (f32 rhs) const {
+    INLINE_XPU mat2 operator - (f32 rhs) const {
         return {
                 X.x - rhs, X.y - rhs,
                 Y.x - rhs, Y.y - rhs
         };
     }
 
-    INLINE mat2 operator * (f32 rhs) const {
+    INLINE_XPU mat2 operator * (f32 rhs) const {
         return {
                 X.x * rhs, X.y * rhs,
                 Y.x * rhs, Y.y * rhs
         };
     }
 
-    INLINE mat2 operator / (f32 rhs) const {
+    INLINE_XPU mat2 operator / (f32 rhs) const {
         f32 factor = 1.0f / rhs;
         return {
                 X.x * factor, X.y * factor,
@@ -3120,21 +3144,21 @@ struct mat2 {
         };
     }
 
-    INLINE mat2 operator + (const mat2 &rhs) const {
+    INLINE_XPU mat2 operator + (const mat2 &rhs) const {
         return {
                 X.x + rhs.X.x, X.y + rhs.X.y,
                 Y.x + rhs.Y.x, Y.y + rhs.Y.y
         };
     }
 
-    INLINE mat2 operator - (const mat2 &rhs) const {
+    INLINE_XPU mat2 operator - (const mat2 &rhs) const {
         return {
                 X.x - rhs.X.x, X.y - rhs.X.y,
                 Y.x - rhs.Y.x, Y.y - rhs.Y.y
         };
     }
 
-    INLINE mat2 operator * (const mat2 &rhs) const {
+    INLINE_XPU mat2 operator * (const mat2 &rhs) const {
         return {
                 X.x*rhs.X.x + X.y*rhs.Y.x, // Row 1 | Column 1
                 X.x*rhs.X.y + X.y*rhs.Y.y, // Row 1 | Column 2
@@ -3143,28 +3167,28 @@ struct mat2 {
         };
     }
 
-    INLINE vec2 operator * (const vec2 &rhs) const {
+    INLINE_XPU vec2 operator * (const vec2 &rhs) const {
         return {
                 X.x*rhs.x + Y.x*rhs.y,
                 X.y*rhs.x + Y.y*rhs.y
         };
     }
 
-    INLINE void operator += (const mat2 &rhs) {
+    INLINE_XPU void operator += (const mat2 &rhs) {
         X.x += rhs.X.x;
         X.y += rhs.X.y;
         Y.x += rhs.Y.x;
         Y.y += rhs.Y.y;
     }
 
-    INLINE void operator -= (const mat2 &rhs) {
+    INLINE_XPU void operator -= (const mat2 &rhs) {
         X.x -= rhs.X.x;
         X.y -= rhs.X.y;
         Y.x -= rhs.Y.x;
         Y.y -= rhs.Y.y;
     }
 
-    INLINE void operator *= (const mat2 &rhs) {
+    INLINE_XPU void operator *= (const mat2 &rhs) {
         mat2 lhs{*this};
         X.x = lhs.X.x*rhs.X.x + lhs.X.y*rhs.Y.x; // Row 1 | Column 1
         X.y = lhs.X.x*rhs.X.y + lhs.X.y*rhs.Y.y; // Row 1 | Column 2
@@ -3172,28 +3196,28 @@ struct mat2 {
         Y.y = lhs.Y.x*rhs.X.y + lhs.Y.y*rhs.Y.y; // Row 2 | Column 2
     }
 
-    INLINE void operator += (f32 rhs) {
+    INLINE_XPU void operator += (f32 rhs) {
         X.x += rhs;
         X.y += rhs;
         Y.x += rhs;
         Y.y += rhs;
     }
 
-    INLINE void operator -= (f32 rhs) {
+    INLINE_XPU void operator -= (f32 rhs) {
         X.x -= rhs;
         X.y -= rhs;
         Y.x -= rhs;
         Y.y -= rhs;
     }
 
-    INLINE void operator *= (f32 rhs) {
+    INLINE_XPU void operator *= (f32 rhs) {
         X.x *= rhs;
         X.y *= rhs;
         Y.x *= rhs;
         Y.y *= rhs;
     }
 
-    INLINE void operator /= (f32 rhs) {
+    INLINE_XPU void operator /= (f32 rhs) {
         f32 factor = 1.0f / rhs;
         X.x *= factor;
         X.y *= factor;
@@ -3201,13 +3225,13 @@ struct mat2 {
         Y.y *= factor;
     }
 
-    INLINE void setRotation(f32 angle) {
+    INLINE_XPU void setRotation(f32 angle) {
         X.x = Y.y = cos(angle);
         Y.x = X.y = sin(angle);
         X.y = -X.y;
     }
 
-    INLINE void rotate(f32 angle) {
+    INLINE_XPU void rotate(f32 angle) {
         f32 c = cos(angle);
         f32 s = sin(angle);
         mat2 lhs{*this};
@@ -3217,7 +3241,7 @@ struct mat2 {
         Y.y = c*lhs.Y.y - s*lhs.Y.x; // Row 2 | Column 2
     }
 
-    INLINE mat2 rotated_by(f32 angle) const {
+    INLINE_XPU mat2 rotated_by(f32 angle) const {
         f32 c = cos(angle);
         f32 s = sin(angle);
         return {
@@ -3226,14 +3250,14 @@ struct mat2 {
         };
     }
 
-    INLINE mat2 transposed() const {
+    INLINE_XPU mat2 transposed() const {
         return {
                 X.x, Y.x,
                 X.y, Y.y
         };
     }
 
-    INLINE mat2 inverted() const {
+    INLINE_XPU mat2 inverted() const {
         return mat2{
                 Y.y, -X.y,
                 -Y.x, X.x
@@ -3242,15 +3266,15 @@ struct mat2 {
 };
 mat2 mat2::Identity = {};
 
-INLINE mat2 operator * (f32 lhs, const mat2 &rhs) {
+INLINE_XPU mat2 operator * (f32 lhs, const mat2 &rhs) {
     return rhs * lhs;
 }
 
-INLINE mat2 operator + (f32 lhs, const mat2 &rhs) {
+INLINE_XPU mat2 operator + (f32 lhs, const mat2 &rhs) {
     return rhs + lhs;
 }
 
-INLINE mat2 outer(const vec2 &lhs, const vec2 &rhs) {
+INLINE_XPU mat2 outer(const vec2 &lhs, const vec2 &rhs) {
     return {
             lhs * rhs.x,
             lhs * rhs.y
@@ -3263,20 +3287,20 @@ struct mat3 {
 
     static mat3 Identity;
 
-    mat3() noexcept : X{1.0f, 0.0f, 0.0f},
-             Y{0.0f, 1.0f, 0.0f},
-             Z{0.0f, 0.0f, 1.0f} {}
-    mat3(vec3 X, vec3 Y, vec3 Z) noexcept : X{X}, Y{Y}, Z{Z} {}
-    mat3(f32 Xx, f32 Xy, f32 Xz,
+    INLINE_XPU mat3() noexcept : X{1.0f, 0.0f, 0.0f},
+                      Y{0.0f, 1.0f, 0.0f},
+                      Z{0.0f, 0.0f, 1.0f} {}
+    INLINE_XPU mat3(vec3 X, vec3 Y, vec3 Z) noexcept : X{X}, Y{Y}, Z{Z} {}
+    INLINE_XPU mat3(f32 Xx, f32 Xy, f32 Xz,
          f32 Yx, f32 Yy, f32 Yz,
          f32 Zx, f32 Zy, f32 Zz) noexcept :
             X{Xx, Xy, Xz},
             Y{Yx, Yy, Yz},
             Z{Zx, Zy, Zz} {}
-    mat3(mat3 &other) noexcept : mat3{other.X, other.Y, other.Z} {}
-    mat3(const mat3 &other) noexcept : mat3{other.X, other.Y, other.Z} {}
+    INLINE_XPU mat3(mat3 &other) noexcept : mat3{other.X, other.Y, other.Z} {}
+    INLINE_XPU mat3(const mat3 &other) noexcept : mat3{other.X, other.Y, other.Z} {}
 
-    static INLINE mat3 RotationAroundX(f32 radians) {
+    static INLINE_XPU mat3 RotationAroundX(f32 radians) {
         f32 c = cos(radians);
         f32 s = sin(radians);
         return {
@@ -3286,7 +3310,7 @@ struct mat3 {
         };
     }
 
-    static INLINE mat3 RotationAroundY(f32 radians) {
+    static INLINE_XPU mat3 RotationAroundY(f32 radians) {
         f32 c = cos(radians);
         f32 s = sin(radians);
         return {
@@ -3296,7 +3320,7 @@ struct mat3 {
         };
     }
 
-    static INLINE mat3 RotationAroundZ(f32 radians) {
+    static INLINE_XPU mat3 RotationAroundZ(f32 radians) {
         f32 c = cos(radians);
         f32 s = sin(radians);
         return {
@@ -3306,7 +3330,7 @@ struct mat3 {
         };
     }
 
-    INLINE void rotateAroundX(f32 radians) {
+    INLINE_XPU void rotateAroundX(f32 radians) {
         f32 c = cos(radians);
         f32 s = sin(radians);
         mat3 lhs = *this;
@@ -3319,7 +3343,7 @@ struct mat3 {
         Z.z = c*lhs.Z.z - s*lhs.Z.y; // Row 3 | Column 2
     }
 
-    INLINE void rotateAroundY(f32 radians) {
+    INLINE_XPU void rotateAroundY(f32 radians) {
         f32 c = cos(radians);
         f32 s = sin(radians);
         mat3 lhs = *this;
@@ -3332,7 +3356,7 @@ struct mat3 {
         Z.z = c*lhs.Z.z + s*lhs.Z.x; // Row 3 | Column 2
     }
 
-    INLINE void rotateAroundZ(f32 radians) {
+    INLINE_XPU void rotateAroundZ(f32 radians) {
         f32 c = cos(radians);
         f32 s = sin(radians);
         mat3 lhs = *this;
@@ -3345,25 +3369,25 @@ struct mat3 {
         Z.y = c*lhs.Z.y - s*lhs.Z.x; // Row 3 | Column 2
     }
 
-    INLINE mat3 rotatedAroundXby(f32 radians) const {
+    INLINE_XPU mat3 rotatedAroundXby(f32 radians) const {
         mat3 out{*this};
         out.rotateAroundX(radians);
         return out;
     }
 
-    INLINE mat3 rotatedAroundYby(f32 radians) const {
+    INLINE_XPU mat3 rotatedAroundYby(f32 radians) const {
         mat3 out{*this};
         out.rotateAroundY(radians);
         return out;
     }
 
-    INLINE mat3 rotatedAroundZby(f32 radians) const {
+    INLINE_XPU mat3 rotatedAroundZby(f32 radians) const {
         mat3 out{*this};
         out.rotateAroundZ(radians);
         return out;
     }
 
-    INLINE f32 det() const {
+    INLINE_XPU f32 det() const {
         return (
                 + X.x * (Y.y * Z.z - Z.y * Y.z)
                 - Y.x * (X.y * Z.z - Z.y * X.z)
@@ -3371,11 +3395,11 @@ struct mat3 {
         );
     }
 
-    INLINE bool has_inverse() const {
+    INLINE_XPU bool has_inverse() const {
         return det() != 0;
     }
 
-    INLINE mat3 transposed() const {
+    INLINE_XPU mat3 transposed() const {
         return {
                 X.x, Y.x, Z.x,
                 X.y, Y.y, Z.y,
@@ -3383,7 +3407,7 @@ struct mat3 {
         };
     }
 
-    INLINE mat3 inverted() const {
+    INLINE_XPU mat3 inverted() const {
         return mat3{
                 +(Y.y * Z.z - Z.y * Y.z),
                 -(X.y * Z.z - Z.y * X.z),
@@ -3399,15 +3423,15 @@ struct mat3 {
         } / det();
     }
 
-    INLINE mat3 operator ! () const {
+    INLINE_XPU mat3 operator ! () const {
         return inverted();
     }
 
-    INLINE mat3 operator ~ () const {
+    INLINE_XPU mat3 operator ~ () const {
         return transposed();
     }
 
-    INLINE mat3 operator + (f32 rhs) const {
+    INLINE_XPU mat3 operator + (f32 rhs) const {
         return {
                 X.x + rhs, X.y + rhs, X.z + rhs,
                 Y.x + rhs, Y.y + rhs, Y.z + rhs,
@@ -3415,7 +3439,7 @@ struct mat3 {
         };
     }
 
-    INLINE mat3 operator - (f32 rhs) const {
+    INLINE_XPU mat3 operator - (f32 rhs) const {
         return {
                 X.x - rhs, X.y - rhs, X.z - rhs,
                 Y.x - rhs, Y.y - rhs, Y.z - rhs,
@@ -3423,7 +3447,7 @@ struct mat3 {
         };
     }
 
-    INLINE mat3 operator * (f32 rhs) const {
+    INLINE_XPU mat3 operator * (f32 rhs) const {
         return {
                 X.x * rhs, X.y * rhs, X.z * rhs,
                 Y.x * rhs, Y.y * rhs, Y.z * rhs,
@@ -3431,7 +3455,7 @@ struct mat3 {
         };
     }
 
-    INLINE mat3 operator / (f32 rhs) const {
+    INLINE_XPU mat3 operator / (f32 rhs) const {
         f32 factor = 1.0f / rhs;
         return mat3{
                 X.x, X.y, X.z,
@@ -3440,7 +3464,7 @@ struct mat3 {
         } * factor;
     }
 
-    INLINE mat3 operator + (const mat3 &rhs) const {
+    INLINE_XPU mat3 operator + (const mat3 &rhs) const {
         return {
                 X.x + rhs.X.x, X.y + rhs.X.y, X.z + rhs.X.z,
                 Y.x + rhs.Y.x, Y.y + rhs.Y.y, Y.z + rhs.Y.z,
@@ -3448,7 +3472,7 @@ struct mat3 {
         };
     }
 
-    INLINE mat3 operator - (const mat3 &rhs) const {
+    INLINE_XPU mat3 operator - (const mat3 &rhs) const {
         return {
                 X.x - rhs.X.x, X.y - rhs.X.y, X.z - rhs.X.z,
                 Y.x - rhs.Y.x, Y.y - rhs.Y.y, Y.z - rhs.Y.z,
@@ -3456,7 +3480,7 @@ struct mat3 {
         };
     }
 
-    INLINE mat3 operator * (const mat3 &rhs) const {
+    INLINE_XPU mat3 operator * (const mat3 &rhs) const {
         return {
                 X.x*rhs.X.x + X.y*rhs.Y.x + X.z*rhs.Z.x, // Row 1 | Column 1
                 X.x*rhs.X.y + X.y*rhs.Y.y + X.z*rhs.Z.y, // Row 1 | Column 2
@@ -3472,7 +3496,7 @@ struct mat3 {
         };
     }
 
-    INLINE vec3 operator * (const vec3 &rhs) const {
+    INLINE_XPU vec3 operator * (const vec3 &rhs) const {
         return {
                 X.x*rhs.x + Y.x*rhs.y + Z.x*rhs.z,
                 X.y*rhs.x + Y.y*rhs.y + Z.y*rhs.z,
@@ -3480,19 +3504,19 @@ struct mat3 {
         };
     }
 
-    INLINE void operator += (const mat3 &rhs) {
+    INLINE_XPU void operator += (const mat3 &rhs) {
         X.x += rhs.X.x; Y.x += rhs.Y.x; Z.x += rhs.Z.x;
         X.y += rhs.X.y; Y.y += rhs.Y.y; Z.y += rhs.Z.y;
         X.z += rhs.X.z; Y.z += rhs.Y.z; Z.z += rhs.Z.z;
     }
 
-    INLINE void operator -= (const mat3 &rhs) {
+    INLINE_XPU void operator -= (const mat3 &rhs) {
         X.x -= rhs.X.x; Y.x -= rhs.Y.x; Z.x -= rhs.Z.x;
         X.y -= rhs.X.y; Y.y -= rhs.Y.y; Z.y -= rhs.Z.y;
         X.z -= rhs.X.z; Y.z -= rhs.Y.z; Z.z -= rhs.Z.z;
     }
 
-    INLINE void operator *= (const mat3 &rhs) {
+    INLINE_XPU void operator *= (const mat3 &rhs) {
         mat3 lhs = *this;
         X.x = lhs.X.x*rhs.X.x + lhs.X.y*rhs.Y.x + lhs.X.z*rhs.Z.x; // Row 1 | Column 1
         X.y = lhs.X.x*rhs.X.y + lhs.X.y*rhs.Y.y + lhs.X.z*rhs.Z.y; // Row 1 | Column 2
@@ -3507,25 +3531,25 @@ struct mat3 {
         Z.z = lhs.Z.x*rhs.X.z + lhs.Z.y*rhs.Y.z + lhs.Z.z*rhs.Z.z; // Row 3 | Column 3
     }
 
-    INLINE void operator += (f32 rhs) {
+    INLINE_XPU void operator += (f32 rhs) {
         X.x += rhs; Y.x += rhs; Z.x += rhs;
         X.y += rhs; Y.y += rhs; Z.y += rhs;
         X.z += rhs; Y.z += rhs; Z.z += rhs;
     }
 
-    INLINE void operator -= (f32 rhs) {
+    INLINE_XPU void operator -= (f32 rhs) {
         X.x -= rhs; Y.x -= rhs; Z.x -= rhs;
         X.y -= rhs; Y.y -= rhs; Z.y -= rhs;
         X.z -= rhs; Y.z -= rhs; Z.z -= rhs;
     }
 
-    INLINE void operator *= (f32 rhs) {
+    INLINE_XPU void operator *= (f32 rhs) {
         X.x *= rhs; Y.x *= rhs; Z.x *= rhs;
         X.y *= rhs; Y.y *= rhs; Z.y *= rhs;
         X.z *= rhs; Y.z *= rhs; Z.z *= rhs;
     }
 
-    INLINE void operator /= (f32 rhs) {
+    INLINE_XPU void operator /= (f32 rhs) {
         f32 factor = 1.0f / rhs;
         X.x *= factor; Y.x *= factor; Z.x *= factor;
         X.y *= factor; Y.y *= factor; Z.y *= factor;
@@ -3534,15 +3558,15 @@ struct mat3 {
 };
 mat3 mat3::Identity = {};
 
-INLINE mat3 operator * (f32 lhs, const mat3 &rhs) {
+INLINE_XPU mat3 operator * (f32 lhs, const mat3 &rhs) {
     return rhs * lhs;
 }
 
-INLINE mat3 operator + (f32 lhs, const mat3 &rhs) {
+INLINE_XPU mat3 operator + (f32 lhs, const mat3 &rhs) {
     return rhs + lhs;
 }
 
-INLINE mat3 outerVec3(const vec3 &lhs, const vec3 &rhs) {
+INLINE_XPU mat3 outerVec3(const vec3 &lhs, const vec3 &rhs) {
     return {
             lhs * rhs.x,
             lhs * rhs.y,
@@ -3565,13 +3589,13 @@ struct mat4 {
 
     static mat4 Identity;
 
-    mat4() noexcept :
+    INLINE_XPU mat4() noexcept :
             X{1, 0, 0, 0},
             Y{0, 1, 0, 0},
             Z{0, 0, 1, 0},
             W{0, 0, 0, 1} {}
-    mat4(vec4 X, vec4 Y, vec4 Z, vec4 W) noexcept : X{X}, Y{Y}, Z{Z}, W{W} {}
-    mat4(f32 Xx, f32 Xy, f32 Xz, f32 Xw,
+    INLINE_XPU mat4(vec4 X, vec4 Y, vec4 Z, vec4 W) noexcept : X{X}, Y{Y}, Z{Z}, W{W} {}
+    INLINE_XPU mat4(f32 Xx, f32 Xy, f32 Xz, f32 Xw,
          f32 Yx, f32 Yy, f32 Yz, f32 Yw,
          f32 Zx, f32 Zy, f32 Zz, f32 Zw,
          f32 Wx, f32 Wy, f32 Wz, f32 Ww) noexcept :
@@ -3579,10 +3603,10 @@ struct mat4 {
             Y{Yx, Yy, Yz, Yw},
             Z{Zx, Zy, Zz, Zw},
             W{Wx, Wy, Wz, Ww} {}
-    mat4(mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
-    mat4(const mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
+    INLINE_XPU mat4(mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
+    INLINE_XPU mat4(const mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
 
-    INLINE void setRotationAroundX(f32 angle) {
+    INLINE_XPU void setRotationAroundX(f32 angle) {
         Z.z = Y.y = cos(angle);
         Y.z = Z.y = sin(angle);
         Y.z = -Y.z;
@@ -3592,7 +3616,7 @@ struct mat4 {
         X.w = Y.w = Z.w = 0;
     };
 
-    INLINE void setRotationAroundY(f32 angle) {
+    INLINE_XPU void setRotationAroundY(f32 angle) {
         X.x = Z.z = cos(angle);
         Z.x = X.z = sin(angle);
         Z.x = -Z.x;
@@ -3602,7 +3626,7 @@ struct mat4 {
         X.w = Y.w = Z.w = 0;
     }
 
-    INLINE void setRotationAroundZ(f32 angle) {
+    INLINE_XPU void setRotationAroundZ(f32 angle) {
         X.x = Y.y = cos(angle);
         Y.x = X.y = sin(angle);
         X.y = -X.y;
@@ -3612,7 +3636,7 @@ struct mat4 {
         X.w = Y.w = Z.w = 0;
     }
 
-    INLINE void rotateAroundX(f32 angle) {
+    INLINE_XPU void rotateAroundX(f32 angle) {
         f32 c = cos(angle);
         f32 s = sin(angle);
         mat4 lhs = *this;
@@ -3625,7 +3649,7 @@ struct mat4 {
         Z.z = c*lhs.Z.z - s*lhs.Z.y; // Row 3 | Column 2
     }
 
-    INLINE void rotateAroundY(f32 angle) {
+    INLINE_XPU void rotateAroundY(f32 angle) {
         f32 c = cos(angle);
         f32 s = sin(angle);
         mat4 lhs{*this};
@@ -3639,7 +3663,7 @@ struct mat4 {
         Z.z = c*lhs.Z.z + s*lhs.Z.x; // Row 3 | Column 2
     }
 
-    INLINE void rotateAroundZ(f32 angle) {
+    INLINE_XPU void rotateAroundZ(f32 angle) {
         f32 c = cos(angle);
         f32 s = sin(angle);
         mat4 lhs{*this};
@@ -3653,25 +3677,25 @@ struct mat4 {
         Z.y = c*lhs.Z.y - s*lhs.Z.x; // Row 3 | Column 2
     }
 
-    INLINE mat4 rotatedAroundXby(f32 angle) const {
+    INLINE_XPU mat4 rotatedAroundXby(f32 angle) const {
         mat4 out{*this};
         out.rotateAroundX(angle);
         return out;
     }
 
-    INLINE mat4 rotatedAroundYby(f32 angle) const {
+    INLINE_XPU mat4 rotatedAroundYby(f32 angle) const {
         mat4 out{*this};
         out.rotateAroundY(angle);
         return out;
     }
 
-    INLINE mat4 rotatedAroundZby(f32 angle) const {
+    INLINE_XPU mat4 rotatedAroundZby(f32 angle) const {
         mat4 out{*this};
         out.rotateAroundZ(angle);
         return out;
     }
 
-    INLINE f32 det() const {
+    INLINE_XPU f32 det() const {
         return (
                 X.x * (+Y.y*Z.z*W.w - Y.y*Z.w*W.z - Z.y*Y.z*W.w + Z.y*Y.w*W.z + W.y*Y.z*Z.w - W.y*Y.w*Z.z)
                 + X.y * (-Y.x*Z.z*W.w + Y.x*Z.w*W.z + Z.x*Y.z*W.w - Z.x*Y.w*W.z - W.x*Y.z*Z.w + W.x*Y.w*Z.z)
@@ -3680,11 +3704,11 @@ struct mat4 {
         );
     }
 
-    INLINE bool has_inverse() const {
+    INLINE_XPU bool has_inverse() const {
         return det() != 0;
     }
 
-    INLINE mat4 transposed() const {
+    INLINE_XPU mat4 transposed() const {
         return {
                 X.x, Y.x, Z.x, W.x,
                 X.y, Y.y, Z.y, W.y,
@@ -3693,7 +3717,7 @@ struct mat4 {
         };
     }
 
-    INLINE mat4 inverted() const {
+    INLINE_XPU mat4 inverted() const {
         mat4 out;
         out.X.x = +Y.y*Z.z*W.w - Y.y*Z.w*W.z - Z.y*Y.z*W.w + Z.y*Y.w*W.z + W.y*Y.z*Z.w - W.y*Y.w*Z.z;
         out.X.y = -X.y*Z.z*W.w + X.y*Z.w*W.z + Z.y*X.z*W.w - Z.y*X.w*W.z - W.y*X.z*Z.w + W.y*X.w*Z.z;
@@ -3719,15 +3743,15 @@ struct mat4 {
         return determinant ? out / determinant : mat4{};
     }
 
-    INLINE mat4 operator ! () const {
+    INLINE_XPU mat4 operator ! () const {
         return inverted();
     }
 
-    INLINE mat4 operator ~ () const {
+    INLINE_XPU mat4 operator ~ () const {
         return transposed();
     }
 
-    INLINE mat4 operator + (f32 rhs) const {
+    INLINE_XPU mat4 operator + (f32 rhs) const {
         return {
                 X.x + rhs, X.y + rhs, X.z + rhs, X.w + rhs,
                 Y.x + rhs, Y.y + rhs, Y.z + rhs, Y.w + rhs,
@@ -3736,7 +3760,7 @@ struct mat4 {
         };
     }
 
-    INLINE mat4 operator - (f32 rhs) const {
+    INLINE_XPU mat4 operator - (f32 rhs) const {
         return {
                 X.x - rhs, X.y - rhs, X.z - rhs, X.w - rhs,
                 Y.x - rhs, Y.y - rhs, Y.z - rhs, Y.w - rhs,
@@ -3745,7 +3769,7 @@ struct mat4 {
         };
     }
 
-    INLINE mat4 operator * (f32 rhs) const {
+    INLINE_XPU mat4 operator * (f32 rhs) const {
         return {
                 X.x * rhs, X.y * rhs, X.z * rhs, X.w * rhs,
                 Y.x * rhs, Y.y * rhs, Y.z * rhs, Y.w * rhs,
@@ -3754,7 +3778,7 @@ struct mat4 {
         };
     }
 
-    INLINE mat4 operator / (f32 rhs) const {
+    INLINE_XPU mat4 operator / (f32 rhs) const {
         f32 factor = 1.0f / rhs;
         return {
                 X.x * factor, X.y * factor, X.z * factor, X.w * factor,
@@ -3764,7 +3788,7 @@ struct mat4 {
         };
     }
 
-    INLINE mat4 operator + (const mat4 &rhs) const {
+    INLINE_XPU mat4 operator + (const mat4 &rhs) const {
         return {
                 X.x + rhs.X.x, X.y + rhs.X.y, X.z + rhs.X.z, X.w + rhs.X.w,
                 Y.x + rhs.Y.x, Y.y + rhs.Y.y, Y.z + rhs.Y.z, Y.w + rhs.Y.w,
@@ -3772,7 +3796,7 @@ struct mat4 {
                 W.x + rhs.W.x, W.y + rhs.W.y, W.z + rhs.W.z, W.w + rhs.W.w
         };
     }
-    INLINE mat4 operator - (const mat4 &rhs) const {
+    INLINE_XPU mat4 operator - (const mat4 &rhs) const {
         return {
                 X.x - rhs.X.x, X.y - rhs.X.y, X.z - rhs.X.z, X.w - rhs.X.w,
                 Y.x - rhs.Y.x, Y.y - rhs.Y.y, Y.z - rhs.Y.z, Y.w - rhs.Y.w,
@@ -3781,7 +3805,7 @@ struct mat4 {
         };
     }
 
-    INLINE mat4 operator * (const mat4 &rhs) const {
+    INLINE_XPU mat4 operator * (const mat4 &rhs) const {
         return {
                 X.x*rhs.X.x + X.y*rhs.Y.x + X.z*rhs.Z.x + X.w*rhs.W.x, // Row 1 | Column 1
                 X.x*rhs.X.y + X.y*rhs.Y.y + X.z*rhs.Z.y + X.w*rhs.W.y, // Row 1 | Column 2
@@ -3805,7 +3829,7 @@ struct mat4 {
         };
     }
 
-    INLINE vec4 operator * (const vec4 &rhs) const {
+    INLINE_XPU vec4 operator * (const vec4 &rhs) const {
         return {
                 X.x*rhs.x + Y.x*rhs.y + Z.x*rhs.z + W.x*rhs.w,
                 X.y*rhs.x + Y.y*rhs.y + Z.y*rhs.z + W.y*rhs.w,
@@ -3814,20 +3838,20 @@ struct mat4 {
         };
     }
 
-    INLINE void operator += (const mat4 &rhs) {
+    INLINE_XPU void operator += (const mat4 &rhs) {
         X.x += rhs.X.x; Y.x += rhs.Y.x; Z.x += rhs.Z.x; W.x += rhs.W.x;
         X.y += rhs.X.y; Y.y += rhs.Y.y; Z.y += rhs.Z.y; W.y += rhs.W.y;
         X.z += rhs.X.z; Y.z += rhs.Y.z; Z.z += rhs.Z.z; W.z += rhs.W.z;
         X.w += rhs.X.w; Y.w += rhs.Y.w; Z.w += rhs.Z.w; W.w += rhs.W.w;
     }
 
-    INLINE void operator -= (const mat4 &rhs) {
+    INLINE_XPU void operator -= (const mat4 &rhs) {
         X.x -= rhs.X.x; Y.x -= rhs.Y.x; Z.x -= rhs.Z.x;
         X.y -= rhs.X.y; Y.y -= rhs.Y.y; Z.y -= rhs.Z.y;
         X.z -= rhs.X.z; Y.z -= rhs.Y.z; Z.z -= rhs.Z.z;
     }
 
-    INLINE void operator *= (const mat4 &rhs) {
+    INLINE_XPU void operator *= (const mat4 &rhs) {
         mat4 lhs{*this};
         X.x = lhs.X.x*rhs.X.x + lhs.X.y*rhs.Y.x + lhs.X.z*rhs.Z.x + lhs.X.w*rhs.W.x; // Row 1 | Column 1
         X.y = lhs.X.x*rhs.X.y + lhs.X.y*rhs.Y.y + lhs.X.z*rhs.Z.y + lhs.X.w*rhs.W.y; // Row 1 | Column 2
@@ -3850,28 +3874,28 @@ struct mat4 {
         W.w = lhs.W.x*rhs.X.w + lhs.W.y*rhs.Y.w + lhs.W.z*rhs.Z.w + lhs.W.w*rhs.W.w; // Row 4 | Column 4
     }
 
-    INLINE void operator += (f32 rhs) {
+    INLINE_XPU void operator += (f32 rhs) {
         X.x += rhs; Y.x += rhs; Z.x += rhs; W.x += rhs;
         X.y += rhs; Y.y += rhs; Z.y += rhs; W.y += rhs;
         X.z += rhs; Y.z += rhs; Z.z += rhs; W.z += rhs;
         X.w += rhs; Y.w += rhs; Z.w += rhs; W.w += rhs;
     }
 
-    INLINE void operator -= (f32 rhs) {
+    INLINE_XPU void operator -= (f32 rhs) {
         X.x -= rhs; Y.x -= rhs; Z.x -= rhs; W.x -= rhs;
         X.y -= rhs; Y.y -= rhs; Z.y -= rhs; W.y -= rhs;
         X.z -= rhs; Y.z -= rhs; Z.z -= rhs; W.z -= rhs;
         X.w -= rhs; Y.w -= rhs; Z.w -= rhs; W.w -= rhs;
     }
 
-    INLINE void operator *= (f32 rhs) {
+    INLINE_XPU void operator *= (f32 rhs) {
         X.x *= rhs; Y.x *= rhs; Z.x *= rhs; W.x *= rhs;
         X.y *= rhs; Y.y *= rhs; Z.y *= rhs; W.y *= rhs;
         X.z *= rhs; Y.z *= rhs; Z.z *= rhs; W.z *= rhs;
         X.w *= rhs; Y.w *= rhs; Z.w *= rhs; W.w *= rhs;
     }
 
-    INLINE void operator /= (f32 rhs) {
+    INLINE_XPU void operator /= (f32 rhs) {
         f32 factor = 1.0f / rhs;
         X.x *= factor; Y.x *= factor; Z.x *= factor; W.x *= factor;
         X.y *= factor; Y.y *= factor; Z.y *= factor; W.y *= factor;
@@ -3881,34 +3905,34 @@ struct mat4 {
 };
 mat4 mat4::Identity = {};
 
-INLINE mat4 operator * (f32 lhs, const mat4 &rhs) {
+INLINE_XPU mat4 operator * (f32 lhs, const mat4 &rhs) {
     return rhs * lhs;
 }
 
-INLINE mat4 operator + (f32 lhs, const mat4 &rhs) {
+INLINE_XPU mat4 operator + (f32 lhs, const mat4 &rhs) {
     return rhs + lhs;
 }
 
 
-INLINE vec4 Vec4(const vec3 &v3, f32 w = 0.0f) {
+INLINE_XPU vec4 Vec4(const vec3 &v3, f32 w = 0.0f) {
     return {v3.x, v3.y, v3.z, w};
 }
 
-INLINE vec3 Vec3(const vec4 &v4) {
+INLINE_XPU vec3 Vec3(const vec4 &v4) {
     return {v4.x, v4.y, v4.z};
 }
 
-INLINE vec2 Vec2(const vec3 &v3) {
+INLINE_XPU vec2 Vec2(const vec3 &v3) {
     return {v3.x, v3.y};
 }
 
-INLINE mat3 Mat3(const quat &q) {
+INLINE_XPU mat3 Mat3(const quat &q) {
     mat3 mat;
     q.setXYZ(mat.X, mat.Y, mat.Z);
     return mat;
 }
 
-INLINE quat Quat(const mat3 &m) {
+INLINE_XPU quat Quat(const mat3 &m) {
     f32 fourXSquaredMinus1 = m.X.x - m.Y.y - m.Z.z;
     f32 fourYSquaredMinus1 = m.Y.y - m.X.x - m.Z.z;
     f32 fourZSquaredMinus1 = m.Z.z - m.X.x - m.Y.y;
@@ -3974,11 +3998,11 @@ INLINE quat Quat(const mat3 &m) {
     return {};
 }
 
-INLINE mat3 Mat3I(const quat &rotation)  {
+INLINE_XPU mat3 Mat3I(const quat &rotation)  {
     return Mat3(rotation.conjugate());
 }
 
-mat4 Mat4(const quat &rotation, const vec3 &scale, const vec3 &position) {
+INLINE_XPU mat4 Mat4(const quat &rotation, const vec3 &scale, const vec3 &position) {
     mat3 rotation_matrix{Mat3(rotation)};
     return {
             Vec4(rotation_matrix.X * scale.x),
@@ -3988,7 +4012,7 @@ mat4 Mat4(const quat &rotation, const vec3 &scale, const vec3 &position) {
     };
 }
 
-mat4 Mat4(const mat3 &m3, const vec4 &W = {0, 0, 0, 1}) {
+INLINE_XPU mat4 Mat4(const mat3 &m3, const vec4 &W = {0, 0, 0, 1}) {
     return {
             Vec4(m3.X),
             Vec4(m3.Y),
@@ -3997,7 +4021,7 @@ mat4 Mat4(const mat3 &m3, const vec4 &W = {0, 0, 0, 1}) {
     };
 }
 
-INLINE mat4 Mat4(const mat3 &rotation, const vec3 &position) {
+INLINE_XPU mat4 Mat4(const mat3 &rotation, const vec3 &position) {
     return {
             Vec4(rotation.X),
             Vec4(rotation.Y),
@@ -4011,40 +4035,40 @@ struct Transform : OrientationUsingQuaternion {
     vec3 position{0.0f};
     vec3 scale{1.0f};
 
-    Transform() : OrientationUsingQuaternion{}, position{0.0f}, scale{1.0f} {}
-    Transform(const vec3 &position) : OrientationUsingQuaternion{}, position{position}, scale{1.0f} {}
-    Transform(const vec3 &position, const vec3 &orientation, const vec3 &scale = vec3{1.0f}) :
+    INLINE_XPU Transform() : OrientationUsingQuaternion{}, position{0.0f}, scale{1.0f} {}
+    INLINE_XPU Transform(const vec3 &position) : OrientationUsingQuaternion{}, position{position}, scale{1.0f} {}
+    INLINE_XPU Transform(const vec3 &position, const vec3 &orientation, const vec3 &scale = vec3{1.0f}) :
             OrientationUsingQuaternion{
                     orientation.x,
                     orientation.y,
                     orientation.z
             }, position{position}, scale{scale} {}
 
-    void externPosAndDir(const vec3 &pos, const vec3 &dir, vec3 &out_pos, vec3 &out_dir) const {
+    INLINE_XPU void externPosAndDir(const vec3 &pos, const vec3 &dir, vec3 &out_pos, vec3 &out_dir) const {
         out_pos = position + (rotation * (scale * position));
         out_dir = (rotation * (scale * dir)).normalized();
     }
 
-    void internPosAndDir(const vec3 &pos, const vec3 &dir, vec3 &out_pos, vec3 &out_dir) const {
+    INLINE_XPU void internPosAndDir(const vec3 &pos, const vec3 &dir, vec3 &out_pos, vec3 &out_dir) const {
         vec3 inv_scale = 1.0f / scale;
         quat inv_rotation = rotation.conjugate();
         out_pos = inv_scale * (inv_rotation * (pos - position));
         out_dir = (inv_scale * (inv_rotation * dir)).normalized();
     }
 
-    INLINE vec3 externPos(const vec3 &pos) const { return _translate(_rotate(_scale(pos))); }
-    INLINE vec3 internPos(const vec3 &pos) const { return _unscale(_unrotate(_untranslate(pos))); }
+    INLINE_XPU vec3 externPos(const vec3 &pos) const { return _translate(_rotate(_scale(pos))); }
+    INLINE_XPU vec3 internPos(const vec3 &pos) const { return _unscale(_unrotate(_untranslate(pos))); }
 
-    INLINE vec3 externDir(const vec3 &dir) const { return _rotate(_scale(dir)).normalized(); }
-    INLINE vec3 internDir(const vec3 &dir) const { return _unscale(_unrotate(dir)).normalized(); }
+    INLINE_XPU vec3 externDir(const vec3 &dir) const { return _rotate(_scale(dir)).normalized(); }
+    INLINE_XPU vec3 internDir(const vec3 &dir) const { return _unscale(_unrotate(dir)).normalized(); }
 
 private:
-    INLINE vec3 _scale(const vec3 &pos) const { return scale * pos; }
-    INLINE vec3 _rotate(const vec3 &pos) const { return rotation * pos; }
-    INLINE vec3 _translate(const vec3 &pos) const { return pos + position; }
-    INLINE vec3 _unscale(const vec3 &pos) const { return pos / scale; }
-    INLINE vec3 _unrotate(const vec3 &pos) const { return rotation.conjugate() * pos; }
-    INLINE vec3 _untranslate(const vec3 &pos) const { return pos - position; }
+    INLINE_XPU vec3 _scale(const vec3 &pos) const { return scale * pos; }
+    INLINE_XPU vec3 _rotate(const vec3 &pos) const { return rotation * pos; }
+    INLINE_XPU vec3 _translate(const vec3 &pos) const { return pos + position; }
+    INLINE_XPU vec3 _unscale(const vec3 &pos) const { return pos / scale; }
+    INLINE_XPU vec3 _unrotate(const vec3 &pos) const { return rotation.conjugate() * pos; }
+    INLINE_XPU vec3 _untranslate(const vec3 &pos) const { return pos - position; }
 };
 
 struct Geometry {
@@ -4054,7 +4078,7 @@ struct Geometry {
     u32 id{0};
 };
 
-AABB operator * (const AABB &aabb, const Transform &transform) {
+INLINE_XPU AABB operator * (const AABB &aabb, const Transform &transform) {
     const vec3 vertices[8] = {
             {aabb.min.x, aabb.min.y, aabb.min.z},
             {aabb.min.x, aabb.min.y, aabb.max.z},
@@ -4103,10 +4127,10 @@ struct Ray {
     vec3 origin, direction;
     RayHit hit;
 
-    INLINE vec3 at(f32 t) const { return direction.scaleAdd(t, origin);; }
-    INLINE vec3 operator [](f32 t) const { return at(t); }
+    INLINE_XPU vec3 at(f32 t) const { return direction.scaleAdd(t, origin);; }
+    INLINE_XPU vec3 operator [](f32 t) const { return at(t); }
 
-    INLINE BoxSide hitsCube() {
+    INLINE_XPU BoxSide hitsCube() {
         u8 ray_is_facing = 0;
 
         if (signbit(direction.x)) ray_is_facing |= RayIsFacing_Left;
@@ -4168,7 +4192,7 @@ struct Ray {
         return side;
     }
 
-    INLINE bool hitsPlane(const vec3 &P, const vec3 &N) {
+    INLINE_XPU bool hitsPlane(const vec3 &P, const vec3 &N) {
         f32 NdotRd = N.dot(direction);
         if (NdotRd == 0) // The ray is parallel to the plane
             return false;
@@ -4413,9 +4437,9 @@ struct Camera : OrientationUsing3x3Matrix {
     f32 target_distance{CAMERA_DEFAULT__TARGET_DISTANCE};
     f32 dolly_amount{0};
 
-    Camera() : OrientationUsing3x3Matrix{}, position{0.0f} {}
-    explicit Camera(const vec3 &position) : OrientationUsing3x3Matrix{}, position{position} {}
-    explicit Camera(const vec3 &position, const vec3 &orientation = vec3{0.0f}, f32 zoom_amount = CAMERA_DEFAULT__FOCAL_LENGTH) :
+    XPU Camera() : OrientationUsing3x3Matrix{}, position{0.0f} {}
+    XPU explicit Camera(const vec3 &position) : OrientationUsing3x3Matrix{}, position{position} {}
+    XPU explicit Camera(const vec3 &position, const vec3 &orientation = vec3{0.0f}, f32 zoom_amount = CAMERA_DEFAULT__FOCAL_LENGTH) :
             OrientationUsing3x3Matrix{orientation.x, orientation.y, orientation.z},
             position{position}, current_velocity{vec3{0}}, focal_length{zoom_amount}, zoom_amount{zoom_amount} {}
 
@@ -4451,21 +4475,21 @@ struct Camera : OrientationUsing3x3Matrix {
         position += up * up_amount + right * right_amount;
     }
 
-    INLINE vec3 getRayDirectionAt(f32 x, f32 y, f32 width, f32 height) const {
+    INLINE_XPU vec3 getRayDirectionAt(f32 x, f32 y, f32 width, f32 height) const {
         vec3 start{forward.scaleAdd(focal_length * height,up.scaleAdd(height,right * -width))};
         return right.scaleAdd(x * 2.0f + 1,up.scaleAdd(1 - 2.0f * y, start)).normalized();
     }
 
-    INLINE vec3 internPos(const vec3 &pos) const { return _unrotate(_untranslate(pos)); }
-    INLINE vec3 internDir(const vec3 &dir) const { return _unrotate(dir); }
-    INLINE vec3 externPos(const vec3 &pos) const { return _translate(_rotate(pos)); }
-    INLINE vec3 externDir(const vec3 &dir) const { return _rotate(dir); }
+    INLINE_XPU vec3 internPos(const vec3 &pos) const { return _unrotate(_untranslate(pos)); }
+    INLINE_XPU vec3 internDir(const vec3 &dir) const { return _unrotate(dir); }
+    INLINE_XPU vec3 externPos(const vec3 &pos) const { return _translate(_rotate(pos)); }
+    INLINE_XPU vec3 externDir(const vec3 &dir) const { return _rotate(dir); }
 
 private:
-    INLINE vec3 _rotate(const vec3 &pos) const { return rotation * pos; }
-    INLINE vec3 _unrotate(const vec3 &pos) const { return rotation.transposed() * pos; }
-    INLINE vec3 _translate(const vec3 &pos) const { return pos + position; }
-    INLINE vec3 _untranslate(const vec3 &pos) const { return pos - position; }
+    INLINE_XPU vec3 _rotate(const vec3 &pos) const { return rotation * pos; }
+    INLINE_XPU vec3 _unrotate(const vec3 &pos) const { return rotation.transposed() * pos; }
+    INLINE_XPU vec3 _translate(const vec3 &pos) const { return pos + position; }
+    INLINE_XPU vec3 _untranslate(const vec3 &pos) const { return pos - position; }
 };
 
 
@@ -4477,63 +4501,8 @@ struct RTreeNode {
     u8 depth = 0;
     u8 flags = 0;
 
-    INLINE bool isLeaf() const {
+    INLINE_XPU bool isLeaf() const {
         return leaf_count != 0;
-    }
-};
-
-struct RTreeQuery {
-    struct Result { u32 start, end, node_index; };
-    Result *results = nullptr;
-    u32 *stack = nullptr;
-    u32 result_count = 0;
-
-    RTreeQuery(u8 max_stack_size, u32 max_result_count, memory::MonotonicAllocator *memory_allocator = nullptr) {
-        memory::MonotonicAllocator temp_allocator;
-        if (!memory_allocator) {
-            memory_allocator = &temp_allocator;
-            temp_allocator = memory::MonotonicAllocator{
-                    sizeof(Result) * max_result_count +
-                    sizeof(u32) * max_stack_size,
-                    Terabytes(3)
-            };
-        }
-        results  = (Result*)memory_allocator->allocate(sizeof(Result) * max_result_count);
-        stack    = (u32*   )memory_allocator->allocate(sizeof(u32) * max_stack_size);
-    }
-
-    bool collectOverlappedNodes(const vec3 &point, f32 max_distance, RTreeNode *nodes) {
-        result_count = 0;
-        RTreeNode &root = nodes[0];
-        if (!root.aabb.overlapSphere(point, max_distance))
-            return false;
-
-        if (unlikely(root.isLeaf())) {
-            result_count = 1;
-            results[0] = {root.first_index, root.first_index + root.leaf_count, 0};
-            return true;
-        }
-
-        u32 node_id;
-        i32 stack_size = 0;
-        stack[stack_size++] = root.first_index;
-        stack[stack_size++] = root.first_index + 1;
-
-        while (stack_size >= 0) {
-            node_id = stack[--stack_size];
-            RTreeNode &node = nodes[node_id];
-            if (!node.aabb.overlapSphere(point, max_distance))
-                continue;
-
-            if (node.isLeaf()) {
-                results[result_count++] = {node.first_index, node.first_index + node.leaf_count, node_id};
-            } else {
-                stack[stack_size++] = node.first_index;
-                stack[stack_size++] = node.first_index + 1;
-            }
-        }
-
-        return true;
     }
 };
 
@@ -4963,6 +4932,224 @@ u32 getTotalMemoryForMeshes(String *mesh_files, u32 mesh_count, u8 *max_rtree_he
 }
 
 
+struct TexelQuadComponent {
+    u8 TL, TR, BL, BR;
+};
+
+struct TexelQuad {
+    TexelQuadComponent R, G, B;
+};
+
+struct TextureMip {
+    u16 width, height;
+    TexelQuad *texel_quads;
+
+    INLINE_XPU Pixel sample(f32 u, f32 v) const {
+        if (u > 1) u -= (f32)((u32)u);
+        if (v > 1) v -= (f32)((u32)v);
+
+        const f32 U = u * (f32)width  + 0.5f;
+        const f32 V = v * (f32)height + 0.5f;
+        const u32 x = (u32)U;
+        const u32 y = (u32)V;
+        const f32 r = U - (f32)x;
+        const f32 b = V - (f32)y;
+        const f32 l = 1 - r;
+        const f32 t = 1 - b;
+        const f32 tl = t * l * COLOR_COMPONENT_TO_FLOAT;
+        const f32 tr = t * r * COLOR_COMPONENT_TO_FLOAT;
+        const f32 bl = b * l * COLOR_COMPONENT_TO_FLOAT;
+        const f32 br = b * r * COLOR_COMPONENT_TO_FLOAT;
+
+        const TexelQuad texel_quad = texel_quads[y * (width + 1) + x];
+        return {
+                fast_mul_add((f32)texel_quad.R.BR, br, fast_mul_add((f32)texel_quad.R.BL, bl, fast_mul_add((f32)texel_quad.R.TR, tr, (f32)texel_quad.R.TL * tl))),
+                fast_mul_add((f32)texel_quad.G.BR, br, fast_mul_add((f32)texel_quad.G.BL, bl, fast_mul_add((f32)texel_quad.G.TR, tr, (f32)texel_quad.G.TL * tl))),
+                fast_mul_add((f32)texel_quad.B.BR, br, fast_mul_add((f32)texel_quad.B.BL, bl, fast_mul_add((f32)texel_quad.B.TR, tr, (f32)texel_quad.B.TL * tl))),
+                1.0f
+        };
+    }
+};
+
+struct Texture {
+    u16 width, height;
+    u8 mip_count;
+    bool wrap, mipmap;
+    TextureMip *mips;
+
+    XPU static u8 GetMipLevel(f32 texel_area, u8 mip_count) {
+        u8 mip_level = 0;
+        while (texel_area > 1 && ++mip_level < mip_count) texel_area *= 0.25f;
+        if (mip_level >= mip_count)
+            mip_level = mip_count - 1;
+
+        return mip_level;
+    }
+
+    XPU static u8 GetMipLevel(u16 width, u16 height, u8 mip_count, f32 uv_area) {
+        return GetMipLevel(uv_area * (f32)(width * height), mip_count);
+    }
+
+    XPU static u8 GetMipLevel(const Texture &texture, f32 uv_area) {
+        return GetMipLevel(uv_area * (f32)(texture.width * texture.height), texture.mip_count);
+    }
+
+    INLINE_XPU Pixel sample(f32 u, f32 v, f32 uv_area) const {
+        return mips[mipmap ? GetMipLevel(uv_area * (f32)(width * height), mip_count) : 0].sample(u, v);
+    }
+};
+
+u32 getSizeInBytes(const Texture &texture) {
+    u16 mip_width  = texture.width;
+    u16 mip_height = texture.height;
+
+    u32 memory_size = 0;
+
+    do {
+        memory_size += sizeof(TextureMip);
+        memory_size += (mip_width + 1) * (mip_height + 1) * sizeof(TexelQuad);
+
+        mip_width /= 2;
+        mip_height /= 2;
+    } while (texture.mipmap && mip_width > 2 && mip_height > 2);
+
+    return memory_size;
+}
+
+bool allocateMemory(Texture &texture, memory::MonotonicAllocator *memory_allocator) {
+    if (getSizeInBytes(texture) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
+    texture.mips = (TextureMip*)memory_allocator->allocate(sizeof(TextureMip) * texture.mip_count);
+    TextureMip *texture_mip = texture.mips;
+    u16 mip_width  = texture.width;
+    u16 mip_height = texture.height;
+
+    do {
+        texture_mip->texel_quads = (TexelQuad * )memory_allocator->allocate(sizeof(TexelQuad ) * (mip_height + 1) * (mip_width + 1));
+        mip_width /= 2;
+        mip_height /= 2;
+        texture_mip++;
+    } while (texture.mipmap && mip_width > 2 && mip_height > 2);
+
+    return true;
+}
+
+void writeHeader(const Texture &texture, void *file) {
+    os::writeToFile((void*)&texture.width,  sizeof(u16),  file);
+    os::writeToFile((void*)&texture.height, sizeof(u16),  file);
+    os::writeToFile((void*)&texture.mipmap, sizeof(bool), file);
+    os::writeToFile((void*)&texture.wrap,   sizeof(bool), file);
+    os::writeToFile((void*)&texture.mip_count, sizeof(u8), file);
+}
+void readHeader(Texture &texture, void *file) {
+    os::readFromFile(&texture.width,  sizeof(u16),  file);
+    os::readFromFile(&texture.height, sizeof(u16),  file);
+    os::readFromFile(&texture.mipmap, sizeof(bool), file);
+    os::readFromFile(&texture.wrap,   sizeof(bool), file);
+    os::readFromFile(&texture.mip_count, sizeof(u8), file);
+}
+
+bool saveHeader(const Texture &texture, char *file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeHeader(texture, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool loadHeader(Texture &texture, char *file_path) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+    readHeader(texture, file);
+    os::closeFile(file);
+    return true;
+}
+
+void readContent(Texture &texture, void *file) {
+    TextureMip *texture_mip = texture.mips;
+    for (u8 mip_index = 0; mip_index < texture.mip_count; mip_index++, texture_mip++) {
+        os::readFromFile(&texture_mip->width,  sizeof(u16), file);
+        os::readFromFile(&texture_mip->height, sizeof(u16), file);
+        os::readFromFile(texture_mip->texel_quads, sizeof(TexelQuad) * (texture_mip->width + 1) * (texture_mip->height + 1), file);
+    }
+}
+void writeContent(const Texture &texture, void *file) {
+    TextureMip *texture_mip = texture.mips;
+    for (u8 mip_index = 0; mip_index < texture.mip_count; mip_index++, texture_mip++) {
+        os::writeToFile(&texture_mip->width,  sizeof(u16), file);
+        os::writeToFile(&texture_mip->height, sizeof(u16), file);
+        os::writeToFile(texture_mip->texel_quads, sizeof(TexelQuad) * (texture_mip->width + 1) * (texture_mip->height + 1), file);
+    }
+}
+
+bool saveContent(const Texture &texture, char *file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeContent(texture, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool loadContent(Texture &texture, char *file_path) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+    readContent(texture, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool save(const Texture &texture, char* file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeHeader(texture, file);
+    writeContent(texture, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool load(Texture &texture, char *file_path, memory::MonotonicAllocator *memory_allocator = nullptr) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+
+    if (memory_allocator) {
+        new(&texture) Texture{};
+        readHeader(texture, file);
+        if (!allocateMemory(texture, memory_allocator)) return false;
+    } else if (!texture.mips) return false;
+    readContent(texture, file);
+    os::closeFile(file);
+    return true;
+}
+
+u32 getTotalMemoryForTextures(String *texture_files, u32 texture_count) {
+    u32 memory_size{0};
+    for (u32 i = 0; i < texture_count; i++) {
+        Texture texture;
+        loadHeader(texture, texture_files[i].char_ptr);
+        memory_size += getSizeInBytes(texture);
+    }
+    return memory_size;
+}
+
+struct TexturePack {
+    TexturePack(u8 count, Texture *textures, char **files, char* adjacent_file, u64 memory_base = Terabytes(3)) {
+        char string_buffer[200];
+        u32 memory_size{0};
+        Texture *texture = textures;
+        for (u32 i = 0; i < count; i++, texture++) {
+            String string = String::getFilePath(files[i], string_buffer, adjacent_file);
+            loadHeader(*texture, string.char_ptr);
+            memory_size += getSizeInBytes(*texture);
+        }
+        memory::MonotonicAllocator memory_allocator{memory_size, memory_base};
+
+        texture = textures;
+        for (u32 i = 0; i < count; i++, texture++) {
+            String string = String::getFilePath(files[i], string_buffer, adjacent_file);
+            load(*texture, string.char_ptr, &memory_allocator);
+        }
+    }
+};
+
 struct RTreePartitionSide {
     AABB *aabbs;
     f32 *surface_areas;
@@ -5292,6 +5479,7 @@ struct SceneCounts {
     u32 boxes{0};
     u32 curves{0};
     u32 meshes{0};
+    u32 textures{0};
 };
 
 struct Scene {
@@ -5304,11 +5492,15 @@ struct Scene {
     Box *boxes{nullptr};
     Camera *cameras{nullptr};
     Mesh *meshes{nullptr};
+    Texture *textures{nullptr};
 
     u64 last_io_ticks = 0;
     bool last_io_is_save{false};
     u8 max_rtree_height = 0;
     u32 max_triangle_count = 0;
+    u32 *mesh_rtree_node_counts = nullptr;
+    u32 *mesh_triangle_counts = nullptr;
+    u32 *mesh_vertex_counts = nullptr;
 
     Scene(SceneCounts counts,
           char *file_path = nullptr,
@@ -5330,17 +5522,41 @@ struct Scene {
         curves{curves},
         meshes{meshes}
     {
+        memory::MonotonicAllocator temp_allocator;
+        u32 capacity = 0;
+
+        if (counts.textures) capacity += getTotalMemoryForTextures(texture_files, counts.textures);
+        if (counts.meshes) {
+            for (u32 i = 0; i < counts.meshes; i++)
+                meshes[i] = Mesh{};
+
+            capacity += getTotalMemoryForMeshes(mesh_files, counts.meshes ,&max_rtree_height, &max_triangle_count);
+            capacity += sizeof(u32) * (3 * counts.meshes);
+        }
+
+        if (!memory_allocator) {
+            temp_allocator = memory::MonotonicAllocator{capacity};
+            memory_allocator = &temp_allocator;
+        }
+
         if (meshes && mesh_files && counts.meshes) {
             for (u32 i = 0; i < counts.meshes; i++)
                 meshes[i] = Mesh{};
-            memory::MonotonicAllocator temp_allocator;
-            u32 capacity = getTotalMemoryForMeshes(mesh_files, counts.meshes ,&max_rtree_height, &max_triangle_count);
-            if (!memory_allocator) {
-                temp_allocator = memory::MonotonicAllocator{capacity};
-                memory_allocator = &temp_allocator;
+
+            mesh_rtree_node_counts = (u32*)memory_allocator->allocate(sizeof(u32) * counts.meshes);
+            mesh_triangle_counts = (u32*)memory_allocator->allocate(sizeof(u32) * counts.meshes);
+            mesh_vertex_counts = (u32*)memory_allocator->allocate(sizeof(u32) * counts.meshes);
+            for (u32 i = 0; i < counts.meshes; i++) {
+                load(meshes[i], mesh_files[i].char_ptr, memory_allocator);
+                mesh_rtree_node_counts[i] = meshes[i].rtree.node_count;
+                mesh_triangle_counts[i] = meshes[i].triangle_count;
+                mesh_vertex_counts[i] = meshes[i].vertex_count;
             }
-            for (u32 i = 0; i < counts.meshes; i++) load(meshes[i], mesh_files[i].char_ptr, memory_allocator);
         }
+
+        if (textures && texture_files && counts.textures)
+            for (u32 i = 0; i < counts.textures; i++)
+                load(textures[i], texture_files[i].char_ptr, memory_allocator);
     }
 
     INLINE bool castRay(Ray &ray) const {
@@ -5392,6 +5608,14 @@ void load(Scene &scene, char* scene_file_path = nullptr) {
 
     os::readFromFile(&scene.counts, sizeof(SceneCounts), file_handle);
 
+    if (scene.counts.meshes)
+        for (u32 i = 0; i < scene.counts.meshes; i++)
+            readHeader(scene.meshes[i], file_handle);
+
+    if (scene.counts.textures)
+        for (u32 i = 0; i < scene.counts.textures; i++)
+            readHeader(scene.textures[i], file_handle);
+
     if (scene.counts.cameras) {
         Camera *camera = scene.cameras;
         for (u32 i = 0; i < scene.counts.cameras; i++, camera++) {
@@ -5421,13 +5645,13 @@ void load(Scene &scene, char* scene_file_path = nullptr) {
         for (u32 i = 0; i < scene.counts.curves; i++)
             os::readFromFile(scene.curves + i, sizeof(Curve), file_handle);
 
-    if (scene.counts.meshes) {
-        Mesh *mesh = scene.meshes;
-        for (u32 i = 0; i < scene.counts.meshes; i++, mesh++) {
-            readHeader(*mesh, file_handle);
-            readContent(*mesh, file_handle);
-        }
-    }
+    if (scene.counts.meshes)
+        for (u32 i = 0; i < scene.counts.meshes; i++)
+            readContent(scene.meshes[i], file_handle);
+
+    if (scene.counts.textures)
+        for (u32 i = 0; i < scene.counts.textures; i++)
+            readContent(scene.textures[i], file_handle);
 
     os::closeFile(file_handle);
 }
@@ -5441,6 +5665,14 @@ void save(Scene &scene, char* scene_file_path = nullptr) {
     void *file_handle = os::openFileForWriting(scene_file_path);
 
     os::writeToFile(&scene.counts, sizeof(SceneCounts), file_handle);
+
+    if (scene.counts.meshes)
+        for (u32 i = 0; i < scene.counts.meshes; i++)
+            writeHeader(scene.meshes[i], file_handle);
+
+    if (scene.counts.textures)
+        for (u32 i = 0; i < scene.counts.textures; i++)
+            writeHeader(scene.textures[i], file_handle);
 
     if (scene.counts.cameras) {
         Camera *camera = scene.cameras;
@@ -5471,13 +5703,13 @@ void save(Scene &scene, char* scene_file_path = nullptr) {
         for (u32 i = 0; i < scene.counts.curves; i++)
             os::writeToFile(scene.curves + i, sizeof(Curve), file_handle);
 
-    if (scene.counts.meshes) {
-        Mesh *mesh = scene.meshes;
-        for (u32 i = 0; i < scene.counts.meshes; i++, mesh++) {
-            writeHeader(*mesh, file_handle);
-            writeContent(*mesh, file_handle);
-        }
-    }
+    if (scene.counts.meshes)
+        for (u32 i = 0; i < scene.counts.meshes; i++)
+            writeContent(scene.meshes[i], file_handle);
+
+    if (scene.counts.textures)
+        for (u32 i = 0; i < scene.counts.textures; i++)
+            writeContent(scene.textures[i], file_handle);
 
     os::closeFile(file_handle);
 }
@@ -6441,7 +6673,7 @@ INLINE void fillRect(Rect rect, const Canvas &canvas, Color color = White, f32 o
 
 
 void _drawCircle(bool fill, i32 center_x, i32 center_y, i32 radius, const Canvas &canvas,
-                  const Color &color, f32 opacity, const RectI *viewport_bounds) {
+                 const Color &color, f32 opacity, const RectI *viewport_bounds) {
     RectI bounds{0, canvas.dimensions.width - 1, 0, canvas.dimensions.height - 1};
     RectI rect{center_x - radius,
                center_x + radius,
@@ -6852,6 +7084,62 @@ void drawTriangle(vec3 p1, vec3 p2, vec3 p3, const Canvas &canvas,
 void fillTriangle(vec3 p1, vec3 p2, vec3 p3, const Canvas &canvas,
                   Color color = White, f32 opacity = 1.0f, const RectI *viewport_bounds = nullptr) {
     _fillTriangle(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, p3.x, p3.y, p3.z, canvas, color, opacity, viewport_bounds);
+}
+
+
+
+
+void drawTextureMip(const TextureMip &texture_mip, const Canvas &canvas, const RectI draw_bounds, bool cropped = true, f32 opacity = 1.0f) {
+    Color texel_color;
+    i32 draw_width = draw_bounds.right - draw_bounds.left;
+    i32 draw_height = draw_bounds.bottom - draw_bounds.top;
+    if (cropped) {
+        if (draw_width > texture_mip.width) draw_width = texture_mip.width;
+        if (draw_height > texture_mip.height) draw_height = texture_mip.height;
+        i32 remainder_x = 1 + texture_mip.width - draw_width;
+        TexelQuad *texel_quad = texture_mip.texel_quads;
+        i32 Y = draw_bounds.top;
+        for (i32 y = 0; y < draw_height; y++, Y++) {
+            i32 X = draw_bounds.left;
+            for (i32 x = 0; x < draw_width; x++, X++, texel_quad++) {
+                texel_color.r = (float)texel_quad->R.BR * COLOR_COMPONENT_TO_FLOAT;
+                texel_color.g = (float)texel_quad->G.BR * COLOR_COMPONENT_TO_FLOAT;
+                texel_color.b = (float)texel_quad->B.BR * COLOR_COMPONENT_TO_FLOAT;
+                canvas.setPixel(X, Y, texel_color, opacity);
+            }
+            texel_quad += remainder_x;
+        }
+    } else {
+        float u_step = 1.0f / (float)draw_width;
+        float v_step = 1.0f / (float)draw_height;
+        float v = v_step * 0.5f;
+        i32 Y = draw_bounds.top;
+        for (i32 y = 0; y < draw_height; y++, Y++, v += v_step) {
+            i32 X = draw_bounds.left;
+            float u = u_step * 0.5f;
+            for (i32 x = 0; x < draw_width; x++, X++, u += u_step) {
+                texel_color = texture_mip.sample(u, v).color;
+                canvas.setPixel(X, Y, texel_color, opacity);
+            }
+        }
+    }
+}
+
+void drawTexture(const Texture &texture, const Canvas &canvas, const RectI draw_bounds, bool cropped = true, f32 opacity = 1.0f) {
+    if (draw_bounds.right < 0 ||
+        draw_bounds.bottom < 0 ||
+        draw_bounds.left >= canvas.dimensions.width ||
+        draw_bounds.top >= canvas.dimensions.height)
+        return;
+
+    u8 mip_level = 0;
+    if (!cropped) {
+        i32 draw_width = draw_bounds.right - draw_bounds.left;
+        i32 draw_height = draw_bounds.bottom - draw_bounds.top;
+        float texel_area = (float)(texture.width * texture.height) / (float)(draw_width * draw_height);
+        mip_level = Texture::GetMipLevel(texel_area, texture.mip_count);
+    }
+    drawTextureMip(texture.mips[mip_level], canvas, draw_bounds, cropped, opacity);
 }
 
 #define LINE_HEIGHT 14
@@ -7527,21 +7815,6 @@ void drawRTree(const RTree &rtree, const Transform &transform, const Viewport &v
     }
 }
 
-void drawRTreeQuery(const RTreeQuery *query, const RTreeNode *nodes, const Transform &transform,
-                    const Viewport &viewport, const Color &color, f32 opacity = 0.5f, u8 line_width = 1) {
-    static Box box;
-    static Transform box_transform;
-
-    for (u32 result_index = 0; result_index < query->result_count; result_index++) {
-        const RTreeNode &node = nodes[query->results[result_index].node_index];
-
-        box_transform = transform;
-        box_transform.scale *= (node.aabb.max - node.aabb.min) * 0.5f;
-        box_transform.position = transform.externPos((node.aabb.min + node.aabb.max) * 0.5f);
-
-        drawBox(box, box_transform, viewport, color, opacity, line_width);
-    }
-}
 void drawSelection(Selection &selection, const Viewport &viewport, const Scene &scene) {
     static Box box;
 

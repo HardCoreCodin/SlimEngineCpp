@@ -61,7 +61,7 @@ struct Mesh {
 
          EdgeVertexIndices *edge_vertex_indices,
          AABB aabb
-         ) :
+    ) :
             triangle_count{triangle_count},
             vertex_count{vertex_count},
             normals_count{normals_count},
@@ -78,7 +78,7 @@ struct Mesh {
 
             edge_vertex_indices{edge_vertex_indices},
             aabb{aabb}
-         {}
+    {}
 };
 
 

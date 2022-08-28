@@ -9,7 +9,7 @@ struct RTreeNode {
     u8 depth = 0;
     u8 flags = 0;
 
-    INLINE bool isLeaf() const {
+    INLINE_XPU bool isLeaf() const {
         return leaf_count != 0;
     }
 };
@@ -17,5 +17,5 @@ struct RTreeNode {
 struct RTree {
     RTreeNode *nodes;
     u32 node_count;
-    u32 height;
+    u8 height;
 };

@@ -1,8 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
 
-project(0_task)
-add_executable(0_ClosestPointOnMesh WIN32 src/examples/DemoApp.cpp)
-
 project(1_viewport)
 add_executable(1_viewport WIN32 src/examples/1_viewport.cpp)
 
@@ -29,3 +26,17 @@ add_executable(obj2mesh src/obj2mesh.cpp)
 
 project(bmp2texture)
 add_executable(bmp2texture src/bmp2texture.cpp)
+
+project(ClosestPointOnMesh)
+add_executable(ClosestPointOnMesh WIN32 src/examples/ClosestPointOnMeshApp.cpp)
+
+# For CUDA compilation, uncomment the following lines as-needed
+#set(CMAKE_CUDA_STANDARD 14)
+#if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+#    set(CMAKE_CUDA_ARCHITECTURES 52)
+#endif()
+#set(CUDA_VERBOSE_BUILD ON)
+#
+#project(ClosestPointOnMeshXPU)
+#add_executable(ClosestPointOnMeshXPU WIN32 src/examples/ClosestPointOnMeshApp.cu)
+#set_target_properties(ClosestPointOnMeshXPU PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

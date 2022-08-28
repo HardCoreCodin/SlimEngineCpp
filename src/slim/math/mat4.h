@@ -7,13 +7,13 @@ struct mat4 {
 
     static mat4 Identity;
 
-    mat4() noexcept :
-        X{1, 0, 0, 0},
-        Y{0, 1, 0, 0},
-        Z{0, 0, 1, 0},
-        W{0, 0, 0, 1} {}
-    mat4(vec4 X, vec4 Y, vec4 Z, vec4 W) noexcept : X{X}, Y{Y}, Z{Z}, W{W} {}
-    mat4(f32 Xx, f32 Xy, f32 Xz, f32 Xw,
+    INLINE_XPU mat4() noexcept :
+            X{1, 0, 0, 0},
+            Y{0, 1, 0, 0},
+            Z{0, 0, 1, 0},
+            W{0, 0, 0, 1} {}
+    INLINE_XPU mat4(vec4 X, vec4 Y, vec4 Z, vec4 W) noexcept : X{X}, Y{Y}, Z{Z}, W{W} {}
+    INLINE_XPU mat4(f32 Xx, f32 Xy, f32 Xz, f32 Xw,
          f32 Yx, f32 Yy, f32 Yz, f32 Yw,
          f32 Zx, f32 Zy, f32 Zz, f32 Zw,
          f32 Wx, f32 Wy, f32 Wz, f32 Ww) noexcept :
@@ -21,10 +21,10 @@ struct mat4 {
             Y{Yx, Yy, Yz, Yw},
             Z{Zx, Zy, Zz, Zw},
             W{Wx, Wy, Wz, Ww} {}
-    mat4(mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
-    mat4(const mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
+    INLINE_XPU mat4(mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
+    INLINE_XPU mat4(const mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
 
-    INLINE void setRotationAroundX(f32 angle) {
+    INLINE_XPU void setRotationAroundX(f32 angle) {
         Z.z = Y.y = cos(angle);
         Y.z = Z.y = sin(angle);
         Y.z = -Y.z;
@@ -34,7 +34,7 @@ struct mat4 {
         X.w = Y.w = Z.w = 0;
     };
 
-    INLINE void setRotationAroundY(f32 angle) {
+    INLINE_XPU void setRotationAroundY(f32 angle) {
         X.x = Z.z = cos(angle);
         Z.x = X.z = sin(angle);
         Z.x = -Z.x;
@@ -44,7 +44,7 @@ struct mat4 {
         X.w = Y.w = Z.w = 0;
     }
 
-    INLINE void setRotationAroundZ(f32 angle) {
+    INLINE_XPU void setRotationAroundZ(f32 angle) {
         X.x = Y.y = cos(angle);
         Y.x = X.y = sin(angle);
         X.y = -X.y;
@@ -54,7 +54,7 @@ struct mat4 {
         X.w = Y.w = Z.w = 0;
     }
 
-    INLINE void rotateAroundX(f32 angle) {
+    INLINE_XPU void rotateAroundX(f32 angle) {
         f32 c = cos(angle);
         f32 s = sin(angle);
         mat4 lhs = *this;
@@ -67,7 +67,7 @@ struct mat4 {
         Z.z = c*lhs.Z.z - s*lhs.Z.y; // Row 3 | Column 2
     }
 
-    INLINE void rotateAroundY(f32 angle) {
+    INLINE_XPU void rotateAroundY(f32 angle) {
         f32 c = cos(angle);
         f32 s = sin(angle);
         mat4 lhs{*this};
@@ -81,7 +81,7 @@ struct mat4 {
         Z.z = c*lhs.Z.z + s*lhs.Z.x; // Row 3 | Column 2
     }
 
-    INLINE void rotateAroundZ(f32 angle) {
+    INLINE_XPU void rotateAroundZ(f32 angle) {
         f32 c = cos(angle);
         f32 s = sin(angle);
         mat4 lhs{*this};
@@ -95,38 +95,38 @@ struct mat4 {
         Z.y = c*lhs.Z.y - s*lhs.Z.x; // Row 3 | Column 2
     }
 
-    INLINE mat4 rotatedAroundXby(f32 angle) const {
+    INLINE_XPU mat4 rotatedAroundXby(f32 angle) const {
         mat4 out{*this};
         out.rotateAroundX(angle);
         return out;
     }
 
-    INLINE mat4 rotatedAroundYby(f32 angle) const {
+    INLINE_XPU mat4 rotatedAroundYby(f32 angle) const {
         mat4 out{*this};
         out.rotateAroundY(angle);
         return out;
     }
 
-    INLINE mat4 rotatedAroundZby(f32 angle) const {
+    INLINE_XPU mat4 rotatedAroundZby(f32 angle) const {
         mat4 out{*this};
         out.rotateAroundZ(angle);
         return out;
     }
 
-    INLINE f32 det() const {
+    INLINE_XPU f32 det() const {
         return (
-                  X.x * (+Y.y*Z.z*W.w - Y.y*Z.w*W.z - Z.y*Y.z*W.w + Z.y*Y.w*W.z + W.y*Y.z*Z.w - W.y*Y.w*Z.z)
+                X.x * (+Y.y*Z.z*W.w - Y.y*Z.w*W.z - Z.y*Y.z*W.w + Z.y*Y.w*W.z + W.y*Y.z*Z.w - W.y*Y.w*Z.z)
                 + X.y * (-Y.x*Z.z*W.w + Y.x*Z.w*W.z + Z.x*Y.z*W.w - Z.x*Y.w*W.z - W.x*Y.z*Z.w + W.x*Y.w*Z.z)
                 + X.z * (+Y.x*Z.y*W.w - Y.x*Z.w*W.y - Z.x*Y.y*W.w + Z.x*Y.w*W.y + W.x*Y.y*Z.w - W.x*Y.w*Z.y)
                 + X.w * (-Y.x*Z.y*W.z + Y.x*Z.z*W.y + Z.x*Y.y*W.z - Z.x*Y.z*W.y - W.x*Y.y*Z.z + W.x*Y.z*Z.y)
         );
     }
 
-    INLINE bool has_inverse() const {
+    INLINE_XPU bool has_inverse() const {
         return det() != 0;
     }
 
-    INLINE mat4 transposed() const {
+    INLINE_XPU mat4 transposed() const {
         return {
                 X.x, Y.x, Z.x, W.x,
                 X.y, Y.y, Z.y, W.y,
@@ -135,7 +135,7 @@ struct mat4 {
         };
     }
 
-    INLINE mat4 inverted() const {
+    INLINE_XPU mat4 inverted() const {
         mat4 out;
         out.X.x = +Y.y*Z.z*W.w - Y.y*Z.w*W.z - Z.y*Y.z*W.w + Z.y*Y.w*W.z + W.y*Y.z*Z.w - W.y*Y.w*Z.z;
         out.X.y = -X.y*Z.z*W.w + X.y*Z.w*W.z + Z.y*X.z*W.w - Z.y*X.w*W.z - W.y*X.z*Z.w + W.y*X.w*Z.z;
@@ -161,15 +161,15 @@ struct mat4 {
         return determinant ? out / determinant : mat4{};
     }
 
-    INLINE mat4 operator ! () const {
+    INLINE_XPU mat4 operator ! () const {
         return inverted();
     }
 
-    INLINE mat4 operator ~ () const {
+    INLINE_XPU mat4 operator ~ () const {
         return transposed();
     }
 
-    INLINE mat4 operator + (f32 rhs) const {
+    INLINE_XPU mat4 operator + (f32 rhs) const {
         return {
                 X.x + rhs, X.y + rhs, X.z + rhs, X.w + rhs,
                 Y.x + rhs, Y.y + rhs, Y.z + rhs, Y.w + rhs,
@@ -178,7 +178,7 @@ struct mat4 {
         };
     }
 
-    INLINE mat4 operator - (f32 rhs) const {
+    INLINE_XPU mat4 operator - (f32 rhs) const {
         return {
                 X.x - rhs, X.y - rhs, X.z - rhs, X.w - rhs,
                 Y.x - rhs, Y.y - rhs, Y.z - rhs, Y.w - rhs,
@@ -187,7 +187,7 @@ struct mat4 {
         };
     }
 
-    INLINE mat4 operator * (f32 rhs) const {
+    INLINE_XPU mat4 operator * (f32 rhs) const {
         return {
                 X.x * rhs, X.y * rhs, X.z * rhs, X.w * rhs,
                 Y.x * rhs, Y.y * rhs, Y.z * rhs, Y.w * rhs,
@@ -196,7 +196,7 @@ struct mat4 {
         };
     }
 
-    INLINE mat4 operator / (f32 rhs) const {
+    INLINE_XPU mat4 operator / (f32 rhs) const {
         f32 factor = 1.0f / rhs;
         return {
                 X.x * factor, X.y * factor, X.z * factor, X.w * factor,
@@ -206,7 +206,7 @@ struct mat4 {
         };
     }
 
-    INLINE mat4 operator + (const mat4 &rhs) const {
+    INLINE_XPU mat4 operator + (const mat4 &rhs) const {
         return {
                 X.x + rhs.X.x, X.y + rhs.X.y, X.z + rhs.X.z, X.w + rhs.X.w,
                 Y.x + rhs.Y.x, Y.y + rhs.Y.y, Y.z + rhs.Y.z, Y.w + rhs.Y.w,
@@ -214,7 +214,7 @@ struct mat4 {
                 W.x + rhs.W.x, W.y + rhs.W.y, W.z + rhs.W.z, W.w + rhs.W.w
         };
     }
-    INLINE mat4 operator - (const mat4 &rhs) const {
+    INLINE_XPU mat4 operator - (const mat4 &rhs) const {
         return {
                 X.x - rhs.X.x, X.y - rhs.X.y, X.z - rhs.X.z, X.w - rhs.X.w,
                 Y.x - rhs.Y.x, Y.y - rhs.Y.y, Y.z - rhs.Y.z, Y.w - rhs.Y.w,
@@ -223,7 +223,7 @@ struct mat4 {
         };
     }
 
-    INLINE mat4 operator * (const mat4 &rhs) const {
+    INLINE_XPU mat4 operator * (const mat4 &rhs) const {
         return {
                 X.x*rhs.X.x + X.y*rhs.Y.x + X.z*rhs.Z.x + X.w*rhs.W.x, // Row 1 | Column 1
                 X.x*rhs.X.y + X.y*rhs.Y.y + X.z*rhs.Z.y + X.w*rhs.W.y, // Row 1 | Column 2
@@ -247,7 +247,7 @@ struct mat4 {
         };
     }
 
-    INLINE vec4 operator * (const vec4 &rhs) const {
+    INLINE_XPU vec4 operator * (const vec4 &rhs) const {
         return {
                 X.x*rhs.x + Y.x*rhs.y + Z.x*rhs.z + W.x*rhs.w,
                 X.y*rhs.x + Y.y*rhs.y + Z.y*rhs.z + W.y*rhs.w,
@@ -256,20 +256,20 @@ struct mat4 {
         };
     }
 
-    INLINE void operator += (const mat4 &rhs) {
+    INLINE_XPU void operator += (const mat4 &rhs) {
         X.x += rhs.X.x; Y.x += rhs.Y.x; Z.x += rhs.Z.x; W.x += rhs.W.x;
         X.y += rhs.X.y; Y.y += rhs.Y.y; Z.y += rhs.Z.y; W.y += rhs.W.y;
         X.z += rhs.X.z; Y.z += rhs.Y.z; Z.z += rhs.Z.z; W.z += rhs.W.z;
         X.w += rhs.X.w; Y.w += rhs.Y.w; Z.w += rhs.Z.w; W.w += rhs.W.w;
     }
 
-    INLINE void operator -= (const mat4 &rhs) {
+    INLINE_XPU void operator -= (const mat4 &rhs) {
         X.x -= rhs.X.x; Y.x -= rhs.Y.x; Z.x -= rhs.Z.x;
         X.y -= rhs.X.y; Y.y -= rhs.Y.y; Z.y -= rhs.Z.y;
         X.z -= rhs.X.z; Y.z -= rhs.Y.z; Z.z -= rhs.Z.z;
     }
 
-    INLINE void operator *= (const mat4 &rhs) {
+    INLINE_XPU void operator *= (const mat4 &rhs) {
         mat4 lhs{*this};
         X.x = lhs.X.x*rhs.X.x + lhs.X.y*rhs.Y.x + lhs.X.z*rhs.Z.x + lhs.X.w*rhs.W.x; // Row 1 | Column 1
         X.y = lhs.X.x*rhs.X.y + lhs.X.y*rhs.Y.y + lhs.X.z*rhs.Z.y + lhs.X.w*rhs.W.y; // Row 1 | Column 2
@@ -292,28 +292,28 @@ struct mat4 {
         W.w = lhs.W.x*rhs.X.w + lhs.W.y*rhs.Y.w + lhs.W.z*rhs.Z.w + lhs.W.w*rhs.W.w; // Row 4 | Column 4
     }
 
-    INLINE void operator += (f32 rhs) {
+    INLINE_XPU void operator += (f32 rhs) {
         X.x += rhs; Y.x += rhs; Z.x += rhs; W.x += rhs;
         X.y += rhs; Y.y += rhs; Z.y += rhs; W.y += rhs;
         X.z += rhs; Y.z += rhs; Z.z += rhs; W.z += rhs;
         X.w += rhs; Y.w += rhs; Z.w += rhs; W.w += rhs;
     }
 
-    INLINE void operator -= (f32 rhs) {
+    INLINE_XPU void operator -= (f32 rhs) {
         X.x -= rhs; Y.x -= rhs; Z.x -= rhs; W.x -= rhs;
         X.y -= rhs; Y.y -= rhs; Z.y -= rhs; W.y -= rhs;
         X.z -= rhs; Y.z -= rhs; Z.z -= rhs; W.z -= rhs;
         X.w -= rhs; Y.w -= rhs; Z.w -= rhs; W.w -= rhs;
     }
 
-    INLINE void operator *= (f32 rhs) {
+    INLINE_XPU void operator *= (f32 rhs) {
         X.x *= rhs; Y.x *= rhs; Z.x *= rhs; W.x *= rhs;
         X.y *= rhs; Y.y *= rhs; Z.y *= rhs; W.y *= rhs;
         X.z *= rhs; Y.z *= rhs; Z.z *= rhs; W.z *= rhs;
         X.w *= rhs; Y.w *= rhs; Z.w *= rhs; W.w *= rhs;
     }
 
-    INLINE void operator /= (f32 rhs) {
+    INLINE_XPU void operator /= (f32 rhs) {
         f32 factor = 1.0f / rhs;
         X.x *= factor; Y.x *= factor; Z.x *= factor; W.x *= factor;
         X.y *= factor; Y.y *= factor; Z.y *= factor; W.y *= factor;
@@ -323,10 +323,10 @@ struct mat4 {
 };
 mat4 mat4::Identity = {};
 
-INLINE mat4 operator * (f32 lhs, const mat4 &rhs) {
+INLINE_XPU mat4 operator * (f32 lhs, const mat4 &rhs) {
     return rhs * lhs;
 }
 
-INLINE mat4 operator + (f32 lhs, const mat4 &rhs) {
+INLINE_XPU mat4 operator + (f32 lhs, const mat4 &rhs) {
     return rhs + lhs;
 }

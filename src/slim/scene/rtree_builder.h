@@ -114,7 +114,8 @@ struct RTreePartition {
 };
 
 struct RTreeBuildIteration {
-    u32 start, end, node_id, depth;
+    u32 start, end, node_id;
+    u8 depth;
 };
 
 constexpr f32 EPS = 0.0001f;
