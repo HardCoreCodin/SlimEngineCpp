@@ -11,7 +11,6 @@ struct quat {
     INLINE_XPU quat() noexcept : quat{vec3{0}, 1.0f} {}
     INLINE_XPU quat(f32 axis_x, f32 axis_y, f32 axis_z, f32 amount) noexcept : axis{axis_x, axis_y, axis_z}, amount{amount} {}
     INLINE_XPU quat(vec3 axis, f32 amount) noexcept : axis{axis}, amount{amount} {}
-    INLINE_XPU quat(quat &other) noexcept : quat{other.axis, other.amount} {}
     INLINE_XPU quat(const quat &other) noexcept : quat{other.axis, other.amount} {}
 
     INLINE_XPU f32 length() const {

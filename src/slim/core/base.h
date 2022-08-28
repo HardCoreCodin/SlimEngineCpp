@@ -16,13 +16,13 @@
     #ifndef NDEBUG
         #include <stdio.h>
         #include <stdlib.h>
-        #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
         inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
             if (code != cudaSuccess) {
                 fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code) , file, line);
                 if (abort) exit(code);
             }
         }
+        #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
         #ifndef XPU
             #define XPU __device__ __host__
         #endif
@@ -49,7 +49,7 @@
     #define uploadNto(cpu_ptr, gpu_ptr, N, offset) gpuErrchk(cudaMemcpy(&((gpu_ptr)[(offset)]), (cpu_ptr), sizeof((cpu_ptr)[0]) * (N), cudaMemcpyHostToDevice))
     #define uploadN(  cpu_ptr, gpu_ptr, N        ) gpuErrchk(cudaMemcpy(&((gpu_ptr)[0])       , (cpu_ptr), sizeof((cpu_ptr)[0]) * (N), cudaMemcpyHostToDevice))
     #define downloadN(gpu_ptr, cpu_ptr, N)         gpuErrchk(cudaMemcpy((cpu_ptr), &((gpu_ptr)[0])       , sizeof((cpu_ptr)[0]) * (N), cudaMemcpyDeviceToHost))
-    #define downloadNTo(gpu_ptr,cpu_ptr,N, offset) gpuErrchk(cudaMemcpy((cpu_ptr), &((gpu_ptr)[(offset)]), sizeof((cpu_ptr)[0]) * (N), cudaMemcpyDeviceToHost))
+    #define downloadNto(gpu_ptr,cpu_ptr,N, offset) gpuErrchk(cudaMemcpy((cpu_ptr), &((gpu_ptr)[(offset)]), sizeof((cpu_ptr)[0]) * (N), cudaMemcpyDeviceToHost))
 #else
     #ifndef XPU
         #define XPU
@@ -570,17 +570,17 @@ struct Color {
         }
     }
 
-    INLINE Color& operator = (f32 value) {
+    INLINE_XPU Color& operator = (f32 value) {
         r = g = b = value;
         return *this;
     }
 
-    INLINE Color& operator = (ColorID color_id) {
+    INLINE_XPU Color& operator = (ColorID color_id) {
         *this  = Color(color_id);
         return *this;
     }
 
-    INLINE Color operator + (const Color &rhs) const {
+    INLINE_XPU Color operator + (const Color &rhs) const {
         return {
                 r + rhs.r,
                 g + rhs.g,
@@ -588,7 +588,7 @@ struct Color {
         };
     }
 
-    INLINE Color operator + (f32 scalar) const {
+    INLINE_XPU Color operator + (f32 scalar) const {
         return {
                 r + scalar,
                 g + scalar,
@@ -596,21 +596,21 @@ struct Color {
         };
     }
 
-    INLINE Color& operator += (const Color &rhs) {
+    INLINE_XPU Color& operator += (const Color &rhs) {
         r += rhs.r;
         g += rhs.g;
         b += rhs.b;
         return *this;
     }
 
-    INLINE Color& operator += (f32 scalar) {
+    INLINE_XPU Color& operator += (f32 scalar) {
         r += scalar;
         g += scalar;
         b += scalar;
         return *this;
     }
 
-    INLINE Color operator - (const Color &rhs) const {
+    INLINE_XPU Color operator - (const Color &rhs) const {
         return {
                 r - rhs.r,
                 g - rhs.g,
@@ -618,7 +618,7 @@ struct Color {
         };
     }
 
-    INLINE Color operator - (f32 scalar) const {
+    INLINE_XPU Color operator - (f32 scalar) const {
         return {
                 r - scalar,
                 g - scalar,
@@ -626,21 +626,21 @@ struct Color {
         };
     }
 
-    INLINE Color& operator -= (const Color &rhs) {
+    INLINE_XPU Color& operator -= (const Color &rhs) {
         r -= rhs.r;
         g -= rhs.g;
         b -= rhs.b;
         return *this;
     }
 
-    INLINE Color& operator -= (f32 scalar) {
+    INLINE_XPU Color& operator -= (f32 scalar) {
         r -= scalar;
         g -= scalar;
         b -= scalar;
         return *this;
     }
 
-    INLINE Color operator * (const Color &rhs) const {
+    INLINE_XPU Color operator * (const Color &rhs) const {
         return {
                 r * rhs.r,
                 g * rhs.g,
@@ -648,7 +648,7 @@ struct Color {
         };
     }
 
-    INLINE Color operator * (f32 scalar) const {
+    INLINE_XPU Color operator * (f32 scalar) const {
         return {
                 r * scalar,
                 g * scalar,
@@ -656,21 +656,21 @@ struct Color {
         };
     }
 
-    INLINE Color& operator *= (const Color &rhs) {
+    INLINE_XPU Color& operator *= (const Color &rhs) {
         r *= rhs.r;
         g *= rhs.g;
         b *= rhs.b;
         return *this;
     }
 
-    INLINE Color& operator *= (f32 scalar) {
+    INLINE_XPU Color& operator *= (f32 scalar) {
         r *= scalar;
         g *= scalar;
         b *= scalar;
         return *this;
     }
 
-    INLINE Color operator / (const Color &rhs) const {
+    INLINE_XPU Color operator / (const Color &rhs) const {
         return {
                 r / rhs.r,
                 g / rhs.g,
@@ -678,7 +678,7 @@ struct Color {
         };
     }
 
-    INLINE Color operator / (f32 scalar) const {
+    INLINE_XPU Color operator / (f32 scalar) const {
         scalar = 1.0f / scalar;
         return {
                 r * scalar,
@@ -687,14 +687,14 @@ struct Color {
         };
     }
 
-    INLINE Color& operator /= (const Color &rhs) {
+    INLINE_XPU Color& operator /= (const Color &rhs) {
         r /= rhs.r;
         g /= rhs.g;
         b /= rhs.b;
         return *this;
     }
 
-    INLINE Color& operator /= (f32 scalar) {
+    INLINE_XPU Color& operator /= (f32 scalar) {
         scalar = 1.0f / scalar;
         r *= scalar;
         g *= scalar;
@@ -702,11 +702,11 @@ struct Color {
         return *this;
     }
 
-    INLINE Color lerpTo(const Color &to, f32 by) const {
+    INLINE_XPU Color lerpTo(const Color &to, f32 by) const {
         return (to - *this).scaleAdd(by, *this);
     }
 
-    INLINE Color scaleAdd(f32 factor, const Color &to_be_added) const {
+    INLINE_XPU Color scaleAdd(f32 factor, const Color &to_be_added) const {
         return {
                 fast_mul_add(r, factor, to_be_added.r),
                 fast_mul_add(g, factor, to_be_added.g),
@@ -719,41 +719,41 @@ struct Pixel {
     Color color;
     f32 opacity;
 
-    Pixel(Color color, f32 opacity = 1.0f) : color{color}, opacity{opacity} {}
-    Pixel(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f, f32 opacity = 0.0f) : color{red, green, blue}, opacity{opacity} {}
-    Pixel(enum ColorID color_id, f32 opacity = 1.0f) : Pixel{Color(color_id), opacity} {}
+    INLINE_XPU Pixel(Color color, f32 opacity = 1.0f) : color{color}, opacity{opacity} {}
+    INLINE_XPU Pixel(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f, f32 opacity = 0.0f) : color{red, green, blue}, opacity{opacity} {}
+    INLINE_XPU Pixel(enum ColorID color_id, f32 opacity = 1.0f) : Pixel{Color(color_id), opacity} {}
 
-    INLINE Pixel operator * (f32 factor) const {
+    INLINE_XPU Pixel operator * (f32 factor) const {
         return {
                 color * factor,
                 opacity * factor
         };
     }
 
-    INLINE Pixel operator + (const Pixel &rhs) const {
+    INLINE_XPU Pixel operator + (const Pixel &rhs) const {
         return {
                 color + rhs.color,
                 opacity + rhs.opacity
         };
     }
 
-    INLINE Pixel& operator += (const Pixel &rhs) {
+    INLINE_XPU Pixel& operator += (const Pixel &rhs) {
         color += rhs.color;
         opacity += rhs.opacity;
         return *this;
     }
 
-    INLINE Pixel& operator *= (const Pixel &rhs) {
+    INLINE_XPU Pixel& operator *= (const Pixel &rhs) {
         color *= rhs.color;
         opacity *= rhs.opacity;
         return *this;
     }
 
-    INLINE Pixel alphaBlendOver(const Pixel &background) const {
+    INLINE_XPU Pixel alphaBlendOver(const Pixel &background) const {
         return *this + background * (1.0f - opacity);
     }
 
-    INLINE u32 asContent() const {
+    INLINE_XPU u32 asContent() const {
         u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.r)));
         u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.g)));
         u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.b)));
@@ -846,7 +846,7 @@ namespace os {
     bool writeToFile(void *out, unsigned long, void *handle);
 }
 
-namespace time {
+namespace timers {
     u64 getTicks();
     u64 ticks_per_second;
     f64 seconds_per_tick;

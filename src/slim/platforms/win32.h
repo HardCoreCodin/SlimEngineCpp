@@ -46,7 +46,7 @@ void os::setWindowCapture(bool on) {
     else ReleaseCapture();
 }
 
-u64 time::getTicks() {
+u64 timers::getTicks() {
     QueryPerformanceCounter(&performance_counter);
     return (u64)performance_counter.QuadPart;
 }
@@ -215,11 +215,11 @@ int APIENTRY WinMain(HINSTANCE hInstance,
     LARGE_INTEGER performance_frequency;
     QueryPerformanceFrequency(&performance_frequency);
 
-    time::ticks_per_second = (u64)performance_frequency.QuadPart;
-    time::seconds_per_tick = 1.0 / (f64)(time::ticks_per_second);
-    time::milliseconds_per_tick = 1000.0 * time::seconds_per_tick;
-    time::microseconds_per_tick = 1000.0 * time::milliseconds_per_tick;
-    time::nanoseconds_per_tick  = 1000.0 * time::microseconds_per_tick;
+    timers::ticks_per_second = (u64)performance_frequency.QuadPart;
+    timers::seconds_per_tick = 1.0 / (f64)(timers::ticks_per_second);
+    timers::milliseconds_per_tick = 1000.0 * timers::seconds_per_tick;
+    timers::microseconds_per_tick = 1000.0 * timers::milliseconds_per_tick;
+    timers::nanoseconds_per_tick  = 1000.0 * timers::microseconds_per_tick;
 
     CURRENT_APP = createApp();
     if (!CURRENT_APP->is_running)

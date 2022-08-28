@@ -17,7 +17,6 @@ struct mat3 {
             X{Xx, Xy, Xz},
             Y{Yx, Yy, Yz},
             Z{Zx, Zy, Zz} {}
-    INLINE_XPU mat3(mat3 &other) noexcept : mat3{other.X, other.Y, other.Z} {}
     INLINE_XPU mat3(const mat3 &other) noexcept : mat3{other.X, other.Y, other.Z} {}
 
     static INLINE_XPU mat3 RotationAroundX(f32 radians) {
@@ -299,6 +298,6 @@ struct OrientationUsing3x3Matrix : Orientation<mat3> {
     vec3 &up{rotation.Y};
     vec3 &forward{rotation.Z};
 
-    OrientationUsing3x3Matrix(f32 x_radians = 0.0f, f32 y_radians = 0.0f, f32 z_radians = 0.0f) :
+    INLINE_XPU OrientationUsing3x3Matrix(f32 x_radians = 0.0f, f32 y_radians = 0.0f, f32 z_radians = 0.0f) :
             Orientation<mat3>{x_radians, y_radians, z_radians} {}
 };

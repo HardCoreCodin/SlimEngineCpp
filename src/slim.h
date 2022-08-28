@@ -18,13 +18,13 @@
     #ifndef NDEBUG
         #include <stdio.h>
         #include <stdlib.h>
-        #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
         inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
             if (code != cudaSuccess) {
                 fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code) , file, line);
                 if (abort) exit(code);
             }
         }
+        #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
         #ifndef XPU
             #define XPU __device__ __host__
         #endif
@@ -51,7 +51,7 @@
     #define uploadNto(cpu_ptr, gpu_ptr, N, offset) gpuErrchk(cudaMemcpy(&((gpu_ptr)[(offset)]), (cpu_ptr), sizeof((cpu_ptr)[0]) * (N), cudaMemcpyHostToDevice))
     #define uploadN(  cpu_ptr, gpu_ptr, N        ) gpuErrchk(cudaMemcpy(&((gpu_ptr)[0])       , (cpu_ptr), sizeof((cpu_ptr)[0]) * (N), cudaMemcpyHostToDevice))
     #define downloadN(gpu_ptr, cpu_ptr, N)         gpuErrchk(cudaMemcpy((cpu_ptr), &((gpu_ptr)[0])       , sizeof((cpu_ptr)[0]) * (N), cudaMemcpyDeviceToHost))
-    #define downloadNTo(gpu_ptr,cpu_ptr,N, offset) gpuErrchk(cudaMemcpy((cpu_ptr), &((gpu_ptr)[(offset)]), sizeof((cpu_ptr)[0]) * (N), cudaMemcpyDeviceToHost))
+    #define downloadNto(gpu_ptr,cpu_ptr,N, offset) gpuErrchk(cudaMemcpy((cpu_ptr), &((gpu_ptr)[(offset)]), sizeof((cpu_ptr)[0]) * (N), cudaMemcpyDeviceToHost))
 #else
     #ifndef XPU
         #define XPU
@@ -572,17 +572,17 @@ struct Color {
         }
     }
 
-    INLINE Color& operator = (f32 value) {
+    INLINE_XPU Color& operator = (f32 value) {
         r = g = b = value;
         return *this;
     }
 
-    INLINE Color& operator = (ColorID color_id) {
+    INLINE_XPU Color& operator = (ColorID color_id) {
         *this  = Color(color_id);
         return *this;
     }
 
-    INLINE Color operator + (const Color &rhs) const {
+    INLINE_XPU Color operator + (const Color &rhs) const {
         return {
                 r + rhs.r,
                 g + rhs.g,
@@ -590,7 +590,7 @@ struct Color {
         };
     }
 
-    INLINE Color operator + (f32 scalar) const {
+    INLINE_XPU Color operator + (f32 scalar) const {
         return {
                 r + scalar,
                 g + scalar,
@@ -598,21 +598,21 @@ struct Color {
         };
     }
 
-    INLINE Color& operator += (const Color &rhs) {
+    INLINE_XPU Color& operator += (const Color &rhs) {
         r += rhs.r;
         g += rhs.g;
         b += rhs.b;
         return *this;
     }
 
-    INLINE Color& operator += (f32 scalar) {
+    INLINE_XPU Color& operator += (f32 scalar) {
         r += scalar;
         g += scalar;
         b += scalar;
         return *this;
     }
 
-    INLINE Color operator - (const Color &rhs) const {
+    INLINE_XPU Color operator - (const Color &rhs) const {
         return {
                 r - rhs.r,
                 g - rhs.g,
@@ -620,7 +620,7 @@ struct Color {
         };
     }
 
-    INLINE Color operator - (f32 scalar) const {
+    INLINE_XPU Color operator - (f32 scalar) const {
         return {
                 r - scalar,
                 g - scalar,
@@ -628,21 +628,21 @@ struct Color {
         };
     }
 
-    INLINE Color& operator -= (const Color &rhs) {
+    INLINE_XPU Color& operator -= (const Color &rhs) {
         r -= rhs.r;
         g -= rhs.g;
         b -= rhs.b;
         return *this;
     }
 
-    INLINE Color& operator -= (f32 scalar) {
+    INLINE_XPU Color& operator -= (f32 scalar) {
         r -= scalar;
         g -= scalar;
         b -= scalar;
         return *this;
     }
 
-    INLINE Color operator * (const Color &rhs) const {
+    INLINE_XPU Color operator * (const Color &rhs) const {
         return {
                 r * rhs.r,
                 g * rhs.g,
@@ -650,7 +650,7 @@ struct Color {
         };
     }
 
-    INLINE Color operator * (f32 scalar) const {
+    INLINE_XPU Color operator * (f32 scalar) const {
         return {
                 r * scalar,
                 g * scalar,
@@ -658,21 +658,21 @@ struct Color {
         };
     }
 
-    INLINE Color& operator *= (const Color &rhs) {
+    INLINE_XPU Color& operator *= (const Color &rhs) {
         r *= rhs.r;
         g *= rhs.g;
         b *= rhs.b;
         return *this;
     }
 
-    INLINE Color& operator *= (f32 scalar) {
+    INLINE_XPU Color& operator *= (f32 scalar) {
         r *= scalar;
         g *= scalar;
         b *= scalar;
         return *this;
     }
 
-    INLINE Color operator / (const Color &rhs) const {
+    INLINE_XPU Color operator / (const Color &rhs) const {
         return {
                 r / rhs.r,
                 g / rhs.g,
@@ -680,7 +680,7 @@ struct Color {
         };
     }
 
-    INLINE Color operator / (f32 scalar) const {
+    INLINE_XPU Color operator / (f32 scalar) const {
         scalar = 1.0f / scalar;
         return {
                 r * scalar,
@@ -689,14 +689,14 @@ struct Color {
         };
     }
 
-    INLINE Color& operator /= (const Color &rhs) {
+    INLINE_XPU Color& operator /= (const Color &rhs) {
         r /= rhs.r;
         g /= rhs.g;
         b /= rhs.b;
         return *this;
     }
 
-    INLINE Color& operator /= (f32 scalar) {
+    INLINE_XPU Color& operator /= (f32 scalar) {
         scalar = 1.0f / scalar;
         r *= scalar;
         g *= scalar;
@@ -704,11 +704,11 @@ struct Color {
         return *this;
     }
 
-    INLINE Color lerpTo(const Color &to, f32 by) const {
+    INLINE_XPU Color lerpTo(const Color &to, f32 by) const {
         return (to - *this).scaleAdd(by, *this);
     }
 
-    INLINE Color scaleAdd(f32 factor, const Color &to_be_added) const {
+    INLINE_XPU Color scaleAdd(f32 factor, const Color &to_be_added) const {
         return {
                 fast_mul_add(r, factor, to_be_added.r),
                 fast_mul_add(g, factor, to_be_added.g),
@@ -721,41 +721,41 @@ struct Pixel {
     Color color;
     f32 opacity;
 
-    Pixel(Color color, f32 opacity = 1.0f) : color{color}, opacity{opacity} {}
-    Pixel(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f, f32 opacity = 0.0f) : color{red, green, blue}, opacity{opacity} {}
-    Pixel(enum ColorID color_id, f32 opacity = 1.0f) : Pixel{Color(color_id), opacity} {}
+    INLINE_XPU Pixel(Color color, f32 opacity = 1.0f) : color{color}, opacity{opacity} {}
+    INLINE_XPU Pixel(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f, f32 opacity = 0.0f) : color{red, green, blue}, opacity{opacity} {}
+    XPU Pixel(enum ColorID color_id, f32 opacity = 1.0f) : Pixel{Color(color_id), opacity} {}
 
-    INLINE Pixel operator * (f32 factor) const {
+    INLINE_XPU Pixel operator * (f32 factor) const {
         return {
                 color * factor,
                 opacity * factor
         };
     }
 
-    INLINE Pixel operator + (const Pixel &rhs) const {
+    INLINE_XPU Pixel operator + (const Pixel &rhs) const {
         return {
                 color + rhs.color,
                 opacity + rhs.opacity
         };
     }
 
-    INLINE Pixel& operator += (const Pixel &rhs) {
+    INLINE_XPU Pixel& operator += (const Pixel &rhs) {
         color += rhs.color;
         opacity += rhs.opacity;
         return *this;
     }
 
-    INLINE Pixel& operator *= (const Pixel &rhs) {
+    INLINE_XPU Pixel& operator *= (const Pixel &rhs) {
         color *= rhs.color;
         opacity *= rhs.opacity;
         return *this;
     }
 
-    INLINE Pixel alphaBlendOver(const Pixel &background) const {
+    INLINE_XPU Pixel alphaBlendOver(const Pixel &background) const {
         return *this + background * (1.0f - opacity);
     }
 
-    INLINE u32 asContent() const {
+    INLINE_XPU u32 asContent() const {
         u8 R = (u8)(color.r > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.r)));
         u8 G = (u8)(color.g > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.g)));
         u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.b)));
@@ -848,7 +848,7 @@ namespace os {
     bool writeToFile(void *out, unsigned long, void *handle);
 }
 
-namespace time {
+namespace timers {
     u64 getTicks();
     u64 ticks_per_second;
     f64 seconds_per_tick;
@@ -1289,7 +1289,6 @@ struct vec2i {
 
     INLINE_XPU vec2i() noexcept : vec2i{0} {}
     INLINE_XPU vec2i(i32 x, i32 y) noexcept : x(x), y(y) {}
-    INLINE_XPU vec2i(vec2i &other) noexcept : vec2i{other.x, other.y} {}
     INLINE_XPU vec2i(const vec2i &other) noexcept : vec2i{other.x, other.y} {}
     INLINE_XPU explicit vec2i(i32 value) noexcept : vec2i{value, value} {}
 
@@ -1544,7 +1543,6 @@ struct vec2 {
     INLINE_XPU vec2() : vec2{0} {}
     INLINE_XPU vec2(f32 x, f32 y) noexcept : x(x), y(y) {}
     INLINE_XPU vec2(i32 x, i32 y) noexcept : x((f32)x), y((f32)y) {}
-    INLINE_XPU vec2(vec2 &other) noexcept : vec2{other.x, other.y} {}
     INLINE_XPU vec2(const vec2 &other) noexcept : vec2{other.x, other.y} {}
     INLINE_XPU explicit vec2(f32 value) noexcept : vec2{value, value} {}
     INLINE_XPU explicit vec2(vec2i &other) noexcept : vec2{(f32)other.x, (f32)other.y} {}
@@ -2048,7 +2046,6 @@ struct vec3 {
 
     INLINE_XPU vec3() noexcept : vec3{0} {}
     INLINE_XPU vec3(f32 x, f32 y, f32 z) noexcept : x(x), y(y), z(z) {}
-    INLINE_XPU vec3(vec3 &other) noexcept : vec3{other.x, other.y, other.z} {}
     INLINE_XPU vec3(const vec3 &other) noexcept : vec3{other.x, other.y, other.z} {}
     INLINE_XPU vec3(f32 value) noexcept : vec3{value, value, value} {}
     INLINE_XPU vec3(enum ColorID color_id) noexcept : vec3{Color{color_id}} {}
@@ -2552,7 +2549,6 @@ struct vec4 {
 
     INLINE_XPU vec4() noexcept : vec4{0} {}
     INLINE_XPU vec4(f32 x, f32 y, f32 z, f32 w) noexcept : x(x), y(y), z(z), w(w) {}
-    INLINE_XPU vec4(vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
     INLINE_XPU vec4(const vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
     INLINE_XPU explicit vec4(f32 value) noexcept : vec4{value, value, value, value} {}
 
@@ -2976,7 +2972,6 @@ struct quat {
     INLINE_XPU quat() noexcept : quat{vec3{0}, 1.0f} {}
     INLINE_XPU quat(f32 axis_x, f32 axis_y, f32 axis_z, f32 amount) noexcept : axis{axis_x, axis_y, axis_z}, amount{amount} {}
     INLINE_XPU quat(vec3 axis, f32 amount) noexcept : axis{axis}, amount{amount} {}
-    INLINE_XPU quat(quat &other) noexcept : quat{other.axis, other.amount} {}
     INLINE_XPU quat(const quat &other) noexcept : quat{other.axis, other.amount} {}
 
     INLINE_XPU f32 length() const {
@@ -3096,7 +3091,6 @@ struct mat2 {
     INLINE_XPU mat2(vec2 x, vec2 y) noexcept : X{x}, Y{y} {}
     INLINE_XPU mat2(f32 Xx, f32 Xy, f32 Yx, f32 Yy) noexcept : X{Xx, Xy}, Y{Yx, Yy} {}
     INLINE_XPU mat2(i32 Xx, i32 Xy, i32 Yx, i32 Yy) noexcept : X{(f32)Xx, (f32)Xy}, Y{(f32)Yx, (f32)Yy} {}
-    INLINE_XPU mat2(mat2 &other) noexcept : mat2{other.X, other.Y} {}
     INLINE_XPU mat2(const mat2 &other) noexcept : mat2{other.X, other.Y} {}
 
     INLINE_XPU f32 det() const {
@@ -3297,7 +3291,6 @@ struct mat3 {
             X{Xx, Xy, Xz},
             Y{Yx, Yy, Yz},
             Z{Zx, Zy, Zz} {}
-    INLINE_XPU mat3(mat3 &other) noexcept : mat3{other.X, other.Y, other.Z} {}
     INLINE_XPU mat3(const mat3 &other) noexcept : mat3{other.X, other.Y, other.Z} {}
 
     static INLINE_XPU mat3 RotationAroundX(f32 radians) {
@@ -3579,7 +3572,7 @@ struct OrientationUsing3x3Matrix : Orientation<mat3> {
     vec3 &up{rotation.Y};
     vec3 &forward{rotation.Z};
 
-    OrientationUsing3x3Matrix(f32 x_radians = 0.0f, f32 y_radians = 0.0f, f32 z_radians = 0.0f) :
+    INLINE_XPU OrientationUsing3x3Matrix(f32 x_radians = 0.0f, f32 y_radians = 0.0f, f32 z_radians = 0.0f) :
             Orientation<mat3>{x_radians, y_radians, z_radians} {}
 };
 
@@ -3603,7 +3596,6 @@ struct mat4 {
             Y{Yx, Yy, Yz, Yw},
             Z{Zx, Zy, Zz, Zw},
             W{Wx, Wy, Wz, Ww} {}
-    INLINE_XPU mat4(mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
     INLINE_XPU mat4(const mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
 
     INLINE_XPU void setRotationAroundX(f32 angle) {
@@ -7840,7 +7832,7 @@ void drawSelection(Selection &selection, const Viewport &viewport, const Scene &
 
 
 struct SlimApp {
-    time::Timer update_timer, render_timer;
+    timers::Timer update_timer, render_timer;
     bool is_running{true};
 
     virtual void OnWindowResize(u16 width, u16 height) {};
@@ -8027,7 +8019,7 @@ void os::setWindowCapture(bool on) {
     else ReleaseCapture();
 }
 
-u64 time::getTicks() {
+u64 timers::getTicks() {
     QueryPerformanceCounter(&performance_counter);
     return (u64)performance_counter.QuadPart;
 }
@@ -8196,11 +8188,11 @@ int APIENTRY WinMain(HINSTANCE hInstance,
     LARGE_INTEGER performance_frequency;
     QueryPerformanceFrequency(&performance_frequency);
 
-    time::ticks_per_second = (u64)performance_frequency.QuadPart;
-    time::seconds_per_tick = 1.0 / (f64)(time::ticks_per_second);
-    time::milliseconds_per_tick = 1000.0 * time::seconds_per_tick;
-    time::microseconds_per_tick = 1000.0 * time::milliseconds_per_tick;
-    time::nanoseconds_per_tick  = 1000.0 * time::microseconds_per_tick;
+    timers::ticks_per_second = (u64)performance_frequency.QuadPart;
+    timers::seconds_per_tick = 1.0 / (f64)(timers::ticks_per_second);
+    timers::milliseconds_per_tick = 1000.0 * timers::seconds_per_tick;
+    timers::microseconds_per_tick = 1000.0 * timers::milliseconds_per_tick;
+    timers::nanoseconds_per_tick  = 1000.0 * timers::microseconds_per_tick;
 
     CURRENT_APP = createApp();
     if (!CURRENT_APP->is_running)

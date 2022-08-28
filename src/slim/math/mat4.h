@@ -21,7 +21,6 @@ struct mat4 {
             Y{Yx, Yy, Yz, Yw},
             Z{Zx, Zy, Zz, Zw},
             W{Wx, Wy, Wz, Ww} {}
-    INLINE_XPU mat4(mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
     INLINE_XPU mat4(const mat4 &other) noexcept : mat4{other.X, other.Y, other.Z, other.W} {}
 
     INLINE_XPU void setRotationAroundX(f32 angle) {

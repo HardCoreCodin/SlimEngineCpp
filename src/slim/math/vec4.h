@@ -13,7 +13,6 @@ struct vec4 {
 
     INLINE_XPU vec4() noexcept : vec4{0} {}
     INLINE_XPU vec4(f32 x, f32 y, f32 z, f32 w) noexcept : x(x), y(y), z(z), w(w) {}
-    INLINE_XPU vec4(vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
     INLINE_XPU vec4(const vec4 &other) noexcept : vec4{other.x, other.y, other.z, other.w} {}
     INLINE_XPU explicit vec4(f32 value) noexcept : vec4{value, value, value, value} {}
 

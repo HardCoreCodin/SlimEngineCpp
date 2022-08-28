@@ -16,7 +16,6 @@ struct vec3 {
 
     INLINE_XPU vec3() noexcept : vec3{0} {}
     INLINE_XPU vec3(f32 x, f32 y, f32 z) noexcept : x(x), y(y), z(z) {}
-    INLINE_XPU vec3(vec3 &other) noexcept : vec3{other.x, other.y, other.z} {}
     INLINE_XPU vec3(const vec3 &other) noexcept : vec3{other.x, other.y, other.z} {}
     INLINE_XPU vec3(f32 value) noexcept : vec3{value, value, value} {}
     INLINE_XPU vec3(enum ColorID color_id) noexcept : vec3{Color{color_id}} {}

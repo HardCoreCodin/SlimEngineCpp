@@ -4,7 +4,7 @@
 
 
 struct SlimApp {
-    time::Timer update_timer, render_timer;
+    timers::Timer update_timer, render_timer;
     bool is_running{true};
 
     virtual void OnWindowResize(u16 width, u16 height) {};

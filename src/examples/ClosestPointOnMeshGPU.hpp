@@ -120,8 +120,8 @@ void runQueryOnGPU(ClosestPointOnMesh &query, Geometry *source_geo, Geometry *ta
     u32 mesh_count = scene.counts.meshes;
 	u32 source_mesh_id = source_geo->id;
     u32 target_mesh_id = target_geo->id;
-	u32 source_geo_id = source_geo - scene.geometries;
-    u32 target_geo_id = target_geo - scene.geometries;
+	u32 source_geo_id = (u32)(source_geo - scene.geometries);
+    u32 target_geo_id = (u32)(target_geo - scene.geometries);
 	u32 vertex_count = scene.meshes[source_mesh_id].vertex_count;
 
 
@@ -139,7 +139,7 @@ void runQueryOnGPU(ClosestPointOnMesh &query, Geometry *source_geo, Geometry *ta
         u32 nodes_offset = 0;
         for (u32 m = 0; m < mesh_count; m++, mesh++) {
             if (m == target_mesh_id) {
-                uploadN(mesh->rtree.nodes, d_mesh_rtree_nodes, mesh->rtree.node_count, nodes_offset)
+                uploadNto(mesh->rtree.nodes, d_mesh_rtree_nodes, mesh->rtree.node_count, nodes_offset)
             }
             nodes_offset        += mesh->rtree.node_count;
         }
@@ -170,14 +170,14 @@ void runQueryOnGPU(ClosestPointOnMesh &query, Geometry *source_geo, Geometry *ta
         d_results);
 
     checkErrors()
-    downloadN(d_results, query.results, vertex_count)
+    downloadN(d_results, query.results, vertex_count);
 
     if (nodes_are_drawing) {
         Mesh *mesh = scene.meshes;
         u32 nodes_offset = 0;
         for (u32 m = 0; m < mesh_count; m++, mesh++) {
             if (m == target_mesh_id) {
-                downloadN(d_mesh_rtree_nodes, mesh->rtree.nodes, mesh->rtree.node_count, nodes_offset)
+                downloadNto(d_mesh_rtree_nodes, mesh->rtree.nodes, mesh->rtree.node_count, nodes_offset)
             }
             nodes_offset        += mesh->rtree.node_count;
         }

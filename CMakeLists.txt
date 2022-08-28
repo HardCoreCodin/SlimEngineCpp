@@ -31,12 +31,12 @@ project(ClosestPointOnMesh)
 add_executable(ClosestPointOnMesh WIN32 src/examples/ClosestPointOnMeshApp.cpp)
 
 # For CUDA compilation, uncomment the following lines as-needed
-#set(CMAKE_CUDA_STANDARD 14)
+#set(CMAKE_CUDA_STANDARD 11)
 #if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
 #    set(CMAKE_CUDA_ARCHITECTURES 52)
 #endif()
 #set(CUDA_VERBOSE_BUILD ON)
 #
-#project(ClosestPointOnMeshXPU)
+#project(ClosestPointOnMeshXPU CUDA)
 #add_executable(ClosestPointOnMeshXPU WIN32 src/examples/ClosestPointOnMeshApp.cu)
 #set_target_properties(ClosestPointOnMeshXPU PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

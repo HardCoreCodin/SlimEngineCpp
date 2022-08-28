@@ -94,8 +94,8 @@ struct SceneApp : SlimApp {
     }
 
     void drawMessage() const {
-        f64 now = (f64) time::getTicks();
-        f64 tps = (f64) time::ticks_per_second;
+        f64 now = (f64) timers::getTicks();
+        f64 tps = (f64) timers::ticks_per_second;
         if ((now - (f64) scene.last_io_ticks) / tps <= 2.0) {
             char *text;
             Color color;
@@ -123,7 +123,7 @@ struct SceneApp : SlimApp {
                     save(scene, scene_file.char_ptr);
                 else
                     load(scene, scene_file.char_ptr);
-                scene.last_io_ticks = time::getTicks();
+                scene.last_io_ticks = timers::getTicks();
             }
         }
         Move &move = viewport.navigation.move;

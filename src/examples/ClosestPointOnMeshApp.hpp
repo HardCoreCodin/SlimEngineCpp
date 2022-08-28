@@ -22,7 +22,7 @@ struct DemoApp : SlimApp {
     u8 max_depth = 0;
     f32 world_max_distance = 0.3f;
 
-    time::Timer query_timer;
+    timers::Timer query_timer;
 
     // HUD:
     HUDLine QueryLine{(char*)"Show Query     : ", (char*)"On",(char*)"Off", &draw_query_result, true, Yellow, DarkYellow} ;

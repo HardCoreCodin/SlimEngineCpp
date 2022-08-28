@@ -11,7 +11,6 @@ struct vec2i {
     INLINE_XPU vec2i() noexcept : vec2i{0} {}
     INLINE_XPU vec2i(i32 x, i32 y) noexcept : x(x), y(y) {}
     INLINE_XPU vec2i(vec2i &other) noexcept : vec2i{other.x, other.y} {}
-    INLINE_XPU vec2i(const vec2i &other) noexcept : vec2i{other.x, other.y} {}
     INLINE_XPU explicit vec2i(i32 value) noexcept : vec2i{value, value} {}
 
     INLINE_XPU bool operator == (const vec2i &other) const {
@@ -265,7 +264,6 @@ struct vec2 {
     INLINE_XPU vec2() : vec2{0} {}
     INLINE_XPU vec2(f32 x, f32 y) noexcept : x(x), y(y) {}
     INLINE_XPU vec2(i32 x, i32 y) noexcept : x((f32)x), y((f32)y) {}
-    INLINE_XPU vec2(vec2 &other) noexcept : vec2{other.x, other.y} {}
     INLINE_XPU vec2(const vec2 &other) noexcept : vec2{other.x, other.y} {}
     INLINE_XPU explicit vec2(f32 value) noexcept : vec2{value, value} {}
     INLINE_XPU explicit vec2(vec2i &other) noexcept : vec2{(f32)other.x, (f32)other.y} {}

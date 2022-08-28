@@ -17,7 +17,6 @@ struct mat2 {
     INLINE_XPU mat2(vec2 x, vec2 y) noexcept : X{x}, Y{y} {}
     INLINE_XPU mat2(f32 Xx, f32 Xy, f32 Yx, f32 Yy) noexcept : X{Xx, Xy}, Y{Yx, Yy} {}
     INLINE_XPU mat2(i32 Xx, i32 Xy, i32 Yx, i32 Yy) noexcept : X{(f32)Xx, (f32)Xy}, Y{(f32)Yx, (f32)Yy} {}
-    INLINE_XPU mat2(mat2 &other) noexcept : mat2{other.X, other.Y} {}
     INLINE_XPU mat2(const mat2 &other) noexcept : mat2{other.X, other.Y} {}
 
     INLINE_XPU f32 det() const {
