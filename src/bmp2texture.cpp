@@ -14,8 +14,6 @@ unsigned char *LoadBitmapFile(char *filename, BITMAPINFOHEADER *bitmapInfoHeader
     void *filePtr;  //our file pointer
     BITMAPFILEHEADER bitmapFileHeader;  //our bitmap file header
     unsigned char *bitmapImage;  //store image data
-    int imageIdx=0;  //image index counter
-    unsigned char tempRGB;  //our swap variable
 
     //open file in read binary mode
     filePtr = win32_openFileForReading(filename);
@@ -38,8 +36,11 @@ unsigned char *LoadBitmapFile(char *filename, BITMAPINFOHEADER *bitmapInfoHeader
     //move file pointer to the beginning of bitmap data
     SetFilePointer(filePtr, (LONG)bitmapFileHeader.bfOffBits, nullptr, FILE_BEGIN);
 
+    u32 bytes_per_pixel = bitmapInfoHeader->biBitCount / 8;
     if (bitmapInfoHeader->biSizeImage == 0) {
-        bitmapInfoHeader->biSizeImage = bitmapInfoHeader->biBitCount * bitmapInfoHeader->biHeight * bitmapInfoHeader->biWidth;
+        bitmapInfoHeader->biSizeImage = bytes_per_pixel;
+        bitmapInfoHeader->biSizeImage *= bitmapInfoHeader->biWidth;
+        bitmapInfoHeader->biSizeImage *= bitmapInfoHeader->biHeight < 0 ? -bitmapInfoHeader->biHeight : bitmapInfoHeader->biHeight;
     }
     //allocate enough memory for the bitmap image data
     bitmapImage = (unsigned char*)malloc(bitmapInfoHeader->biSizeImage);
@@ -54,17 +55,27 @@ unsigned char *LoadBitmapFile(char *filename, BITMAPINFOHEADER *bitmapInfoHeader
     //read in the bitmap image data
     win32_readFromFile(bitmapImage, bitmapInfoHeader->biSizeImage, filePtr);
 
-    //swap the R and B values to get RGB (bitmap is BGR)
-    u8 step = bitmapInfoHeader->biBitCount == 32 ? 4 : 3;
-    for (imageIdx = 0;imageIdx < bitmapInfoHeader->biSizeImage;imageIdx+=step)
-    {
-        tempRGB = bitmapImage[imageIdx];
-        bitmapImage[imageIdx] = bitmapImage[imageIdx + 2];
-        bitmapImage[imageIdx + 2] = tempRGB;
-    }
-
     //close file and return bitmap image data
     win32_closeFile(filePtr);
+
+    if (bitmapInfoHeader->biHeight > 0) {
+        unsigned char* flipped_bitmapImage = (unsigned char*)malloc(bitmapInfoHeader->biSizeImage);
+        u32 stride = bitmapInfoHeader->biWidth * bytes_per_pixel;
+        u32 trg_offset = (bitmapInfoHeader->biHeight - 1) * stride;
+        u32 src_offset = 0;
+        for (i32 y = 0; y < bitmapInfoHeader->biHeight; y++) {
+            for (i32 x = 0; x < bitmapInfoHeader->biWidth; x++) {
+                flipped_bitmapImage[trg_offset++] = bitmapImage[src_offset++];
+                flipped_bitmapImage[trg_offset++] = bitmapImage[src_offset++];
+                flipped_bitmapImage[trg_offset++] = bitmapImage[src_offset++];
+            }
+            trg_offset -= stride;
+            trg_offset -= stride;
+        }
+        free(bitmapImage);
+        return flipped_bitmapImage;
+    }
+
     return bitmapImage;
 }
 
@@ -282,7 +293,7 @@ int bmp2texture(char* bmp_file_path, char* texture_file_path, bool wrap = true, 
     void* file = win32_openFileForWriting(texture_file_path);
 
     win32_writeToFile(&texture.width,  sizeof(u16), file);
-    win32_writeToFile(&texture.width,  sizeof(u16), file);
+    win32_writeToFile(&texture.height,  sizeof(u16), file);
     win32_writeToFile(&texture.mipmap,  sizeof(bool), file);
     win32_writeToFile(&texture.wrap,  sizeof(bool), file);
     win32_writeToFile(&texture.mip_count,  sizeof(u8), file);

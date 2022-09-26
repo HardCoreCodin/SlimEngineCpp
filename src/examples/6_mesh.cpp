@@ -3,7 +3,6 @@
 #include "../slim/draw/hud.h"
 #include "../slim/draw/grid.h"
 #include "../slim/draw/mesh.h"
-#include "../slim/draw/rtree.h"
 #include "../slim/app.h"
 // Or using the single-header file:
 //#include "../slim.h"
@@ -88,7 +87,7 @@ struct MeshApp : SlimApp {
         if (key == 'A') move.left     = is_pressed;
         if (key == 'D') move.right    = is_pressed;
         if (!is_pressed) {
-            u16 depth = meshes[scene.geometries[1].id].rtree.height;
+            u16 depth = meshes[scene.geometries[1].id].bvh.height;
             if (key == controls::key_map::tab)
                 hud.enabled = !hud.enabled;
             else if (key == 'Q') {

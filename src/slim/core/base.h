@@ -199,6 +199,20 @@ INLINE_XPU i32 clampedValue(i32 value) {
     return mn > 0 ? mn : 0;
 }
 
+INLINE_XPU f32 smoothStep(f32 from, f32 to, f32 t) {
+    t = (t - from) / (to - from);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+INLINE_XPU f32 approach(f32 src, f32 trg, f32 diff) {
+    f32 out;
+
+    out = src + diff; if (trg > out) return out;
+    out = src - diff; if (trg < out) return out;
+
+    return trg;
+}
+
 template <typename T>
 INLINE void swap(T *a, T *b) {
     T t = *a;
@@ -306,19 +320,6 @@ struct Move {
     bool backward{false};
 };
 
-INLINE_XPU f32 smoothStep(f32 from, f32 to, f32 t) {
-    t = (t - from) / (to - from);
-    return t * t * (3.0f - 2.0f * t);
-}
-
-INLINE_XPU f32 approach(f32 src, f32 trg, f32 diff) {
-    f32 out;
-
-    out = src + diff; if (trg > out) return out;
-    out = src - diff; if (trg < out) return out;
-
-    return trg;
-}
 enum CurveType {
     CurveType_None = 0,
 
@@ -570,6 +571,20 @@ struct Color {
         }
     }
 
+    INLINE_XPU Color clamped() const {
+        return {
+            clampedValue(r),
+            clampedValue(g),
+            clampedValue(b)
+        };
+    }
+
+    INLINE_XPU  void setByHex(i32 hex) {
+        r = (float)((0xFF0000 & hex) >> 16) * COLOR_COMPONENT_TO_FLOAT;
+        g = (float)((0x00FF00 & hex) >>  8) * COLOR_COMPONENT_TO_FLOAT;
+        b = (float)( 0x0000FF & hex)        * COLOR_COMPONENT_TO_FLOAT;
+    }
+
     INLINE_XPU Color& operator = (f32 value) {
         r = g = b = value;
         return *this;
@@ -642,17 +657,17 @@ struct Color {
 
     INLINE_XPU Color operator * (const Color &rhs) const {
         return {
-                r * rhs.r,
-                g * rhs.g,
-                b * rhs.b
+            r * rhs.r,
+            g * rhs.g,
+            b * rhs.b
         };
     }
 
     INLINE_XPU Color operator * (f32 scalar) const {
         return {
-                r * scalar,
-                g * scalar,
-                b * scalar
+            r * scalar,
+            g * scalar,
+            b * scalar
         };
     }
 
@@ -725,15 +740,15 @@ struct Pixel {
 
     INLINE_XPU Pixel operator * (f32 factor) const {
         return {
-                color * factor,
-                opacity * factor
+            color * factor,
+            opacity * factor
         };
     }
 
     INLINE_XPU Pixel operator + (const Pixel &rhs) const {
         return {
-                color + rhs.color,
-                opacity + rhs.opacity
+            color + rhs.color,
+            opacity + rhs.opacity
         };
     }
 
@@ -759,6 +774,12 @@ struct Pixel {
         u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.b)));
         return R << 16 | G << 8 | B;
     }
+};
+
+struct Image {
+    u16 width, height;
+    Pixel *pixels;
+    Pixel* operator[] (int row) const { return pixels + row*width; }
 };
 
 #define PIXEL_SIZE (sizeof(Pixel))
@@ -877,7 +898,7 @@ namespace timers {
         u16 average_microseconds_per_frame{0};
         u16 average_nanoseconds_per_frame{0};
 
-        Timer() noexcept : ticks_before{getTicks()}, ticks_of_last_report{getTicks()} {};
+        Timer() noexcept : ticks_before{getTicks()}, ticks_after{getTicks()}, ticks_of_last_report{getTicks()} {};
 
         INLINE void accumulate() {
             ticks_diff = ticks_after - ticks_before;

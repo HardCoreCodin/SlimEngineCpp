@@ -5,8 +5,8 @@
 
 void drawTextureMip(const TextureMip &texture_mip, const Canvas &canvas, const RectI draw_bounds, bool cropped = true, f32 opacity = 1.0f) {
     Color texel_color;
-    i32 draw_width = draw_bounds.right - draw_bounds.left;
-    i32 draw_height = draw_bounds.bottom - draw_bounds.top;
+    i32 draw_width = draw_bounds.right - draw_bounds.left+1;
+    i32 draw_height = draw_bounds.bottom - draw_bounds.top+1;
     if (cropped) {
         if (draw_width > texture_mip.width) draw_width = texture_mip.width;
         if (draw_height > texture_mip.height) draw_height = texture_mip.height;
@@ -48,8 +48,8 @@ void drawTexture(const Texture &texture, const Canvas &canvas, const RectI draw_
 
     u8 mip_level = 0;
     if (!cropped) {
-        i32 draw_width = draw_bounds.right - draw_bounds.left;
-        i32 draw_height = draw_bounds.bottom - draw_bounds.top;
+        i32 draw_width = draw_bounds.right - draw_bounds.left+1;
+        i32 draw_height = draw_bounds.bottom - draw_bounds.top+1;
         float texel_area = (float)(texture.width * texture.height) / (float)(draw_width * draw_height);
         mip_level = Texture::GetMipLevel(texel_area, texture.mip_count);
     }

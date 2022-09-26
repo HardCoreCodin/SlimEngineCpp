@@ -92,7 +92,7 @@ bool win32_writeToFile(LPVOID out, DWORD size, HANDLE handle) {
 #ifndef NDEBUG
     if (result == FALSE) {
         DisplayError((LPTSTR)"WriteFile");
-        printf("Terminal failure: Unable to write from file.\n GetLastError=%08x\n", (unsigned int)GetLastError());
+        printf("Terminal failure: Unable to write to file.\n GetLastError=%08x\n", (unsigned int)GetLastError());
         CloseHandle(handle);
     }
 #endif

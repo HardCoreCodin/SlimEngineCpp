@@ -2,17 +2,17 @@
 
 #include "./mesh.h"
 
-struct RTreePartitionSide {
+struct BVHPartitionSide {
     AABB *aabbs;
     f32 *surface_areas;
 };
 
-struct RTreePartition {
-    RTreePartitionSide left, right;
+struct BVHPartition {
+    BVHPartitionSide left, right;
     u32 left_node_count, *sorted_node_ids;
     f32 surface_area;
 
-    void partition(u8 axis, RTreeNode *nodes, i32 *stack, u32 N) {
+    void partition(u8 axis, BVHNode *nodes, i32 *stack, u32 N) {
         u32 current_index, next_index, left_index, right_index;
         f32 current_surface_area;
         left_index = 0;
@@ -113,7 +113,7 @@ struct RTreePartition {
     }
 };
 
-struct RTreeBuildIteration {
+struct BVHBuildIteration {
     u32 start, end, node_id;
     u8 depth;
 };
@@ -121,34 +121,34 @@ struct RTreeBuildIteration {
 constexpr f32 EPS = 0.0001f;
 constexpr i32 MAX_TRIANGLES_PER_MESH_RTREE_NODE = 4;
 
-struct RTreeBuilder {
-    RTreeNode *nodes;
-    RTreePartition partitions[3];
-    RTreeBuildIteration *iterations;
+struct BVHBuilder {
+    BVHNode *nodes;
+    BVHPartition partitions[3];
+    BVHBuildIteration *iterations;
     u32 *node_ids, *leaf_ids;
     i32 *sort_stack;
 
     static u32 getSizeInBytes(u32 max_leaf_count) {
         u32 memory_size = sizeof(u32) + sizeof(i32) + 2 * (sizeof(AABB) + sizeof(f32));
         memory_size *= 3;
-        memory_size += sizeof(RTreeBuildIteration) + sizeof(RTreeNode) + sizeof(u32) * 2;
+        memory_size += sizeof(BVHBuildIteration) + sizeof(BVHNode) + sizeof(u32) * 2;
         memory_size *= max_leaf_count;
 
         return memory_size;
     }
 
-    RTreeBuilder(Mesh *meshes, u32 mesh_count, memory::MonotonicAllocator *memory_allocator) {
+    BVHBuilder(Mesh *meshes, u32 mesh_count, memory::MonotonicAllocator *memory_allocator) {
         u32 max_leaf_node_count = 0;
         if (mesh_count)
             for (u32 m = 0; m < mesh_count; m++)
                 if (meshes[m].triangle_count > max_leaf_node_count)
                     max_leaf_node_count = meshes[m].triangle_count;
 
-        iterations = (RTreeBuildIteration*)memory_allocator->allocate(sizeof(RTreeBuildIteration) * max_leaf_node_count);
-        nodes      = (RTreeNode*          )memory_allocator->allocate(sizeof(RTreeNode)           * max_leaf_node_count);
-        node_ids   = (u32*                )memory_allocator->allocate(sizeof(u32)                 * max_leaf_node_count);
-        leaf_ids   = (u32*                )memory_allocator->allocate(sizeof(u32)                 * max_leaf_node_count);
-        sort_stack = (i32*                )memory_allocator->allocate(sizeof(i32)                 * max_leaf_node_count);
+        iterations = (BVHBuildIteration*)memory_allocator->allocate(sizeof(BVHBuildIteration) * max_leaf_node_count);
+        nodes      = (BVHNode*          )memory_allocator->allocate(sizeof(BVHNode)           * max_leaf_node_count);
+        node_ids   = (u32*              )memory_allocator->allocate(sizeof(u32)                 * max_leaf_node_count);
+        leaf_ids   = (u32*              )memory_allocator->allocate(sizeof(u32)                 * max_leaf_node_count);
+        sort_stack = (i32*              )memory_allocator->allocate(sizeof(i32)                 * max_leaf_node_count);
 
         for (u8 i = 0; i < 3; i++) {
             partitions[i].sorted_node_ids     = (u32* )memory_allocator->allocate(sizeof(u32)  * max_leaf_node_count);
@@ -159,21 +159,21 @@ struct RTreeBuilder {
         }
     }
 
-    u32 splitNode(RTreeNode &node, u32 start, u32 end, RTree &rtree) {
+    u32 splitNode(BVHNode &node, u32 start, u32 end, BVH &bvh) {
         u32 N = end - start;
         u32 *ids = node_ids + start;
 
-        node.first_index = rtree.node_count;
-        RTreeNode &left_node  = rtree.nodes[rtree.node_count++];
-        RTreeNode &right_node = rtree.nodes[rtree.node_count++];
-        left_node = RTreeNode{};
-        right_node = RTreeNode{};
+        node.first_index = bvh.node_count;
+        BVHNode &left_node  = bvh.nodes[bvh.node_count++];
+        BVHNode &right_node = bvh.nodes[bvh.node_count++];
+        left_node = BVHNode{};
+        right_node = BVHNode{};
 
         f32 smallest_surface_area = INFINITY;
         u8 chosen_axis = 0;
 
         for (u8 axis = 0; axis < 3; axis++) {
-            RTreePartition &pa = partitions[axis];
+            BVHPartition &pa = partitions[axis];
             for (u32 i = 0; i < N; i++) pa.sorted_node_ids[i] = ids[i];
 
             // Partition the nodes for the current partition axis:
@@ -186,7 +186,7 @@ struct RTreeBuilder {
             }
         }
 
-        RTreePartition &chosen_partition_axis = partitions[chosen_axis];
+        BVHPartition &chosen_partition_axis = partitions[chosen_axis];
         left_node.aabb  = chosen_partition_axis.left.aabbs[chosen_partition_axis.left_node_count-1];
         right_node.aabb = chosen_partition_axis.right.aabbs[chosen_partition_axis.left_node_count];
 
@@ -195,19 +195,19 @@ struct RTreeBuilder {
         return start + chosen_partition_axis.left_node_count;
     }
 
-    void build(RTree &rtree, u32 N, u16 max_leaf_size) {
-        rtree.height = 1;
-        rtree.node_count = 1;
+    void build(BVH &bvh, u32 N, u16 max_leaf_size) {
+        bvh.height = 1;
+        bvh.node_count = 1;
 
-        RTreeNode &root = rtree.nodes[0];
-        root = RTreeNode{};
+        BVHNode &root = bvh.nodes[0];
+        root = BVHNode{};
 
         if (N <= max_leaf_size) {
             root.leaf_count = (u16)N;
             root.aabb.min = INFINITY;
             root.aabb.max = -INFINITY;
 
-            RTreeNode *builder_node = nodes;
+            BVHNode *builder_node = nodes;
             for (u32 i = 0; i < N; i++, builder_node++) {
                 leaf_ids[i] = builder_node->first_index;
                 root.aabb += builder_node->aabb;
@@ -216,12 +216,12 @@ struct RTreeBuilder {
             return;
         }
 
-        u32 middle = splitNode(root, 0, N, rtree);
-        RTreeBuildIteration *stack = iterations;
+        u32 middle = splitNode(root, 0, N, bvh);
+        BVHBuildIteration *stack = iterations;
         u32 *node_id;
 
-        RTreeBuildIteration left{0, middle, 1, 1};
-        RTreeBuildIteration right{middle, N, 2, 1};
+        BVHBuildIteration left{0, middle, 1, 1};
+        BVHBuildIteration right{middle, N, 2, 1};
 
         stack[0] = left;
         stack[1] = right;
@@ -231,7 +231,7 @@ struct RTreeBuilder {
 
         while (stack_size >= 0) {
             left = stack[stack_size];
-            RTreeNode &node = rtree.nodes[left.node_id];
+            BVHNode &node = bvh.nodes[left.node_id];
             N = left.end - left.start;
             if (N <= max_leaf_size) {
                 node.depth = left.depth;
@@ -244,23 +244,23 @@ struct RTreeBuilder {
                 leaf_count += N;
                 stack_size--;
             } else {
-                middle = splitNode(node, left.start, left.end, rtree);
+                middle = splitNode(node, left.start, left.end, bvh);
                 left.depth++;
                 right.depth = left.depth;
                 right.end = left.end;
                 right.start = left.end = middle;
                 left.node_id  = node.first_index;
                 right.node_id = node.first_index + 1;
-                rtree.nodes[rtree.node_count - 1].depth = left.depth;
-                rtree.nodes[rtree.node_count - 2].depth = right.depth;
+                bvh.nodes[bvh.node_count - 1].depth = left.depth;
+                bvh.nodes[bvh.node_count - 2].depth = right.depth;
                 stack[  stack_size] = left;
                 stack[++stack_size] = right;
-                if (left.depth > rtree.height) rtree.height = left.depth;
+                if (left.depth > bvh.height) bvh.height = left.depth;
             }
         }
 
-        RTreeNode &left_node = rtree.nodes[1];
-        RTreeNode &right_node = rtree.nodes[2];
+        BVHNode &left_node = bvh.nodes[1];
+        BVHNode &right_node = bvh.nodes[2];
         left_node.depth = right_node.depth = 1;
         root.aabb = left_node.aabb + right_node.aabb;
     }
@@ -271,7 +271,7 @@ struct RTreeBuilder {
             const vec3 &v1 = mesh.vertex_positions[indices.ids[0]];
             const vec3 &v2 = mesh.vertex_positions[indices.ids[1]];
             const vec3 &v3 = mesh.vertex_positions[indices.ids[2]];
-            RTreeNode &node = nodes[i];
+            BVHNode &node = nodes[i];
             vec3 &min = node.aabb.min;
             vec3 &max = node.aabb.max;
 
@@ -302,7 +302,7 @@ struct RTreeBuilder {
             node.first_index = node_ids[i] = i;
         }
 
-        build(mesh.rtree, mesh.triangle_count, MAX_TRIANGLES_PER_MESH_RTREE_NODE);
+        build(mesh.bvh, mesh.triangle_count, MAX_TRIANGLES_PER_MESH_RTREE_NODE);
 
         for (u32 i = 0; i < mesh.triangle_count; i++) {
             Triangle &triangle = mesh.triangles[i];

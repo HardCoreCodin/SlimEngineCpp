@@ -33,9 +33,9 @@ struct Scene {
 
     u64 last_io_ticks = 0;
     bool last_io_is_save{false};
-    u8 max_rtree_height = 0;
+    u8 max_bvh_height = 0;
     u32 max_triangle_count = 0;
-    u32 *mesh_rtree_node_counts = nullptr;
+    u32 *mesh_bvh_node_counts = nullptr;
     u32 *mesh_triangle_counts = nullptr;
     u32 *mesh_vertex_counts = nullptr;
 
@@ -67,7 +67,7 @@ struct Scene {
             for (u32 i = 0; i < counts.meshes; i++)
                 meshes[i] = Mesh{};
 
-            capacity += getTotalMemoryForMeshes(mesh_files, counts.meshes ,&max_rtree_height, &max_triangle_count);
+            capacity += getTotalMemoryForMeshes(mesh_files, counts.meshes ,&max_bvh_height, &max_triangle_count);
             capacity += sizeof(u32) * (3 * counts.meshes);
         }
 
@@ -80,12 +80,12 @@ struct Scene {
             for (u32 i = 0; i < counts.meshes; i++)
                 meshes[i] = Mesh{};
 
-            mesh_rtree_node_counts = (u32*)memory_allocator->allocate(sizeof(u32) * counts.meshes);
+            mesh_bvh_node_counts = (u32*)memory_allocator->allocate(sizeof(u32) * counts.meshes);
             mesh_triangle_counts = (u32*)memory_allocator->allocate(sizeof(u32) * counts.meshes);
             mesh_vertex_counts = (u32*)memory_allocator->allocate(sizeof(u32) * counts.meshes);
             for (u32 i = 0; i < counts.meshes; i++) {
                 load(meshes[i], mesh_files[i].char_ptr, memory_allocator);
-                mesh_rtree_node_counts[i] = meshes[i].rtree.node_count;
+                mesh_bvh_node_counts[i] = meshes[i].bvh.node_count;
                 mesh_triangle_counts[i] = meshes[i].triangle_count;
                 mesh_vertex_counts[i] = meshes[i].vertex_count;
             }

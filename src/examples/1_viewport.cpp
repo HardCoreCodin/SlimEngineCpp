@@ -1,8 +1,8 @@
-#include "../slim/draw/hud.h"
-#include "../slim/draw/grid.h"
-#include "../slim/app.h"
+//#include "../slim/draw/hud.h"
+//#include "../slim/draw/grid.h"
+//#include "../slim/app.h"
 // Or using the single-header file:
-//#include "../slim.h"
+#include "../slim.h"
 
 struct ViewportApp : SlimApp {
     // Viewport:

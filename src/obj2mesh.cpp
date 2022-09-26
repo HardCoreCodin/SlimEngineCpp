@@ -11,7 +11,7 @@
 #include <string.h>
 
 #include "./slim/platforms/win32_base.h"
-#include "./slim/scene/rtree_builder.h"
+#include "./slim/scene/bvh_builder.h"
 #include "./slim/serialization/mesh.h"
 
 void* os::getMemory(u64 size, u64 base) { return VirtualAlloc((LPVOID)base, (SIZE_T)size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE); }
@@ -75,14 +75,14 @@ int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_orde
     }
     fclose(obj_file);
 
-    mesh.rtree.node_count = mesh.triangle_count * 2;
-    mesh.rtree.height = mesh.triangle_count;
+    mesh.bvh.node_count = mesh.triangle_count * 2;
+    mesh.bvh.height = mesh.triangle_count;
 
     u64 memory_capacity = getSizeInBytes(mesh);
-    memory_capacity += RTreeBuilder::getSizeInBytes(mesh.triangle_count * 2);
+    memory_capacity += BVHBuilder::getSizeInBytes(mesh.triangle_count * 2);
     memory::MonotonicAllocator memory_allocator{memory_capacity};
     allocateMemory(mesh, &memory_allocator);
-    RTreeBuilder builder{&mesh, 1, &memory_allocator};
+    BVHBuilder builder{&mesh, 1, &memory_allocator};
 
     vec3 *vertex_position = mesh.vertex_positions;
     vec3 *vertex_normal = mesh.vertex_normals;

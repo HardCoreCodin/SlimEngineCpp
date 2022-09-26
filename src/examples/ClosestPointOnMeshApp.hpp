@@ -10,7 +10,7 @@ struct DemoApp : SlimApp {
     Viewport viewport{canvas, &camera};
     bool antialias = false;
 
-    bool draw_rtree = false;
+    bool draw_bvh = false;
     bool draw_query_result = false;
     bool draw_query_aabbs = false;
     bool draw_query_triangles = false;
@@ -28,7 +28,7 @@ struct DemoApp : SlimApp {
     HUDLine QueryLine{(char*)"Show Query     : ", (char*)"On",(char*)"Off", &draw_query_result, true, Yellow, DarkYellow} ;
     HUDLine AABBsLine{(char*)"Show AABBs     : ", (char*)"On",(char*)"Off", &draw_query_aabbs, true, Magenta, DarkMagenta};
     HUDLine TriesLine{(char*)"Show Triangles : ", (char*)"On",(char*)"Off", &draw_query_triangles, true, Green, DarkGreen};
-    HUDLine RTreeLine{(char*)"Show RTree     : ", (char*)"On",(char*)"Off", &draw_rtree, true, Cyan, DarkCyan};
+    HUDLine BVHLine{(char*)"Show BVH     : ", (char*)"On",(char*)"Off", &draw_bvh, true, Cyan, DarkCyan};
     HUDLine MultiLine{(char*)"Cross Mesh     : ", (char*)"On",(char*)"Off", &multi, true, BrightBlue, Blue};
     HUDLine AdaptLine{(char*)"Adaptive Mode  : ", (char*)"On",(char*)"Off", &adaptive, true, Green, Red};
     HUDLine XPULine{  (char*)"CUDA GPU Mode  : ", (char*)"On",(char*)"Off", &run_on_GPU, true, Green, Red};
@@ -85,8 +85,8 @@ struct DemoApp : SlimApp {
         query_timer.beginFrame();
 
         if (draw_query_triangles || draw_query_aabbs)
-            for (u32 node_index = 0; node_index < mesh.rtree.node_count; node_index++)
-                mesh.rtree.nodes[node_index].flags = 0;
+            for (u32 node_index = 0; node_index < mesh.bvh.node_count; node_index++)
+                mesh.bvh.nodes[node_index].flags = 0;
 
         vec3 &scale = transform.scale;
         f32 max_distance = world_max_distance / ((scale.x == scale.y && scale.x == scale.z) ? scale.x : (scale.length()));
@@ -152,7 +152,7 @@ struct DemoApp : SlimApp {
             }
         }
 
-        if (draw_rtree) drawRTree(query.mesh->rtree, *query.mesh_transform, viewport, min_depth, max_depth);
+        if (draw_bvh) drawBVH(query.mesh->bvh, *query.mesh_transform, viewport, min_depth, max_depth);
         if (draw_query_aabbs) drawQueryAABBs();
         if (draw_query_triangles) drawQueryTriangles();
         if (draw_query_result) {
@@ -247,8 +247,8 @@ struct DemoApp : SlimApp {
 
         Mesh &mesh = meshes[query_geo->id];
         Transform &transform = query_geo->transform;
-        for (u32 node_index = 0; node_index < mesh.rtree.node_count; node_index++) {
-            RTreeNode &node = mesh.rtree.nodes[node_index];
+        for (u32 node_index = 0; node_index < mesh.bvh.node_count; node_index++) {
+            BVHNode &node = mesh.bvh.nodes[node_index];
             if (node.flags == BROAD_PHASE_INCLUDED) {
                 u32 start = node.first_index;
                 u32 end = start + node.leaf_count;
@@ -272,8 +272,8 @@ struct DemoApp : SlimApp {
 
         Mesh &mesh = meshes[query_geo->id];
         Transform &transform = query_geo->transform;
-        for (u32 node_index = 0; node_index < mesh.rtree.node_count; node_index++) {
-            RTreeNode &node = mesh.rtree.nodes[node_index];
+        for (u32 node_index = 0; node_index < mesh.bvh.node_count; node_index++) {
+            BVHNode &node = mesh.bvh.nodes[node_index];
             if (node.flags == BROAD_PHASE_INCLUDED) {
                 u32 start = node.first_index;
                 u32 end = start + node.leaf_count;
@@ -300,14 +300,14 @@ struct DemoApp : SlimApp {
         if (key == 'A') move.left     = is_pressed;
         if (key == 'D') move.right    = is_pressed;
         if (!is_pressed) {
-            u8 depth = meshes[scene.geometries[1].id].rtree.height;
+            u8 depth = meshes[scene.geometries[1].id].bvh.height;
             if (key == controls::key_map::tab) hud.enabled = !hud.enabled;
             else if (key == 'M') query_geo->id = (query_geo->id + 1) % 3;
             else if (key == 'Q') draw_query_result = !draw_query_result;
             else if (key == 'C') multi = !multi;
             else if (key == 'B') draw_query_aabbs = !draw_query_aabbs;
             else if (key == 'G') draw_query_triangles = !draw_query_triangles;
-            else if (key == 'T') draw_rtree = !draw_rtree;
+            else if (key == 'T') draw_bvh = !draw_bvh;
             else if (key == 'V') adaptive = !adaptive;
             else if (key == 'X') run_on_GPU = (USE_GPU_BY_DEFAULT ? !run_on_GPU : false);
             else if (key == '3') { if (min_depth > 0) min_depth--; }

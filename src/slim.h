@@ -201,6 +201,20 @@ INLINE_XPU i32 clampedValue(i32 value) {
     return mn > 0 ? mn : 0;
 }
 
+INLINE_XPU f32 smoothStep(f32 from, f32 to, f32 t) {
+    t = (t - from) / (to - from);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+INLINE_XPU f32 approach(f32 src, f32 trg, f32 diff) {
+    f32 out;
+
+    out = src + diff; if (trg > out) return out;
+    out = src - diff; if (trg < out) return out;
+
+    return trg;
+}
+
 template <typename T>
 INLINE void swap(T *a, T *b) {
     T t = *a;
@@ -308,19 +322,6 @@ struct Move {
     bool backward{false};
 };
 
-INLINE_XPU f32 smoothStep(f32 from, f32 to, f32 t) {
-    t = (t - from) / (to - from);
-    return t * t * (3.0f - 2.0f * t);
-}
-
-INLINE_XPU f32 approach(f32 src, f32 trg, f32 diff) {
-    f32 out;
-
-    out = src + diff; if (trg > out) return out;
-    out = src - diff; if (trg < out) return out;
-
-    return trg;
-}
 enum CurveType {
     CurveType_None = 0,
 
@@ -572,6 +573,20 @@ struct Color {
         }
     }
 
+    INLINE_XPU Color clamped() const {
+        return {
+            clampedValue(r),
+            clampedValue(g),
+            clampedValue(b)
+        };
+    }
+
+    INLINE_XPU  void setByHex(i32 hex) {
+        r = (float)((0xFF0000 & hex) >> 16) * COLOR_COMPONENT_TO_FLOAT;
+        g = (float)((0x00FF00 & hex) >>  8) * COLOR_COMPONENT_TO_FLOAT;
+        b = (float)( 0x0000FF & hex)        * COLOR_COMPONENT_TO_FLOAT;
+    }
+
     INLINE_XPU Color& operator = (f32 value) {
         r = g = b = value;
         return *this;
@@ -644,17 +659,17 @@ struct Color {
 
     INLINE_XPU Color operator * (const Color &rhs) const {
         return {
-                r * rhs.r,
-                g * rhs.g,
-                b * rhs.b
+            r * rhs.r,
+            g * rhs.g,
+            b * rhs.b
         };
     }
 
     INLINE_XPU Color operator * (f32 scalar) const {
         return {
-                r * scalar,
-                g * scalar,
-                b * scalar
+            r * scalar,
+            g * scalar,
+            b * scalar
         };
     }
 
@@ -723,19 +738,19 @@ struct Pixel {
 
     INLINE_XPU Pixel(Color color, f32 opacity = 1.0f) : color{color}, opacity{opacity} {}
     INLINE_XPU Pixel(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f, f32 opacity = 0.0f) : color{red, green, blue}, opacity{opacity} {}
-    XPU Pixel(enum ColorID color_id, f32 opacity = 1.0f) : Pixel{Color(color_id), opacity} {}
+    INLINE_XPU Pixel(enum ColorID color_id, f32 opacity = 1.0f) : Pixel{Color(color_id), opacity} {}
 
     INLINE_XPU Pixel operator * (f32 factor) const {
         return {
-                color * factor,
-                opacity * factor
+            color * factor,
+            opacity * factor
         };
     }
 
     INLINE_XPU Pixel operator + (const Pixel &rhs) const {
         return {
-                color + rhs.color,
-                opacity + rhs.opacity
+            color + rhs.color,
+            opacity + rhs.opacity
         };
     }
 
@@ -761,6 +776,12 @@ struct Pixel {
         u8 B = (u8)(color.b > 1.0f ? MAX_COLOR_VALUE : (FLOAT_TO_COLOR_COMPONENT * sqrt(color.b)));
         return R << 16 | G << 8 | B;
     }
+};
+
+struct Image {
+    u16 width, height;
+    Pixel *pixels;
+    Pixel* operator[] (int row) const { return pixels + row*width; }
 };
 
 #define PIXEL_SIZE (sizeof(Pixel))
@@ -879,7 +900,7 @@ namespace timers {
         u16 average_microseconds_per_frame{0};
         u16 average_nanoseconds_per_frame{0};
 
-        Timer() noexcept : ticks_before{getTicks()}, ticks_of_last_report{getTicks()} {};
+        Timer() noexcept : ticks_before{getTicks()}, ticks_after{getTicks()}, ticks_of_last_report{getTicks()} {};
 
         INLINE void accumulate() {
             ticks_diff = ticks_after - ticks_before;
@@ -4486,7 +4507,7 @@ private:
 
 
 
-struct RTreeNode {
+struct BVHNode {
     AABB aabb;
     u32 first_index = 0;
     u16 leaf_count = 0;
@@ -4498,92 +4519,92 @@ struct RTreeNode {
     }
 };
 
-struct RTree {
-    RTreeNode *nodes;
+struct BVH {
+    BVHNode *nodes;
     u32 node_count;
     u8 height;
 };
 
 
-u32 getSizeInBytes(const RTree &rtree) {
-    return sizeof(RTreeNode) * rtree.node_count;
+u32 getSizeInBytes(const BVH &bvh) {
+    return sizeof(BVHNode) * bvh.node_count;
 }
 
-bool allocateMemory(RTree &rtree, memory::MonotonicAllocator *memory_allocator) {
-    if (getSizeInBytes(rtree) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
+bool allocateMemory(BVH &bvh, memory::MonotonicAllocator *memory_allocator) {
+    if (getSizeInBytes(bvh) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
 
-    rtree.nodes = (RTreeNode*)memory_allocator->allocate(sizeof(RTreeNode) * rtree.node_count);
+    bvh.nodes = (BVHNode*)memory_allocator->allocate(sizeof(BVHNode) * bvh.node_count);
 
     return true;
 }
 
-void writeHeader(const RTree &rtree, void *file) {
-    os::writeToFile((void*)&rtree.node_count,     sizeof(u32),  file);
-    os::writeToFile((void*)&rtree.height,         sizeof(u32),  file);
+void writeHeader(const BVH &bvh, void *file) {
+    os::writeToFile((void*)&bvh.node_count,     sizeof(u32),  file);
+    os::writeToFile((void*)&bvh.height,         sizeof(u32),  file);
 }
-void readHeader(const RTree &rtree, void *file) {
-    os::readFromFile((void*)&rtree.node_count,     sizeof(u32),  file);
-    os::readFromFile((void*)&rtree.height,         sizeof(u32),  file);
+void readHeader(const BVH &bvh, void *file) {
+    os::readFromFile((void*)&bvh.node_count,     sizeof(u32),  file);
+    os::readFromFile((void*)&bvh.height,         sizeof(u32),  file);
 }
 
-bool saveHeader(const RTree &rtree, char *file_path) {
+bool saveHeader(const BVH &bvh, char *file_path) {
     void *file = os::openFileForWriting(file_path);
     if (!file) return false;
-    writeHeader(rtree, file);
+    writeHeader(bvh, file);
     os::closeFile(file);
     return true;
 }
 
-bool loadHeader(RTree &rtree, char *file_path) {
+bool loadHeader(BVH &bvh, char *file_path) {
     void *file = os::openFileForReading(file_path);
     if (!file) return false;
-    readHeader(rtree, file);
+    readHeader(bvh, file);
     os::closeFile(file);
     return true;
 }
 
-void readContent(RTree &rtree, void *file) {
-    os::readFromFile(rtree.nodes,    rtree.node_count * sizeof(RTreeNode), file);
+void readContent(BVH &bvh, void *file) {
+    os::readFromFile(bvh.nodes,    bvh.node_count * sizeof(BVHNode), file);
 }
-void writeContent(const RTree &rtree, void *file) {
-    os::writeToFile(rtree.nodes,    rtree.node_count * sizeof(RTreeNode), file);
+void writeContent(const BVH &bvh, void *file) {
+    os::writeToFile(bvh.nodes,    bvh.node_count * sizeof(BVHNode), file);
 }
 
-bool saveContent(const RTree &rtree, char *file_path) {
+bool saveContent(const BVH &bvh, char *file_path) {
     void *file = os::openFileForWriting(file_path);
     if (!file) return false;
-    writeContent(rtree, file);
+    writeContent(bvh, file);
     os::closeFile(file);
     return true;
 }
 
-bool loadContent(RTree &rtree, char *file_path) {
+bool loadContent(BVH &bvh, char *file_path) {
     void *file = os::openFileForReading(file_path);
     if (!file) return false;
-    readContent(rtree, file);
+    readContent(bvh, file);
     os::closeFile(file);
     return true;
 }
 
-bool save(const RTree &rtree, char* file_path) {
+bool save(const BVH &bvh, char* file_path) {
     void *file = os::openFileForWriting(file_path);
     if (!file) return false;
-    writeHeader(rtree, file);
-    writeContent(rtree, file);
+    writeHeader(bvh, file);
+    writeContent(bvh, file);
     os::closeFile(file);
     return true;
 }
 
-bool load(RTree &rtree, char *file_path, memory::MonotonicAllocator *memory_allocator = nullptr) {
+bool load(BVH &bvh, char *file_path, memory::MonotonicAllocator *memory_allocator = nullptr) {
     void *file = os::openFileForReading(file_path);
     if (!file) return false;
 
     if (memory_allocator) {
-        rtree = RTree{};
-        readHeader(rtree, file);
-        if (!allocateMemory(rtree, memory_allocator)) return false;
-    } else if (!rtree.nodes) return false;
-    readContent(rtree, file);
+        bvh = BVH{};
+        readHeader(bvh, file);
+        if (!allocateMemory(bvh, memory_allocator)) return false;
+    } else if (!bvh.nodes) return false;
+    readContent(bvh, file);
     os::closeFile(file);
     return true;
 }
@@ -4608,7 +4629,7 @@ struct Triangle {
 
 struct Mesh {
     AABB aabb;
-    RTree rtree;
+    BVH bvh;
     Triangle *triangles;
 
     vec3 *vertex_positions{nullptr};
@@ -4762,7 +4783,7 @@ struct CubeMesh : Mesh {
 
 
 u32 getSizeInBytes(const Mesh &mesh) {
-    u32 memory_size = getSizeInBytes(mesh.rtree);
+    u32 memory_size = getSizeInBytes(mesh.bvh);
     memory_size += sizeof(Triangle) * mesh.triangle_count;
     memory_size += sizeof(vec3) * mesh.vertex_count;
     memory_size += sizeof(TriangleVertexIndices) * mesh.triangle_count;
@@ -4782,7 +4803,7 @@ u32 getSizeInBytes(const Mesh &mesh) {
 
 bool allocateMemory(Mesh &mesh, memory::MonotonicAllocator *memory_allocator) {
     if (getSizeInBytes(mesh) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
-    allocateMemory(mesh.rtree, memory_allocator);
+    allocateMemory(mesh.bvh, memory_allocator);
     mesh.triangles               = (Triangle*             )memory_allocator->allocate(sizeof(Triangle)              * mesh.triangle_count);
     mesh.vertex_positions        = (vec3*                 )memory_allocator->allocate(sizeof(vec3)                  * mesh.vertex_count);
     mesh.vertex_position_indices = (TriangleVertexIndices*)memory_allocator->allocate(sizeof(TriangleVertexIndices) * mesh.triangle_count);
@@ -4804,7 +4825,7 @@ void writeHeader(const Mesh &mesh, void *file) {
     os::writeToFile((void*)&mesh.edge_count,     sizeof(u32),  file);
     os::writeToFile((void*)&mesh.uvs_count,      sizeof(u32),  file);
     os::writeToFile((void*)&mesh.normals_count,  sizeof(u32),  file);
-    writeHeader(mesh.rtree, file);
+    writeHeader(mesh.bvh, file);
 }
 void readHeader(Mesh &mesh, void *file) {
     os::readFromFile(&mesh.vertex_count,   sizeof(u32),  file);
@@ -4812,7 +4833,7 @@ void readHeader(Mesh &mesh, void *file) {
     os::readFromFile(&mesh.edge_count,     sizeof(u32),  file);
     os::readFromFile(&mesh.uvs_count,      sizeof(u32),  file);
     os::readFromFile(&mesh.normals_count,  sizeof(u32),  file);
-    readHeader(mesh.rtree, file);
+    readHeader(mesh.bvh, file);
 }
 
 bool saveHeader(const Mesh &mesh, char *file_path) {
@@ -4846,7 +4867,7 @@ void readContent(Mesh &mesh, void *file) {
         os::readFromFile(mesh.vertex_normals,                sizeof(vec3)                  * mesh.normals_count,  file);
         os::readFromFile(mesh.vertex_normal_indices,         sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
     }
-    readContent(mesh.rtree, file);
+    readContent(mesh.bvh, file);
 }
 void writeContent(const Mesh &mesh, void *file) {
     os::writeToFile((void*)&mesh.aabb.min,       sizeof(vec3), file);
@@ -4863,7 +4884,7 @@ void writeContent(const Mesh &mesh, void *file) {
         os::writeToFile(mesh.vertex_normals,        sizeof(vec3)                  * mesh.normals_count,  file);
         os::writeToFile(mesh.vertex_normal_indices, sizeof(TriangleVertexIndices) * mesh.triangle_count, file);
     }
-    writeContent(mesh.rtree, file);
+    writeContent(mesh.bvh, file);
 }
 
 bool saveContent(const Mesh &mesh, char *file_path) {
@@ -4905,24 +4926,134 @@ bool load(Mesh &mesh, char *file_path, memory::MonotonicAllocator *memory_alloca
     return true;
 }
 
-u32 getTotalMemoryForMeshes(String *mesh_files, u32 mesh_count, u8 *max_rtree_height = nullptr, u32 *max_triangle_count = nullptr) {
+u32 getTotalMemoryForMeshes(String *mesh_files, u32 mesh_count, u8 *max_bvh_height = nullptr, u32 *max_triangle_count = nullptr) {
     u32 memory_size = 0;
-    if (max_rtree_height) *max_rtree_height = 0;
+    if (max_bvh_height) *max_bvh_height = 0;
     if (max_triangle_count) *max_triangle_count = 0;
     for (u32 i = 0; i < mesh_count; i++) {
         Mesh mesh;
         loadHeader(mesh, mesh_files[i].char_ptr);
         memory_size += getSizeInBytes(mesh);
 
-        if (max_rtree_height && mesh.rtree.height > *max_rtree_height) *max_rtree_height = mesh.rtree.height;
+        if (max_bvh_height && mesh.bvh.height > *max_bvh_height) *max_bvh_height = mesh.bvh.height;
         if (max_triangle_count && mesh.triangle_count > *max_triangle_count) *max_triangle_count = mesh.triangle_count;
     }
-    if (max_rtree_height)
-        memory_size += sizeof(u32) * (*max_rtree_height + (1 << *max_rtree_height));
+    if (max_bvh_height)
+        memory_size += sizeof(u32) * (*max_bvh_height + (1 << *max_bvh_height));
 
     return memory_size;
 }
 
+u32 getSizeInBytes(const Image &image) {
+    return image.width * image.height * sizeof(Pixel);
+}
+
+bool allocateMemory(Image &image, memory::MonotonicAllocator *memory_allocator) {
+    if (getSizeInBytes(image) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
+    image.pixels = (Pixel*)memory_allocator->allocate(sizeof(Pixel) * image.width * image.height);
+    return true;
+}
+
+void writeHeader(const Image &image, void *file) {
+    os::writeToFile((void*)&image.width,  sizeof(u16),  file);
+    os::writeToFile((void*)&image.height, sizeof(u16),  file);
+}
+void readHeader(Image &image, void *file) {
+    os::readFromFile(&image.width,  sizeof(u16),  file);
+    os::readFromFile(&image.height, sizeof(u16),  file);
+}
+
+bool saveHeader(const Image &image, char *file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeHeader(image, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool loadHeader(Image &image, char *file_path) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+    readHeader(image, file);
+    os::closeFile(file);
+    return true;
+}
+
+void readContent(Image &image, void *file) {
+    os::readFromFile((void*)image.pixels, sizeof(Pixel) * image.width * image.height, file);
+}
+void writeContent(const Image &image, void *file) {
+    os::writeToFile((void*)image.pixels, sizeof(Pixel) * image.width * image.height, file);
+}
+
+bool saveContent(const Image &image, char *file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeContent(image, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool loadContent(Image &image, char *file_path) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+    readContent(image, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool save(const Image &image, char* file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeHeader(image, file);
+    writeContent(image, file);
+    os::closeFile(file);
+    return true;
+}
+
+bool load(Image &image, char *file_path, memory::MonotonicAllocator *memory_allocator = nullptr) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+
+    if (memory_allocator) {
+        new(&image) Image{};
+        readHeader(image, file);
+        if (!allocateMemory(image, memory_allocator)) return false;
+    } else if (!image.pixels) return false;
+    readContent(image, file);
+    os::closeFile(file);
+    return true;
+}
+
+u32 getTotalMemoryForImages(String *image_files, u32 image_count) {
+    u32 memory_size{0};
+    for (u32 i = 0; i < image_count; i++) {
+        Image image;
+        loadHeader(image, image_files[i].char_ptr);
+        memory_size += getSizeInBytes(image);
+    }
+    return memory_size;
+}
+
+struct ImagePack {
+    ImagePack(u8 count, Image *images, char **files, char* adjacent_file, u64 memory_base = Terabytes(3)) {
+        char string_buffer[200];
+        u32 memory_size{0};
+        Image *image = images;
+        for (u32 i = 0; i < count; i++, image++) {
+            String string = String::getFilePath(files[i], string_buffer, adjacent_file);
+            loadHeader(*image, string.char_ptr);
+            memory_size += getSizeInBytes(*image);
+        }
+        memory::MonotonicAllocator memory_allocator{memory_size, memory_base};
+
+        image = images;
+        for (u32 i = 0; i < count; i++, image++) {
+            String string = String::getFilePath(files[i], string_buffer, adjacent_file);
+            load(*image, string.char_ptr, &memory_allocator);
+        }
+    }
+};
 
 struct TexelQuadComponent {
     u8 TL, TR, BL, BR;
@@ -5142,17 +5273,17 @@ struct TexturePack {
     }
 };
 
-struct RTreePartitionSide {
+struct BVHPartitionSide {
     AABB *aabbs;
     f32 *surface_areas;
 };
 
-struct RTreePartition {
-    RTreePartitionSide left, right;
+struct BVHPartition {
+    BVHPartitionSide left, right;
     u32 left_node_count, *sorted_node_ids;
     f32 surface_area;
 
-    void partition(u8 axis, RTreeNode *nodes, i32 *stack, u32 N) {
+    void partition(u8 axis, BVHNode *nodes, i32 *stack, u32 N) {
         u32 current_index, next_index, left_index, right_index;
         f32 current_surface_area;
         left_index = 0;
@@ -5253,7 +5384,7 @@ struct RTreePartition {
     }
 };
 
-struct RTreeBuildIteration {
+struct BVHBuildIteration {
     u32 start, end, node_id;
     u8 depth;
 };
@@ -5261,31 +5392,31 @@ struct RTreeBuildIteration {
 constexpr f32 EPS = 0.0001f;
 constexpr i32 MAX_TRIANGLES_PER_MESH_RTREE_NODE = 4;
 
-struct RTreeBuilder {
-    RTreeNode *nodes;
-    RTreePartition partitions[3];
-    RTreeBuildIteration *iterations;
+struct BVHBuilder {
+    BVHNode *nodes;
+    BVHPartition partitions[3];
+    BVHBuildIteration *iterations;
     u32 *node_ids, *leaf_ids;
     i32 *sort_stack;
 
     static u32 getSizeInBytes(u32 max_leaf_count) {
         u32 memory_size = sizeof(u32) + sizeof(i32) + 2 * (sizeof(AABB) + sizeof(f32));
         memory_size *= 3;
-        memory_size += sizeof(RTreeBuildIteration) + sizeof(RTreeNode) + sizeof(u32) * 2;
+        memory_size += sizeof(BVHBuildIteration) + sizeof(BVHNode) + sizeof(u32) * 2;
         memory_size *= max_leaf_count;
 
         return memory_size;
     }
 
-    RTreeBuilder(Mesh *meshes, u32 mesh_count, memory::MonotonicAllocator *memory_allocator) {
+    BVHBuilder(Mesh *meshes, u32 mesh_count, memory::MonotonicAllocator *memory_allocator) {
         u32 max_leaf_node_count = 0;
         if (mesh_count)
             for (u32 m = 0; m < mesh_count; m++)
                 if (meshes[m].triangle_count > max_leaf_node_count)
                     max_leaf_node_count = meshes[m].triangle_count;
 
-        iterations = (RTreeBuildIteration*)memory_allocator->allocate(sizeof(RTreeBuildIteration) * max_leaf_node_count);
-        nodes      = (RTreeNode*          )memory_allocator->allocate(sizeof(RTreeNode)           * max_leaf_node_count);
+        iterations = (BVHBuildIteration*)memory_allocator->allocate(sizeof(BVHBuildIteration) * max_leaf_node_count);
+        nodes      = (BVHNode*          )memory_allocator->allocate(sizeof(BVHNode)           * max_leaf_node_count);
         node_ids   = (u32*                )memory_allocator->allocate(sizeof(u32)                 * max_leaf_node_count);
         leaf_ids   = (u32*                )memory_allocator->allocate(sizeof(u32)                 * max_leaf_node_count);
         sort_stack = (i32*                )memory_allocator->allocate(sizeof(i32)                 * max_leaf_node_count);
@@ -5299,21 +5430,21 @@ struct RTreeBuilder {
         }
     }
 
-    u32 splitNode(RTreeNode &node, u32 start, u32 end, RTree &rtree) {
+    u32 splitNode(BVHNode &node, u32 start, u32 end, BVH &bvh) {
         u32 N = end - start;
         u32 *ids = node_ids + start;
 
-        node.first_index = rtree.node_count;
-        RTreeNode &left_node  = rtree.nodes[rtree.node_count++];
-        RTreeNode &right_node = rtree.nodes[rtree.node_count++];
-        left_node = RTreeNode{};
-        right_node = RTreeNode{};
+        node.first_index = bvh.node_count;
+        BVHNode &left_node  = bvh.nodes[bvh.node_count++];
+        BVHNode &right_node = bvh.nodes[bvh.node_count++];
+        left_node = BVHNode{};
+        right_node = BVHNode{};
 
         f32 smallest_surface_area = INFINITY;
         u8 chosen_axis = 0;
 
         for (u8 axis = 0; axis < 3; axis++) {
-            RTreePartition &pa = partitions[axis];
+            BVHPartition &pa = partitions[axis];
             for (u32 i = 0; i < N; i++) pa.sorted_node_ids[i] = ids[i];
 
             // Partition the nodes for the current partition axis:
@@ -5326,7 +5457,7 @@ struct RTreeBuilder {
             }
         }
 
-        RTreePartition &chosen_partition_axis = partitions[chosen_axis];
+        BVHPartition &chosen_partition_axis = partitions[chosen_axis];
         left_node.aabb  = chosen_partition_axis.left.aabbs[chosen_partition_axis.left_node_count-1];
         right_node.aabb = chosen_partition_axis.right.aabbs[chosen_partition_axis.left_node_count];
 
@@ -5335,19 +5466,19 @@ struct RTreeBuilder {
         return start + chosen_partition_axis.left_node_count;
     }
 
-    void build(RTree &rtree, u32 N, u16 max_leaf_size) {
-        rtree.height = 1;
-        rtree.node_count = 1;
+    void build(BVH &bvh, u32 N, u16 max_leaf_size) {
+        bvh.height = 1;
+        bvh.node_count = 1;
 
-        RTreeNode &root = rtree.nodes[0];
-        root = RTreeNode{};
+        BVHNode &root = bvh.nodes[0];
+        root = BVHNode{};
 
         if (N <= max_leaf_size) {
             root.leaf_count = (u16)N;
             root.aabb.min = INFINITY;
             root.aabb.max = -INFINITY;
 
-            RTreeNode *builder_node = nodes;
+            BVHNode *builder_node = nodes;
             for (u32 i = 0; i < N; i++, builder_node++) {
                 leaf_ids[i] = builder_node->first_index;
                 root.aabb += builder_node->aabb;
@@ -5356,12 +5487,12 @@ struct RTreeBuilder {
             return;
         }
 
-        u32 middle = splitNode(root, 0, N, rtree);
-        RTreeBuildIteration *stack = iterations;
+        u32 middle = splitNode(root, 0, N, bvh);
+        BVHBuildIteration *stack = iterations;
         u32 *node_id;
 
-        RTreeBuildIteration left{0, middle, 1, 1};
-        RTreeBuildIteration right{middle, N, 2, 1};
+        BVHBuildIteration left{0, middle, 1, 1};
+        BVHBuildIteration right{middle, N, 2, 1};
 
         stack[0] = left;
         stack[1] = right;
@@ -5371,7 +5502,7 @@ struct RTreeBuilder {
 
         while (stack_size >= 0) {
             left = stack[stack_size];
-            RTreeNode &node = rtree.nodes[left.node_id];
+            BVHNode &node = bvh.nodes[left.node_id];
             N = left.end - left.start;
             if (N <= max_leaf_size) {
                 node.depth = left.depth;
@@ -5384,23 +5515,23 @@ struct RTreeBuilder {
                 leaf_count += N;
                 stack_size--;
             } else {
-                middle = splitNode(node, left.start, left.end, rtree);
+                middle = splitNode(node, left.start, left.end, bvh);
                 left.depth++;
                 right.depth = left.depth;
                 right.end = left.end;
                 right.start = left.end = middle;
                 left.node_id  = node.first_index;
                 right.node_id = node.first_index + 1;
-                rtree.nodes[rtree.node_count - 1].depth = left.depth;
-                rtree.nodes[rtree.node_count - 2].depth = right.depth;
+                bvh.nodes[bvh.node_count - 1].depth = left.depth;
+                bvh.nodes[bvh.node_count - 2].depth = right.depth;
                 stack[  stack_size] = left;
                 stack[++stack_size] = right;
-                if (left.depth > rtree.height) rtree.height = left.depth;
+                if (left.depth > bvh.height) bvh.height = left.depth;
             }
         }
 
-        RTreeNode &left_node = rtree.nodes[1];
-        RTreeNode &right_node = rtree.nodes[2];
+        BVHNode &left_node = bvh.nodes[1];
+        BVHNode &right_node = bvh.nodes[2];
         left_node.depth = right_node.depth = 1;
         root.aabb = left_node.aabb + right_node.aabb;
     }
@@ -5411,7 +5542,7 @@ struct RTreeBuilder {
             const vec3 &v1 = mesh.vertex_positions[indices.ids[0]];
             const vec3 &v2 = mesh.vertex_positions[indices.ids[1]];
             const vec3 &v3 = mesh.vertex_positions[indices.ids[2]];
-            RTreeNode &node = nodes[i];
+            BVHNode &node = nodes[i];
             vec3 &min = node.aabb.min;
             vec3 &max = node.aabb.max;
 
@@ -5442,7 +5573,7 @@ struct RTreeBuilder {
             node.first_index = node_ids[i] = i;
         }
 
-        build(mesh.rtree, mesh.triangle_count, MAX_TRIANGLES_PER_MESH_RTREE_NODE);
+        build(mesh.bvh, mesh.triangle_count, MAX_TRIANGLES_PER_MESH_RTREE_NODE);
 
         for (u32 i = 0; i < mesh.triangle_count; i++) {
             Triangle &triangle = mesh.triangles[i];
@@ -5488,9 +5619,9 @@ struct Scene {
 
     u64 last_io_ticks = 0;
     bool last_io_is_save{false};
-    u8 max_rtree_height = 0;
+    u8 max_bvh_height = 0;
     u32 max_triangle_count = 0;
-    u32 *mesh_rtree_node_counts = nullptr;
+    u32 *mesh_bvh_node_counts = nullptr;
     u32 *mesh_triangle_counts = nullptr;
     u32 *mesh_vertex_counts = nullptr;
 
@@ -5522,7 +5653,7 @@ struct Scene {
             for (u32 i = 0; i < counts.meshes; i++)
                 meshes[i] = Mesh{};
 
-            capacity += getTotalMemoryForMeshes(mesh_files, counts.meshes ,&max_rtree_height, &max_triangle_count);
+            capacity += getTotalMemoryForMeshes(mesh_files, counts.meshes ,&max_bvh_height, &max_triangle_count);
             capacity += sizeof(u32) * (3 * counts.meshes);
         }
 
@@ -5535,12 +5666,12 @@ struct Scene {
             for (u32 i = 0; i < counts.meshes; i++)
                 meshes[i] = Mesh{};
 
-            mesh_rtree_node_counts = (u32*)memory_allocator->allocate(sizeof(u32) * counts.meshes);
+            mesh_bvh_node_counts = (u32*)memory_allocator->allocate(sizeof(u32) * counts.meshes);
             mesh_triangle_counts = (u32*)memory_allocator->allocate(sizeof(u32) * counts.meshes);
             mesh_vertex_counts = (u32*)memory_allocator->allocate(sizeof(u32) * counts.meshes);
             for (u32 i = 0; i < counts.meshes; i++) {
                 load(meshes[i], mesh_files[i].char_ptr, memory_allocator);
-                mesh_rtree_node_counts[i] = meshes[i].rtree.node_count;
+                mesh_bvh_node_counts[i] = meshes[i].bvh.node_count;
                 mesh_triangle_counts[i] = meshes[i].triangle_count;
                 mesh_vertex_counts[i] = meshes[i].vertex_count;
             }
@@ -7080,11 +7211,33 @@ void fillTriangle(vec3 p1, vec3 p2, vec3 p3, const Canvas &canvas,
 
 
 
+void drawImage(const Image &image, const Canvas &canvas, const RectI draw_bounds, f32 opacity = 1.0f) {
+    if (draw_bounds.right < 0 ||
+        draw_bounds.bottom < 0 ||
+        draw_bounds.left >= canvas.dimensions.width ||
+        draw_bounds.top >= canvas.dimensions.height)
+        return;
+
+    u16 draw_width = (u16)(draw_bounds.right - draw_bounds.left);
+    u16 draw_height = (u16)(draw_bounds.bottom - draw_bounds.top);
+    if (draw_width > image.width) draw_width = image.width;
+    if (draw_height > image.height) draw_height = image.height;
+    u16 remainder_x = image.width - draw_width;
+    Pixel *pixel = image.pixels;
+    u16 Y = (u16)draw_bounds.top;
+    for (u16 y = 0; y < draw_height; y++, Y++) {
+        u16 X = (u16)draw_bounds.left;
+        for (u16 x = 0; x < draw_width; x++, X++, pixel++)
+            canvas.setPixel(X, Y, pixel->color, opacity);
+
+        pixel += remainder_x;
+    }
+}
 
 void drawTextureMip(const TextureMip &texture_mip, const Canvas &canvas, const RectI draw_bounds, bool cropped = true, f32 opacity = 1.0f) {
     Color texel_color;
-    i32 draw_width = draw_bounds.right - draw_bounds.left;
-    i32 draw_height = draw_bounds.bottom - draw_bounds.top;
+    i32 draw_width = draw_bounds.right - draw_bounds.left+1;
+    i32 draw_height = draw_bounds.bottom - draw_bounds.top+1;
     if (cropped) {
         if (draw_width > texture_mip.width) draw_width = texture_mip.width;
         if (draw_height > texture_mip.height) draw_height = texture_mip.height;
@@ -7126,8 +7279,8 @@ void drawTexture(const Texture &texture, const Canvas &canvas, const RectI draw_
 
     u8 mip_level = 0;
     if (!cropped) {
-        i32 draw_width = draw_bounds.right - draw_bounds.left;
-        i32 draw_height = draw_bounds.bottom - draw_bounds.top;
+        i32 draw_width = draw_bounds.right - draw_bounds.left+1;
+        i32 draw_height = draw_bounds.bottom - draw_bounds.top+1;
         float texel_area = (float)(texture.width * texture.height) / (float)(draw_width * draw_height);
         mip_level = Texture::GetMipLevel(texel_area, texture.mip_count);
     }
@@ -7788,13 +7941,13 @@ void drawMesh(const Mesh &mesh, const Transform &transform, bool draw_normals, c
         }
     }
 }
-void drawRTree(const RTree &rtree, const Transform &transform, const Viewport &viewport,
+void drawBVH(const BVH &bvh, const Transform &transform, const Viewport &viewport,
                u16 min_depth = 0, u16 max_depth = 5, f32 opacity = 0.25f, u8 line_width = 1) {
     static Box box;
     static Transform box_transform;
 
-    for (u32 node_id = 0; node_id < rtree.node_count; node_id++) {
-        RTreeNode &node = rtree.nodes[node_id];
+    for (u32 node_id = 0; node_id < bvh.node_count; node_id++) {
+        BVHNode &node = bvh.nodes[node_id];
         if (node.depth < min_depth || node.depth > max_depth)
             continue;
 
@@ -7965,7 +8118,7 @@ bool win32_writeToFile(LPVOID out, DWORD size, HANDLE handle) {
 #ifndef NDEBUG
     if (result == FALSE) {
         DisplayError((LPTSTR)"WriteFile");
-        printf("Terminal failure: Unable to write from file.\n GetLastError=%08x\n", (unsigned int)GetLastError());
+        printf("Terminal failure: Unable to write to file.\n GetLastError=%08x\n", (unsigned int)GetLastError());
         CloseHandle(handle);
     }
 #endif

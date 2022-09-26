@@ -3,7 +3,7 @@
 #include "../math/vec2.h"
 #include "../math/mat3.h"
 
-#include "./rtree.h"
+#include "./bvh.h"
 
 struct EdgeVertexIndices {
     u32 from, to;
@@ -24,7 +24,7 @@ struct Triangle {
 
 struct Mesh {
     AABB aabb;
-    RTree rtree;
+    BVH bvh;
     Triangle *triangles;
 
     vec3 *vertex_positions{nullptr};

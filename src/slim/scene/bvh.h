@@ -2,7 +2,7 @@
 
 #include "../math/vec3.h"
 
-struct RTreeNode {
+struct BVHNode {
     AABB aabb;
     u32 first_index = 0;
     u16 leaf_count = 0;
@@ -14,8 +14,8 @@ struct RTreeNode {
     }
 };
 
-struct RTree {
-    RTreeNode *nodes;
+struct BVH {
+    BVHNode *nodes;
     u32 node_count;
     u8 height;
 };

@@ -4,9 +4,9 @@ Geometry   *d_geometries;
 Mesh       *d_meshes;
 Triangle   *d_triangles;
 vec3       *d_vertices;
-RTreeNode  *d_mesh_rtree_nodes;
+BVHNode  *d_mesh_bvh_nodes;
 
-u32 *d_mesh_rtree_node_counts,
+u32 *d_mesh_bvh_node_counts,
     *d_mesh_triangle_counts,
     *d_mesh_vertex_counts;
 
@@ -25,14 +25,14 @@ void allocateDeviceScene(Scene &scene) {
         gpuErrchk(cudaMalloc(&d_meshes,    sizeof(Mesh)     * scene.counts.meshes))
         gpuErrchk(cudaMalloc(&d_triangles, sizeof(Triangle) * total_triangles))
         gpuErrchk(cudaMalloc(&d_vertices,  sizeof(vec3)     * total_vertices))
-        gpuErrchk(cudaMalloc(&d_mesh_rtree_node_counts, sizeof(u32) * scene.counts.meshes))
+        gpuErrchk(cudaMalloc(&d_mesh_bvh_node_counts, sizeof(u32) * scene.counts.meshes))
         gpuErrchk(cudaMalloc(&d_mesh_triangle_counts, sizeof(u32) * scene.counts.meshes))
         gpuErrchk(cudaMalloc(&d_mesh_vertex_counts, sizeof(u32) * scene.counts.meshes))
     }
 
 	gpuErrchk(cudaMalloc(&d_results, sizeof(ClosestPointOnTriangle) * scene.max_triangle_count))
 
-    gpuErrchk(cudaMalloc(&d_mesh_rtree_nodes,     sizeof(RTreeNode)  * total_triangles * 2))
+    gpuErrchk(cudaMalloc(&d_mesh_bvh_nodes,     sizeof(BVHNode)  * total_triangles * 2))
 }
 
 void uploadScene(Scene &scene) {
@@ -46,15 +46,15 @@ void uploadMeshes(Scene &scene) {
     u32 triangles_offset = 0;
     u32 vertex_offset = 0;
     for (u32 i = 0; i < scene.counts.meshes; i++, mesh++) {
-        uploadNto(mesh->rtree.nodes, d_mesh_rtree_nodes, mesh->rtree.node_count, nodes_offset)
+        uploadNto(mesh->bvh.nodes, d_mesh_bvh_nodes, mesh->bvh.node_count, nodes_offset)
         uploadNto(mesh->triangles, d_triangles,      mesh->triangle_count, triangles_offset)
         uploadNto(mesh->vertex_positions, d_vertices,      mesh->vertex_count, vertex_offset)
-        nodes_offset        += mesh->rtree.node_count;
+        nodes_offset        += mesh->bvh.node_count;
         triangles_offset    += mesh->triangle_count;
         vertex_offset       += mesh->vertex_count;
     }
 
-    uploadN(scene.mesh_rtree_node_counts, d_mesh_rtree_node_counts, scene.counts.meshes)
+    uploadN(scene.mesh_bvh_node_counts, d_mesh_bvh_node_counts, scene.counts.meshes)
     uploadN(scene.mesh_triangle_counts, d_mesh_triangle_counts, scene.counts.meshes)
     uploadN(scene.mesh_vertex_counts, d_mesh_vertex_counts, scene.counts.meshes)
 }
@@ -71,13 +71,13 @@ __global__ void d_runQuery(
 
 		u32 vertex_count,
         u32 mesh_count,
-		RTreeNode  *mesh_rtree_nodes,
+		BVHNode  *mesh_bvh_nodes,
         Mesh       *meshes,
         Triangle   *mesh_triangles,
         vec3       *mesh_vertices,
         Geometry   *geometries,
 
-        const u32 *mesh_rtree_node_counts,
+        const u32 *mesh_bvh_node_counts,
         const u32 *mesh_triangle_counts,
         const u32 *mesh_vertex_counts,
 
@@ -92,12 +92,12 @@ __global__ void d_runQuery(
     u32 triangles_offset = 0;
     u32 vertex_offset = 0;
     for (u32 m = 0; m < mesh_count; m++, mesh++) {
-        mesh->rtree.node_count = mesh_rtree_node_counts[m];
+        mesh->bvh.node_count = mesh_bvh_node_counts[m];
         mesh->triangles        = mesh_triangles + triangles_offset;
         mesh->vertex_positions = mesh_vertices + nodes_offset;
-        mesh->rtree.nodes      = mesh_rtree_nodes + vertex_offset;
+        mesh->bvh.nodes      = mesh_bvh_nodes + vertex_offset;
 
-        nodes_offset        += mesh->rtree.node_count;
+        nodes_offset        += mesh->bvh.node_count;
         triangles_offset    += mesh->triangle_count;
         vertex_offset       += mesh->vertex_count;
     }
@@ -139,9 +139,9 @@ void runQueryOnGPU(ClosestPointOnMesh &query, Geometry *source_geo, Geometry *ta
         u32 nodes_offset = 0;
         for (u32 m = 0; m < mesh_count; m++, mesh++) {
             if (m == target_mesh_id) {
-                uploadNto(mesh->rtree.nodes, d_mesh_rtree_nodes, mesh->rtree.node_count, nodes_offset)
+                uploadNto(mesh->bvh.nodes, d_mesh_bvh_nodes, mesh->bvh.node_count, nodes_offset)
             }
-            nodes_offset        += mesh->rtree.node_count;
+            nodes_offset        += mesh->bvh.node_count;
         }
     }
 
@@ -157,13 +157,13 @@ void runQueryOnGPU(ClosestPointOnMesh &query, Geometry *source_geo, Geometry *ta
         vertex_count,
         mesh_count,
 
-        d_mesh_rtree_nodes,
+        d_mesh_bvh_nodes,
         d_meshes,
         d_triangles,
         d_vertices,
         d_geometries,
 
-        d_mesh_rtree_node_counts,
+        d_mesh_bvh_node_counts,
         d_mesh_triangle_counts,
         d_mesh_vertex_counts,
 
@@ -177,9 +177,9 @@ void runQueryOnGPU(ClosestPointOnMesh &query, Geometry *source_geo, Geometry *ta
         u32 nodes_offset = 0;
         for (u32 m = 0; m < mesh_count; m++, mesh++) {
             if (m == target_mesh_id) {
-                downloadNto(d_mesh_rtree_nodes, mesh->rtree.nodes, mesh->rtree.node_count, nodes_offset)
+                downloadNto(d_mesh_bvh_nodes, mesh->bvh.nodes, mesh->bvh.node_count, nodes_offset)
             }
-            nodes_offset        += mesh->rtree.node_count;
+            nodes_offset        += mesh->bvh.node_count;
         }
     }
 }

@@ -19,7 +19,7 @@ struct ClosestPointOnMesh {
 
     INLINE_XPU TrianglePointOn find(vec3 search_origin, f32 max_distance, ClosestPointOnTriangle &closest_point_on_triangle, bool adaptive = true) const {
 #ifndef NDEBUG
-        if (max_stack_size < mesh->rtree.height) {
+        if (max_stack_size < mesh->bvh.height) {
         closest_point_on_triangle.on = TrianglePointOn_Error;
         return TrianglePointOn_Error;
     }
@@ -29,8 +29,8 @@ struct ClosestPointOnMesh {
         if (mesh_transform)
             closest_point_on_triangle.search_origin = mesh_transform->internPos(closest_point_on_triangle.search_origin);
 
-        RTreeNode *nodes = mesh->rtree.nodes;
-        RTreeNode &root = nodes[0];
+        BVHNode *nodes = mesh->bvh.nodes;
+        BVHNode &root = nodes[0];
 
         if (!root.aabb.overlapSphere(closest_point_on_triangle.search_origin, max_distance))
             return TrianglePointOn_None;
@@ -57,7 +57,7 @@ struct ClosestPointOnMesh {
 
         while (stack_size > 0) {
             node_id = stack[--stack_size];
-            RTreeNode &node = nodes[node_id];
+            BVHNode &node = nodes[node_id];
             if (!node.aabb.overlapSphere(closest_point_on_triangle.search_origin, radius))
                 continue;
 
@@ -100,7 +100,7 @@ struct ClosestPointOnMesh {
 
         u32 capacity = 0;
         if (!stack) {
-            max_stack_size = mesh->rtree.height;
+            max_stack_size = mesh->bvh.height;
             capacity += max_stack_size * sizeof(u32);
         }
         if (result_count) {
