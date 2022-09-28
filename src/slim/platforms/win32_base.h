@@ -1,5 +1,9 @@
+#pragma once
+
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+
+#include "../core/base.h"
 
 #ifndef NDEBUG
 #include <tchar.h>
@@ -98,3 +102,36 @@ bool win32_writeToFile(LPVOID out, DWORD size, HANDLE handle) {
 #endif
     return result != FALSE;
 }
+
+
+HWND window_handle;
+LARGE_INTEGER performance_counter;
+
+void os::setWindowTitle(char* str) {
+    window::title = str;
+    SetWindowTextA(window_handle, str);
+}
+
+void os::setCursorVisibility(bool on) {
+    ShowCursor(on);
+}
+
+void os::setWindowCapture(bool on) {
+    if (on) SetCapture(window_handle);
+    else ReleaseCapture();
+}
+
+u64 timers::getTicks() {
+    QueryPerformanceCounter(&performance_counter);
+    return (u64)performance_counter.QuadPart;
+}
+
+void* os::getMemory(u64 size, u64 base) {
+    return VirtualAlloc((LPVOID)base, (SIZE_T)size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+}
+
+void os::closeFile(void *handle) { return win32_closeFile(handle); }
+void* os::openFileForReading(const char* path) { return win32_openFileForReading(path); }
+void* os::openFileForWriting(const char* path) { return win32_openFileForWriting(path); }
+bool os::readFromFile(LPVOID out, DWORD size, HANDLE handle) { return win32_readFromFile(out, size, handle); }
+bool os::writeToFile(LPVOID out, DWORD size, HANDLE handle) { return win32_writeToFile(out, size, handle); }

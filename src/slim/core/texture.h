@@ -11,7 +11,7 @@ struct TexelQuad {
 };
 
 struct TextureMip {
-    u16 width, height;
+    u32 width, height;
     TexelQuad *texel_quads;
 
     INLINE_XPU Pixel sample(f32 u, f32 v) const {
@@ -41,13 +41,16 @@ struct TextureMip {
     }
 };
 
-struct Texture {
-    u16 width, height;
-    u8 mip_count;
-    bool wrap, mipmap;
-    TextureMip *mips;
+struct TextureHeader : ImageHeader {
+    u16 mip_count = 1;
+    bool mipmap = false;
+    bool wrap = false;
+};
 
-    XPU static u8 GetMipLevel(f32 texel_area, u8 mip_count) {
+struct Texture : TextureHeader {
+    TextureMip *mips = nullptr;
+
+    XPU static u8 GetMipLevel(f32 texel_area, u16 mip_count) {
         u8 mip_level = 0;
         while (texel_area > 1 && ++mip_level < mip_count) texel_area *= 0.25f;
         if (mip_level >= mip_count)
@@ -56,7 +59,7 @@ struct Texture {
         return mip_level;
     }
 
-    XPU static u8 GetMipLevel(u16 width, u16 height, u8 mip_count, f32 uv_area) {
+    XPU static u8 GetMipLevel(u32 width, u32 height, u16 mip_count, f32 uv_area) {
         return GetMipLevel(uv_area * (f32)(width * height), mip_count);
     }
 

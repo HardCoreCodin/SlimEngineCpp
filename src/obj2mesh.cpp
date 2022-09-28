@@ -9,22 +9,14 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <unordered_set>
 
 #include "./slim/platforms/win32_base.h"
 #include "./slim/scene/bvh_builder.h"
 #include "./slim/serialization/mesh.h"
 
-void* os::getMemory(u64 size, u64 base) { return VirtualAlloc((LPVOID)base, (SIZE_T)size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE); }
-void os::closeFile(void *handle) { return win32_closeFile(handle); }
-void* os::openFileForReading(const char* path) { return win32_openFileForReading(path); }
-void* os::openFileForWriting(const char* path) { return win32_openFileForWriting(path); }
-bool os::readFromFile(LPVOID out, DWORD size, HANDLE handle) { return win32_readFromFile(out, size, handle); }
-bool os::writeToFile(LPVOID out, DWORD size, HANDLE handle) { return win32_writeToFile(out, size, handle); }
-
-
 // Or using the single-header file:
 // #include "../slim.h"
-
 
 enum VertexAttributes {
     VertexAttributes_None,
@@ -34,6 +26,18 @@ enum VertexAttributes {
 };
 
 int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_order = false, f32 scale = 1, float rotY = 0) {
+    const u8 v1_id = 0;
+    const u8 v2_id = invert_winding_order ? 2 : 1;
+    const u8 v3_id = invert_winding_order ? 1 : 2;
+
+    int vertex_indices[3];
+    int normal_indices[3];
+    int uvs_indices[3];
+
+    u32 f, t;
+
+    std::unordered_set<u64> edge_hashes;
+
     Mesh mesh;
     mesh.triangle_count = 0;
     mesh.normals_count = 0;
@@ -71,12 +75,56 @@ int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_orde
                     default: break;
                 }
             }
+
+            switch (vertex_attributes) {
+                case VertexAttributes_Positions:
+                    sscanf(
+                            line, (char*)"f %d %d %d",
+                            &vertex_indices[v1_id],
+                            &vertex_indices[v2_id],
+                            &vertex_indices[v3_id]
+                    );
+                    break;
+                case VertexAttributes_PositionsAndUVs:
+                    sscanf(
+                            line, (char*)"f %d/%d %d/%d %d/%d",
+                            &vertex_indices[v1_id], &uvs_indices[v1_id],
+                            &vertex_indices[v2_id], &uvs_indices[v2_id],
+                            &vertex_indices[v3_id], &uvs_indices[v3_id]
+                    );
+                    break;
+                case VertexAttributes_PositionsUVsAndNormals:
+                    sscanf(
+                            line, (char*)"f %d/%d/%d %d/%d/%d %d/%d/%d",
+                            &vertex_indices[v1_id], &uvs_indices[v1_id], &normal_indices[v1_id],
+                            &vertex_indices[v2_id], &uvs_indices[v2_id], &normal_indices[v2_id],
+                            &vertex_indices[v3_id], &uvs_indices[v3_id], &normal_indices[v3_id]
+                    );
+                    break;
+                default:
+                    return 1;
+            }
+
+            for (u8 i = 0; i < 3; i++) vertex_indices[i]--;
+
+            u64 edge_hash1, edge_hash2;
+            for (u8 from = 0, to = 1; from < 3; from++, to = (to + 1) % 3) {
+                f = vertex_indices[from];
+                t = vertex_indices[to];
+                edge_hash1 = (u64)f + ((u64)t << 32);
+                edge_hash2 = (u64)t + ((u64)f << 32);
+                if (edge_hashes.find(edge_hash1) == edge_hashes.end() &&
+                    edge_hashes.find(edge_hash2) == edge_hashes.end()) {
+                    edge_hashes.insert(edge_hash1);
+                    mesh.edge_count++;
+                }
+            }
         }
     }
     fclose(obj_file);
 
     mesh.bvh.node_count = mesh.triangle_count * 2;
-    mesh.bvh.height = mesh.triangle_count;
+    mesh.bvh.height = (u8)mesh.triangle_count;
 
     u64 memory_capacity = getSizeInBytes(mesh);
     memory_capacity += BVHBuilder::getSizeInBytes(mesh.triangle_count * 2);
@@ -91,10 +139,6 @@ int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_orde
     TriangleVertexIndices *vertex_normal_indices = mesh.vertex_normal_indices;
     TriangleVertexIndices *vertex_uvs_indices = mesh.vertex_uvs_indices;
 
-    u8 v1_id = 0;
-    u8 v2_id = invert_winding_order ? 2 : 1;
-    u8 v3_id = invert_winding_order ? 1 : 2;
-
     obj_file = fopen(obj_file_path, (char*)"r");
     while (fgets(line, 1024, obj_file)) {
         // Vertex information
@@ -108,10 +152,6 @@ int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_orde
             sscanf(line, (char*)"vt %f %f", &vertex_uvs->x, &vertex_uvs->y);
             vertex_uvs++;
         } else if (strncmp(line, (char*)"f ", 2) == 0) {
-            int vertex_indices[3];
-            int uvs_indices[3];
-            int normal_indices[3];
-
             switch (vertex_attributes) {
                 case VertexAttributes_Positions:
                     sscanf(
@@ -160,34 +200,8 @@ int obj2mesh(char* obj_file_path, char* mesh_file_path, bool invert_winding_orde
     }
     fclose(obj_file);
 
-    EdgeVertexIndices current_edge_vertex_indices, *edge_vertex_indices;
-    vertex_position_indices = mesh.vertex_position_indices;
-    for (u32 i = 0; i < mesh.triangle_count; i++, vertex_position_indices++) {
-        for (u8 from = 0, to = 1; from < 3; from++, to = (to + 1) % 3) {
-            current_edge_vertex_indices.from = vertex_position_indices->ids[from];
-            current_edge_vertex_indices.to   = vertex_position_indices->ids[to];
-            if (current_edge_vertex_indices.from > current_edge_vertex_indices.to) {
-                u32 temp = current_edge_vertex_indices.from;
-                current_edge_vertex_indices.from = current_edge_vertex_indices.to;
-                current_edge_vertex_indices.to = temp;
-            }
-
-            bool found = false;
-            edge_vertex_indices = mesh.edge_vertex_indices;
-            for (u32 e = 0; e < mesh.edge_count; e++, edge_vertex_indices++) {
-                if (edge_vertex_indices->from == current_edge_vertex_indices.from &&
-                    edge_vertex_indices->to   == current_edge_vertex_indices.to) {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                mesh.edge_vertex_indices[mesh.edge_count] = current_edge_vertex_indices;
-                mesh.edge_count++;
-            }
-        }
-    }
+    f = 0;
+    for (u64 edge_hash : edge_hashes) mesh.edge_vertex_indices[f++] = {(u32)edge_hash, (u32)(edge_hash >> 32)};
 
     mat3 rot;
     if (rotY) {

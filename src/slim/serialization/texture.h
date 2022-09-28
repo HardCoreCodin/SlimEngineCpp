@@ -5,9 +5,8 @@
 
 
 u32 getSizeInBytes(const Texture &texture) {
-    u16 mip_width  = texture.width;
-    u16 mip_height = texture.height;
-
+    u32 mip_width  = texture.width;
+    u32 mip_height = texture.height;
     u32 memory_size = 0;
 
     do {
@@ -25,8 +24,8 @@ bool allocateMemory(Texture &texture, memory::MonotonicAllocator *memory_allocat
     if (getSizeInBytes(texture) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
     texture.mips = (TextureMip*)memory_allocator->allocate(sizeof(TextureMip) * texture.mip_count);
     TextureMip *texture_mip = texture.mips;
-    u16 mip_width  = texture.width;
-    u16 mip_height = texture.height;
+    u32 mip_width  = texture.width;
+    u32 mip_height = texture.height;
 
     do {
         texture_mip->texel_quads = (TexelQuad * )memory_allocator->allocate(sizeof(TexelQuad ) * (mip_height + 1) * (mip_width + 1));
@@ -38,19 +37,23 @@ bool allocateMemory(Texture &texture, memory::MonotonicAllocator *memory_allocat
     return true;
 }
 
-void writeHeader(const Texture &texture, void *file) {
-    os::writeToFile((void*)&texture.width,  sizeof(u16),  file);
-    os::writeToFile((void*)&texture.height, sizeof(u16),  file);
-    os::writeToFile((void*)&texture.mipmap, sizeof(bool), file);
-    os::writeToFile((void*)&texture.wrap,   sizeof(bool), file);
-    os::writeToFile((void*)&texture.mip_count, sizeof(u8), file);
+void writeHeader(const TextureHeader &texture_header, void *file) {
+    os::writeToFile((void*)&texture_header.width,  sizeof(u32),  file);
+    os::writeToFile((void*)&texture_header.height, sizeof(u32),  file);
+    os::writeToFile((void*)&texture_header.depth,  sizeof(u32),  file);
+    os::writeToFile((void*)&texture_header.gamma,  sizeof(f32),  file);
+    os::writeToFile((void*)&texture_header.mip_count, sizeof(u16),  file);
+    os::writeToFile((void*)&texture_header.mipmap,    sizeof(bool),  file);
+    os::writeToFile((void*)&texture_header.wrap,      sizeof(bool),  file);
 }
-void readHeader(Texture &texture, void *file) {
-    os::readFromFile(&texture.width,  sizeof(u16),  file);
-    os::readFromFile(&texture.height, sizeof(u16),  file);
-    os::readFromFile(&texture.mipmap, sizeof(bool), file);
-    os::readFromFile(&texture.wrap,   sizeof(bool), file);
-    os::readFromFile(&texture.mip_count, sizeof(u8), file);
+void readHeader(TextureHeader &texture_header, void *file) {
+    os::readFromFile(&texture_header.width,  sizeof(u32),  file);
+    os::readFromFile(&texture_header.height, sizeof(u32),  file);
+    os::readFromFile(&texture_header.depth,  sizeof(u32),  file);
+    os::readFromFile(&texture_header.gamma,  sizeof(f32),  file);
+    os::readFromFile(&texture_header.mip_count, sizeof(u16),  file);
+    os::readFromFile(&texture_header.mipmap,    sizeof(bool),  file);
+    os::readFromFile(&texture_header.wrap,      sizeof(bool),  file);
 }
 
 bool saveHeader(const Texture &texture, char *file_path) {
@@ -72,16 +75,16 @@ bool loadHeader(Texture &texture, char *file_path) {
 void readContent(Texture &texture, void *file) {
     TextureMip *texture_mip = texture.mips;
     for (u8 mip_index = 0; mip_index < texture.mip_count; mip_index++, texture_mip++) {
-        os::readFromFile(&texture_mip->width,  sizeof(u16), file);
-        os::readFromFile(&texture_mip->height, sizeof(u16), file);
+        os::readFromFile(&texture_mip->width,  sizeof(u32), file);
+        os::readFromFile(&texture_mip->height, sizeof(u32), file);
         os::readFromFile(texture_mip->texel_quads, sizeof(TexelQuad) * (texture_mip->width + 1) * (texture_mip->height + 1), file);
     }
 }
 void writeContent(const Texture &texture, void *file) {
     TextureMip *texture_mip = texture.mips;
     for (u8 mip_index = 0; mip_index < texture.mip_count; mip_index++, texture_mip++) {
-        os::writeToFile(&texture_mip->width,  sizeof(u16), file);
-        os::writeToFile(&texture_mip->height, sizeof(u16), file);
+        os::writeToFile(&texture_mip->width,  sizeof(u32), file);
+        os::writeToFile(&texture_mip->height, sizeof(u32), file);
         os::writeToFile(texture_mip->texel_quads, sizeof(TexelQuad) * (texture_mip->width + 1) * (texture_mip->height + 1), file);
     }
 }

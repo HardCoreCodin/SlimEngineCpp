@@ -776,9 +776,15 @@ struct Pixel {
     }
 };
 
-struct Image {
-    u16 width, height;
-    Pixel *pixels;
+struct ImageHeader {
+    u32 width = 0;
+    u32 height = 0;
+    u32 depth = 24;
+    f32 gamma = 2.2f;
+};
+
+struct Image : ImageHeader {
+    Pixel *pixels = nullptr;
     Pixel* operator[] (int row) const { return pixels + row*width; }
 };
 

@@ -12,13 +12,17 @@ bool allocateMemory(Image &image, memory::MonotonicAllocator *memory_allocator) 
     return true;
 }
 
-void writeHeader(const Image &image, void *file) {
-    os::writeToFile((void*)&image.width,  sizeof(u16),  file);
-    os::writeToFile((void*)&image.height, sizeof(u16),  file);
+void writeHeader(const ImageHeader &image_header, void *file) {
+    os::writeToFile((void*)&image_header.width,  sizeof(u32),  file);
+    os::writeToFile((void*)&image_header.height, sizeof(u32),  file);
+    os::writeToFile((void*)&image_header.depth,  sizeof(u32),  file);
+    os::writeToFile((void*)&image_header.gamma,  sizeof(f32),  file);
 }
-void readHeader(Image &image, void *file) {
-    os::readFromFile(&image.width,  sizeof(u16),  file);
-    os::readFromFile(&image.height, sizeof(u16),  file);
+void readHeader(ImageHeader &image_header, void *file) {
+    os::readFromFile(&image_header.width,  sizeof(u32),  file);
+    os::readFromFile(&image_header.height, sizeof(u32),  file);
+    os::readFromFile(&image_header.depth,  sizeof(u32),  file);
+    os::readFromFile(&image_header.gamma,  sizeof(f32),  file);
 }
 
 bool saveHeader(const Image &image, char *file_path) {

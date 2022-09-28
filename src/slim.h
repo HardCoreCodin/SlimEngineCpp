@@ -778,9 +778,15 @@ struct Pixel {
     }
 };
 
-struct Image {
-    u16 width, height;
-    Pixel *pixels;
+struct ImageHeader {
+    u32 width = 0;
+    u32 height = 0;
+    u32 depth = 24;
+    f32 gamma = 2.2f;
+};
+
+struct Image : ImageHeader {
+    Pixel *pixels = nullptr;
     Pixel* operator[] (int row) const { return pixels + row*width; }
 };
 
@@ -4954,13 +4960,17 @@ bool allocateMemory(Image &image, memory::MonotonicAllocator *memory_allocator) 
     return true;
 }
 
-void writeHeader(const Image &image, void *file) {
-    os::writeToFile((void*)&image.width,  sizeof(u16),  file);
-    os::writeToFile((void*)&image.height, sizeof(u16),  file);
+void writeHeader(const ImageHeader &image_header, void *file) {
+    os::writeToFile((void*)&image_header.width,  sizeof(u32),  file);
+    os::writeToFile((void*)&image_header.height, sizeof(u32),  file);
+    os::writeToFile((void*)&image_header.depth,  sizeof(u32),  file);
+    os::writeToFile((void*)&image_header.gamma,  sizeof(f32),  file);
 }
-void readHeader(Image &image, void *file) {
-    os::readFromFile(&image.width,  sizeof(u16),  file);
-    os::readFromFile(&image.height, sizeof(u16),  file);
+void readHeader(ImageHeader &image_header, void *file) {
+    os::readFromFile(&image_header.width,  sizeof(u32),  file);
+    os::readFromFile(&image_header.height, sizeof(u32),  file);
+    os::readFromFile(&image_header.depth,  sizeof(u32),  file);
+    os::readFromFile(&image_header.gamma,  sizeof(f32),  file);
 }
 
 bool saveHeader(const Image &image, char *file_path) {
@@ -5055,6 +5065,7 @@ struct ImagePack {
     }
 };
 
+
 struct TexelQuadComponent {
     u8 TL, TR, BL, BR;
 };
@@ -5064,7 +5075,7 @@ struct TexelQuad {
 };
 
 struct TextureMip {
-    u16 width, height;
+    u32 width, height;
     TexelQuad *texel_quads;
 
     INLINE_XPU Pixel sample(f32 u, f32 v) const {
@@ -5094,13 +5105,16 @@ struct TextureMip {
     }
 };
 
-struct Texture {
-    u16 width, height;
-    u8 mip_count;
-    bool wrap, mipmap;
-    TextureMip *mips;
+struct TextureHeader : ImageHeader {
+    u16 mip_count = 1;
+    bool mipmap = false;
+    bool wrap = false;
+};
 
-    XPU static u8 GetMipLevel(f32 texel_area, u8 mip_count) {
+struct Texture : TextureHeader {
+    TextureMip *mips = nullptr;
+
+    XPU static u8 GetMipLevel(f32 texel_area, u16 mip_count) {
         u8 mip_level = 0;
         while (texel_area > 1 && ++mip_level < mip_count) texel_area *= 0.25f;
         if (mip_level >= mip_count)
@@ -5109,7 +5123,7 @@ struct Texture {
         return mip_level;
     }
 
-    XPU static u8 GetMipLevel(u16 width, u16 height, u8 mip_count, f32 uv_area) {
+    XPU static u8 GetMipLevel(u32 width, u32 height, u16 mip_count, f32 uv_area) {
         return GetMipLevel(uv_area * (f32)(width * height), mip_count);
     }
 
@@ -5123,9 +5137,8 @@ struct Texture {
 };
 
 u32 getSizeInBytes(const Texture &texture) {
-    u16 mip_width  = texture.width;
-    u16 mip_height = texture.height;
-
+    u32 mip_width  = texture.width;
+    u32 mip_height = texture.height;
     u32 memory_size = 0;
 
     do {
@@ -5143,8 +5156,8 @@ bool allocateMemory(Texture &texture, memory::MonotonicAllocator *memory_allocat
     if (getSizeInBytes(texture) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
     texture.mips = (TextureMip*)memory_allocator->allocate(sizeof(TextureMip) * texture.mip_count);
     TextureMip *texture_mip = texture.mips;
-    u16 mip_width  = texture.width;
-    u16 mip_height = texture.height;
+    u32 mip_width  = texture.width;
+    u32 mip_height = texture.height;
 
     do {
         texture_mip->texel_quads = (TexelQuad * )memory_allocator->allocate(sizeof(TexelQuad ) * (mip_height + 1) * (mip_width + 1));
@@ -5156,19 +5169,23 @@ bool allocateMemory(Texture &texture, memory::MonotonicAllocator *memory_allocat
     return true;
 }
 
-void writeHeader(const Texture &texture, void *file) {
-    os::writeToFile((void*)&texture.width,  sizeof(u16),  file);
-    os::writeToFile((void*)&texture.height, sizeof(u16),  file);
-    os::writeToFile((void*)&texture.mipmap, sizeof(bool), file);
-    os::writeToFile((void*)&texture.wrap,   sizeof(bool), file);
-    os::writeToFile((void*)&texture.mip_count, sizeof(u8), file);
+void writeHeader(const TextureHeader &texture_header, void *file) {
+    os::writeToFile((void*)&texture_header.width,  sizeof(u32),  file);
+    os::writeToFile((void*)&texture_header.height, sizeof(u32),  file);
+    os::writeToFile((void*)&texture_header.depth,  sizeof(u32),  file);
+    os::writeToFile((void*)&texture_header.gamma,  sizeof(f32),  file);
+    os::writeToFile((void*)&texture_header.mip_count, sizeof(u16),  file);
+    os::writeToFile((void*)&texture_header.mipmap,    sizeof(bool),  file);
+    os::writeToFile((void*)&texture_header.wrap,      sizeof(bool),  file);
 }
-void readHeader(Texture &texture, void *file) {
-    os::readFromFile(&texture.width,  sizeof(u16),  file);
-    os::readFromFile(&texture.height, sizeof(u16),  file);
-    os::readFromFile(&texture.mipmap, sizeof(bool), file);
-    os::readFromFile(&texture.wrap,   sizeof(bool), file);
-    os::readFromFile(&texture.mip_count, sizeof(u8), file);
+void readHeader(TextureHeader &texture_header, void *file) {
+    os::readFromFile(&texture_header.width,  sizeof(u32),  file);
+    os::readFromFile(&texture_header.height, sizeof(u32),  file);
+    os::readFromFile(&texture_header.depth,  sizeof(u32),  file);
+    os::readFromFile(&texture_header.gamma,  sizeof(f32),  file);
+    os::readFromFile(&texture_header.mip_count, sizeof(u16),  file);
+    os::readFromFile(&texture_header.mipmap,    sizeof(bool),  file);
+    os::readFromFile(&texture_header.wrap,      sizeof(bool),  file);
 }
 
 bool saveHeader(const Texture &texture, char *file_path) {
@@ -5190,16 +5207,16 @@ bool loadHeader(Texture &texture, char *file_path) {
 void readContent(Texture &texture, void *file) {
     TextureMip *texture_mip = texture.mips;
     for (u8 mip_index = 0; mip_index < texture.mip_count; mip_index++, texture_mip++) {
-        os::readFromFile(&texture_mip->width,  sizeof(u16), file);
-        os::readFromFile(&texture_mip->height, sizeof(u16), file);
+        os::readFromFile(&texture_mip->width,  sizeof(u32), file);
+        os::readFromFile(&texture_mip->height, sizeof(u32), file);
         os::readFromFile(texture_mip->texel_quads, sizeof(TexelQuad) * (texture_mip->width + 1) * (texture_mip->height + 1), file);
     }
 }
 void writeContent(const Texture &texture, void *file) {
     TextureMip *texture_mip = texture.mips;
     for (u8 mip_index = 0; mip_index < texture.mip_count; mip_index++, texture_mip++) {
-        os::writeToFile(&texture_mip->width,  sizeof(u16), file);
-        os::writeToFile(&texture_mip->height, sizeof(u16), file);
+        os::writeToFile(&texture_mip->width,  sizeof(u32), file);
+        os::writeToFile(&texture_mip->height, sizeof(u32), file);
         os::writeToFile(texture_mip->texel_quads, sizeof(TexelQuad) * (texture_mip->width + 1) * (texture_mip->height + 1), file);
     }
 }
@@ -7218,16 +7235,16 @@ void drawImage(const Image &image, const Canvas &canvas, const RectI draw_bounds
         draw_bounds.top >= canvas.dimensions.height)
         return;
 
-    u16 draw_width = (u16)(draw_bounds.right - draw_bounds.left);
-    u16 draw_height = (u16)(draw_bounds.bottom - draw_bounds.top);
-    if (draw_width > image.width) draw_width = image.width;
-    if (draw_height > image.height) draw_height = image.height;
-    u16 remainder_x = image.width - draw_width;
+    i32 draw_width = draw_bounds.right - draw_bounds.left;
+    i32 draw_height = draw_bounds.bottom - draw_bounds.top;
+    if (draw_width > (i32)image.width) draw_width = (i32)image.width;
+    if (draw_height > (i32)image.height) draw_height = (i32)image.height;
+    i32 remainder_x = (i32)image.width - draw_width;
     Pixel *pixel = image.pixels;
-    u16 Y = (u16)draw_bounds.top;
-    for (u16 y = 0; y < draw_height; y++, Y++) {
-        u16 X = (u16)draw_bounds.left;
-        for (u16 x = 0; x < draw_width; x++, X++, pixel++)
+    i32 Y = draw_bounds.top;
+    for (i32 y = 0; y < draw_height; y++, Y++) {
+        i32 X = draw_bounds.left;
+        for (i32 x = 0; x < draw_width; x++, X++, pixel++)
             canvas.setPixel(X, Y, pixel->color, opacity);
 
         pixel += remainder_x;
@@ -7239,29 +7256,29 @@ void drawTextureMip(const TextureMip &texture_mip, const Canvas &canvas, const R
     i32 draw_width = draw_bounds.right - draw_bounds.left+1;
     i32 draw_height = draw_bounds.bottom - draw_bounds.top+1;
     if (cropped) {
-        if (draw_width > texture_mip.width) draw_width = texture_mip.width;
-        if (draw_height > texture_mip.height) draw_height = texture_mip.height;
-        i32 remainder_x = 1 + texture_mip.width - draw_width;
+        if (draw_width > (i32)texture_mip.width) draw_width = (i32)texture_mip.width;
+        if (draw_height > (i32)texture_mip.height) draw_height = (i32)texture_mip.height;
+        i32 remainder_x = 1 + (i32)texture_mip.width - draw_width;
         TexelQuad *texel_quad = texture_mip.texel_quads;
         i32 Y = draw_bounds.top;
         for (i32 y = 0; y < draw_height; y++, Y++) {
             i32 X = draw_bounds.left;
             for (i32 x = 0; x < draw_width; x++, X++, texel_quad++) {
-                texel_color.r = (float)texel_quad->R.BR * COLOR_COMPONENT_TO_FLOAT;
-                texel_color.g = (float)texel_quad->G.BR * COLOR_COMPONENT_TO_FLOAT;
-                texel_color.b = (float)texel_quad->B.BR * COLOR_COMPONENT_TO_FLOAT;
+                texel_color.r = (f32)texel_quad->R.BR * COLOR_COMPONENT_TO_FLOAT;
+                texel_color.g = (f32)texel_quad->G.BR * COLOR_COMPONENT_TO_FLOAT;
+                texel_color.b = (f32)texel_quad->B.BR * COLOR_COMPONENT_TO_FLOAT;
                 canvas.setPixel(X, Y, texel_color, opacity);
             }
             texel_quad += remainder_x;
         }
     } else {
-        float u_step = 1.0f / (float)draw_width;
-        float v_step = 1.0f / (float)draw_height;
-        float v = v_step * 0.5f;
+        f32 u_step = 1.0f / (f32)draw_width;
+        f32 v_step = 1.0f / (f32)draw_height;
+        f32 v = v_step * 0.5f;
         i32 Y = draw_bounds.top;
         for (i32 y = 0; y < draw_height; y++, Y++, v += v_step) {
             i32 X = draw_bounds.left;
-            float u = u_step * 0.5f;
+            f32 u = u_step * 0.5f;
             for (i32 x = 0; x < draw_width; x++, X++, u += u_step) {
                 texel_color = texture_mip.sample(u, v).color;
                 canvas.setPixel(X, Y, texel_color, opacity);
@@ -7277,11 +7294,11 @@ void drawTexture(const Texture &texture, const Canvas &canvas, const RectI draw_
         draw_bounds.top >= canvas.dimensions.height)
         return;
 
-    u8 mip_level = 0;
+    u16 mip_level = 0;
     if (!cropped) {
         i32 draw_width = draw_bounds.right - draw_bounds.left+1;
         i32 draw_height = draw_bounds.bottom - draw_bounds.top+1;
-        float texel_area = (float)(texture.width * texture.height) / (float)(draw_width * draw_height);
+        f32 texel_area = (f32)(texture.width * texture.height) / (f32)(draw_width * draw_height);
         mip_level = Texture::GetMipLevel(texel_area, texture.mip_count);
     }
     drawTextureMip(texture.mips[mip_level], canvas, draw_bounds, cropped, opacity);
@@ -8126,36 +8143,7 @@ bool win32_writeToFile(LPVOID out, DWORD size, HANDLE handle) {
 }
 
 
-#define GET_X_LPARAM(lp)                        ((int)(short)LOWORD(lp))
-#define GET_Y_LPARAM(lp)                        ((int)(short)HIWORD(lp))
-
-WNDCLASSA window_class;
 HWND window_handle;
-HDC win_dc;
-BITMAPINFO info;
-RECT win_rect;
-RAWINPUT raw_inputs;
-HRAWINPUT raw_input_handle;
-RAWINPUTDEVICE raw_input_device;
-UINT raw_input_size;
-PUINT raw_input_size_ptr = (PUINT)(&raw_input_size);
-UINT raw_input_header_size = sizeof(RAWINPUTHEADER);
-
-inline UINT getRawInput(LPVOID data) {
-    return GetRawInputData(raw_input_handle, RID_INPUT, data, raw_input_size_ptr, raw_input_header_size);
-}
-inline bool hasRawInput() {
-    return (getRawInput(0) == 0) && (raw_input_size != 0);
-}
-inline bool hasRawMouseInput(LPARAM lParam) {
-    raw_input_handle = (HRAWINPUT)(lParam);
-    return (
-            (hasRawInput()) &&
-            (getRawInput((LPVOID)&raw_inputs) == raw_input_size) &&
-            (raw_inputs.header.dwType == RIM_TYPEMOUSE)
-    );
-}
-
 LARGE_INTEGER performance_counter;
 
 void os::setWindowTitle(char* str) {
@@ -8186,6 +8174,38 @@ void* os::openFileForReading(const char* path) { return win32_openFileForReading
 void* os::openFileForWriting(const char* path) { return win32_openFileForWriting(path); }
 bool os::readFromFile(LPVOID out, DWORD size, HANDLE handle) { return win32_readFromFile(out, size, handle); }
 bool os::writeToFile(LPVOID out, DWORD size, HANDLE handle) { return win32_writeToFile(out, size, handle); }
+
+
+#define GET_X_LPARAM(lp)                        ((int)(short)LOWORD(lp))
+#define GET_Y_LPARAM(lp)                        ((int)(short)HIWORD(lp))
+
+WNDCLASSA window_class;
+HDC win_dc;
+BITMAPINFO info;
+RECT win_rect;
+RAWINPUT raw_inputs;
+HRAWINPUT raw_input_handle;
+RAWINPUTDEVICE raw_input_device;
+UINT raw_input_size;
+PUINT raw_input_size_ptr = (PUINT)(&raw_input_size);
+UINT raw_input_header_size = sizeof(RAWINPUTHEADER);
+
+inline UINT getRawInput(LPVOID data) {
+    return GetRawInputData(raw_input_handle, RID_INPUT, data, raw_input_size_ptr, raw_input_header_size);
+}
+inline bool hasRawInput() {
+    return (getRawInput(0) == 0) && (raw_input_size != 0);
+}
+inline bool hasRawMouseInput(LPARAM lParam) {
+    raw_input_handle = (HRAWINPUT)(lParam);
+    return (
+            (hasRawInput()) &&
+            (getRawInput((LPVOID)&raw_inputs) == raw_input_size) &&
+            (raw_inputs.header.dwType == RIM_TYPEMOUSE)
+    );
+}
+
+
 
 SlimApp *CURRENT_APP;
 
