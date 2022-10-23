@@ -46,7 +46,7 @@ void drawTexture(const Texture &texture, const Canvas &canvas, const RectI draw_
         draw_bounds.top >= canvas.dimensions.height)
         return;
 
-    u16 mip_level = 0;
+    u32 mip_level = 0;
     if (!cropped) {
         i32 draw_width = draw_bounds.right - draw_bounds.left+1;
         i32 draw_height = draw_bounds.bottom - draw_bounds.top+1;

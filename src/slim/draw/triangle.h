@@ -134,10 +134,10 @@ void _fillTriangle(f32 x1, f32 y1, f32 z1,
             A = 1 - B - C;
 
             // Skip the pixel if it's outside:
-            if (fminf(A, fminf(B, C)) < 0)
+            if (A < 0 || B < 0 || C < 0)
                 continue;
 
-            if (depth_provided) {}
+            if (depth_provided)
                 depth = A*z1 + B*z2 + C*z3;
 
             canvas.setPixel(x, y, color, opacity, depth);
@@ -197,6 +197,7 @@ INLINE void Canvas::fillTriangle(vec3 p1, vec3 p2, vec3 p3, const Color &color, 
     _fillTriangle(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, p3.x, p3.y, p3.z, *this, color, opacity, viewport_bounds);
 }
 #endif
+
 
 INLINE void drawTriangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, const Canvas &canvas,
                          Color color = White, f32 opacity = 1.0f, u8 line_width = 1, const RectI *viewport_bounds = nullptr) {

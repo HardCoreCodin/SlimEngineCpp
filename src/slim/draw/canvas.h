@@ -60,27 +60,46 @@ struct Canvas {
         if (depths) for (i32 i = 0; i < depths_count; i++) depths[i] = depth;
     }
 
-    void drawFrom(Canvas &source_canvas, bool blend = true, bool include_depths = false, const RectI *viewport_bounds = nullptr) {
-        RectI bounds{
-                0, dimensions.width < source_canvas.dimensions.width ? dimensions.width : source_canvas.dimensions.width,
-                0, dimensions.height < source_canvas.dimensions.height ? dimensions.height : source_canvas.dimensions.height
+    void drawFrom(Canvas& source_canvas, const RectI* source_bounds = nullptr, const RectI* target_bounds = nullptr, f32 opacity = 1.0f, bool blend = true, bool include_depths = false) {
+        RectI src{
+                0, source_canvas.dimensions.width,
+                0, source_canvas.dimensions.height
         };
-        if (viewport_bounds)
-            bounds -= *viewport_bounds;
+        if (source_bounds)
+            src -= *source_bounds;
 
-        if ((antialias == SSAA) && (source_canvas.antialias == SSAA))
-            bounds *= 2;
+        RectI trg{
+                0, dimensions.width,
+                0, dimensions.height
+        };
+        if (target_bounds)
+            trg = *target_bounds;
+
+        if ((antialias == SSAA) && (source_canvas.antialias == SSAA)) {
+            src *= 2;
+            trg *= 2;
+        }
 
         f32 depth;
-        for (i32 y = bounds.top; y < bounds.bottom; y++) {
-            for (i32 x = bounds.left; x < bounds.right; x++) {
+
+        i32 src_y = src.top;
+        for (i32 y = trg.top; y < trg.bottom; y++, src_y++) {
+            if (y < 0 || y >= dimensions.height)
+                continue;
+
+            i32 src_x = src.left;
+
+            for (i32 x = trg.left; x < trg.right; x++, src_x++) {
+                if (x < 0 || x >= dimensions.width)
+                    continue;
+
                 i32 src_offset = source_canvas.antialias == SSAA ? (
-                        (source_canvas.dimensions.stride * (y >> 1) + (x >> 1)) * 4 + (2 * (y & 1)) + (x & 1)
+                        (source_canvas.dimensions.stride * (src_y >> 1) + (src_x >> 1)) * 4 + (2 * (src_y & 1)) + (src_x & 1)
                 ) : (
-                                         source_canvas.dimensions.stride * y + x
+                                         source_canvas.dimensions.stride * src_y + src_x
                                  );
 
-                Pixel &pixel{source_canvas.pixels[src_offset]};
+                Pixel& pixel{ source_canvas.pixels[src_offset] };
                 if ((pixel.opacity == 0.0f) || (
                         (pixel.color.r == 0.0f) &&
                         (pixel.color.g == 0.0f) &&
@@ -91,8 +110,9 @@ struct Canvas {
                     depth = source_canvas.depths[src_offset];
 
                 if (blend) {
-                    setPixel(x, y, pixel.color / pixel.opacity, pixel.opacity, include_depths ? depth : 0.0f);
-                } else {
+                    setPixel(x, y, pixel.color / pixel.opacity, pixel.opacity * opacity, include_depths ? depth : 0.0f);
+                }
+                else {
                     i32 trg_offset = antialias == SSAA ? (
                             (dimensions.stride * (y >> 1) + (x >> 1)) * 4 + (2 * (y & 1)) + (x & 1)
                     ) : (
@@ -131,7 +151,8 @@ struct Canvas {
             return;
 
         opacity = clampedValue(opacity);
-        Pixel pixel{color * color, opacity};
+        Pixel pixel{color.clamped(), opacity};
+        pixel.color *= pixel.color;
         if (opacity != 1.0f)
             pixel.color *= pixel.opacity;
 

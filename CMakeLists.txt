@@ -33,9 +33,6 @@ add_executable(bmp2image src/bmp2image.cpp)
 project(ClosestPointOnMesh)
 add_executable(ClosestPointOnMesh WIN32 src/examples/ClosestPointOnMeshApp.cpp)
 
-project(HW1)
-add_executable(HW1 WIN32 src/examples/CUDA_course/hw1.cpp)
-
 # For CUDA compilation, uncomment the following lines as-needed
 #set(CMAKE_CUDA_STANDARD 11)
 #if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)

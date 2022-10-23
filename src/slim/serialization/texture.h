@@ -15,60 +15,26 @@ u32 getSizeInBytes(const Texture &texture) {
 
         mip_width /= 2;
         mip_height /= 2;
-    } while (texture.mipmap && mip_width > 2 && mip_height > 2);
+    } while (texture.flags.mipmap && mip_width > 2 && mip_height > 2);
 
     return memory_size;
 }
 
 bool allocateMemory(Texture &texture, memory::MonotonicAllocator *memory_allocator) {
-    if (getSizeInBytes(texture) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
+    u32 size = getSizeInBytes(texture);
+    if (size > (memory_allocator->capacity - memory_allocator->occupied)) return false;
     texture.mips = (TextureMip*)memory_allocator->allocate(sizeof(TextureMip) * texture.mip_count);
     TextureMip *texture_mip = texture.mips;
     u32 mip_width  = texture.width;
     u32 mip_height = texture.height;
 
     do {
-        texture_mip->texel_quads = (TexelQuad * )memory_allocator->allocate(sizeof(TexelQuad ) * (mip_height + 1) * (mip_width + 1));
+        texture_mip->texel_quads = (TexelQuad*)memory_allocator->allocate(sizeof(TexelQuad) * (mip_height + 1) * (mip_width + 1));
         mip_width /= 2;
         mip_height /= 2;
         texture_mip++;
-    } while (texture.mipmap && mip_width > 2 && mip_height > 2);
+    } while (texture.flags.mipmap && mip_width > 2 && mip_height > 2);
 
-    return true;
-}
-
-void writeHeader(const TextureHeader &texture_header, void *file) {
-    os::writeToFile((void*)&texture_header.width,  sizeof(u32),  file);
-    os::writeToFile((void*)&texture_header.height, sizeof(u32),  file);
-    os::writeToFile((void*)&texture_header.depth,  sizeof(u32),  file);
-    os::writeToFile((void*)&texture_header.gamma,  sizeof(f32),  file);
-    os::writeToFile((void*)&texture_header.mip_count, sizeof(u16),  file);
-    os::writeToFile((void*)&texture_header.mipmap,    sizeof(bool),  file);
-    os::writeToFile((void*)&texture_header.wrap,      sizeof(bool),  file);
-}
-void readHeader(TextureHeader &texture_header, void *file) {
-    os::readFromFile(&texture_header.width,  sizeof(u32),  file);
-    os::readFromFile(&texture_header.height, sizeof(u32),  file);
-    os::readFromFile(&texture_header.depth,  sizeof(u32),  file);
-    os::readFromFile(&texture_header.gamma,  sizeof(f32),  file);
-    os::readFromFile(&texture_header.mip_count, sizeof(u16),  file);
-    os::readFromFile(&texture_header.mipmap,    sizeof(bool),  file);
-    os::readFromFile(&texture_header.wrap,      sizeof(bool),  file);
-}
-
-bool saveHeader(const Texture &texture, char *file_path) {
-    void *file = os::openFileForWriting(file_path);
-    if (!file) return false;
-    writeHeader(texture, file);
-    os::closeFile(file);
-    return true;
-}
-
-bool loadHeader(Texture &texture, char *file_path) {
-    void *file = os::openFileForReading(file_path);
-    if (!file) return false;
-    readHeader(texture, file);
-    os::closeFile(file);
     return true;
 }
 
@@ -87,45 +53,6 @@ void writeContent(const Texture &texture, void *file) {
         os::writeToFile(&texture_mip->height, sizeof(u32), file);
         os::writeToFile(texture_mip->texel_quads, sizeof(TexelQuad) * (texture_mip->width + 1) * (texture_mip->height + 1), file);
     }
-}
-
-bool saveContent(const Texture &texture, char *file_path) {
-    void *file = os::openFileForWriting(file_path);
-    if (!file) return false;
-    writeContent(texture, file);
-    os::closeFile(file);
-    return true;
-}
-
-bool loadContent(Texture &texture, char *file_path) {
-    void *file = os::openFileForReading(file_path);
-    if (!file) return false;
-    readContent(texture, file);
-    os::closeFile(file);
-    return true;
-}
-
-bool save(const Texture &texture, char* file_path) {
-    void *file = os::openFileForWriting(file_path);
-    if (!file) return false;
-    writeHeader(texture, file);
-    writeContent(texture, file);
-    os::closeFile(file);
-    return true;
-}
-
-bool load(Texture &texture, char *file_path, memory::MonotonicAllocator *memory_allocator = nullptr) {
-    void *file = os::openFileForReading(file_path);
-    if (!file) return false;
-
-    if (memory_allocator) {
-        new(&texture) Texture{};
-        readHeader(texture, file);
-        if (!allocateMemory(texture, memory_allocator)) return false;
-    } else if (!texture.mips) return false;
-    readContent(texture, file);
-    os::closeFile(file);
-    return true;
 }
 
 u32 getTotalMemoryForTextures(String *texture_files, u32 texture_count) {

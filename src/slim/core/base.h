@@ -200,8 +200,14 @@ INLINE_XPU i32 clampedValue(i32 value) {
 }
 
 INLINE_XPU f32 smoothStep(f32 from, f32 to, f32 t) {
+    if (t <= from) return 0;
+    if (t >= to) return 1;
     t = (t - from) / (to - from);
     return t * t * (3.0f - 2.0f * t);
+}
+
+INLINE_XPU f32 smoothStep(f32 t) {
+    return smoothStep(0.0f, 1.0f, t);
 }
 
 INLINE_XPU f32 approach(f32 src, f32 trg, f32 diff) {
@@ -214,36 +220,37 @@ INLINE_XPU f32 approach(f32 src, f32 trg, f32 diff) {
 }
 
 template <typename T>
-INLINE void swap(T *a, T *b) {
+INLINE_XPU void swap(T *a, T *b) {
     T t = *a;
     *a = *b;
     *b = t;
 }
 
+
 template <typename T>
 struct RangeOf {
     T first, last;
 
-    RangeOf() : RangeOf{0, 0} {}
-    RangeOf(T first, T last) : first{first}, last{last} {}
-    RangeOf(const RangeOf<T> &other) : RangeOf{other.first, other.last} {}
+    INLINE_XPU RangeOf() : RangeOf{0, 0} {}
+    INLINE_XPU RangeOf(T first, T last) : first{first}, last{last} {}
+    INLINE_XPU RangeOf(const RangeOf<T> &other) : RangeOf{other.first, other.last} {}
 
-    INLINE bool contains(i32 v) const { return (first <= v) && (v <= last); }
-    INLINE bool bounds(i32 v) const { return (first < v) && (v < last); }
-    INLINE bool operator!() const { return last < first; }
-    INLINE bool operator[](T v) const { return contains(v); }
-    INLINE bool operator()(T v) const { return bounds(v); }
-    INLINE void operator+=(T offset) {first += offset; last += offset;}
-    INLINE void operator-=(T offset) {first -= offset; last -= offset;}
-    INLINE void operator*=(T factor) {first *= factor; last *= factor;}
-    INLINE void operator/=(T factor) {factor = 1 / factor; first *= factor; last *= factor;}
-    INLINE void operator-=(const RangeOf<T> &rhs) { sub(rhs.first, rhs.last); }
-    INLINE RangeOf<T> operator-(const RangeOf<T> &rhs) const {
+    INLINE_XPU bool contains(i32 v) const { return (first <= v) && (v <= last); }
+    INLINE_XPU bool bounds(i32 v) const { return (first < v) && (v < last); }
+    INLINE_XPU bool operator!() const { return last < first; }
+    INLINE_XPU bool operator[](T v) const { return contains(v); }
+    INLINE_XPU bool operator()(T v) const { return bounds(v); }
+    INLINE_XPU void operator+=(T offset) {first += offset; last += offset;}
+    INLINE_XPU void operator-=(T offset) {first -= offset; last -= offset;}
+    INLINE_XPU void operator*=(T factor) {first *= factor; last *= factor;}
+    INLINE_XPU void operator/=(T factor) {factor = 1 / factor; first *= factor; last *= factor;}
+    INLINE_XPU void operator-=(const RangeOf<T> &rhs) { sub(rhs.first, rhs.last); }
+    INLINE_XPU RangeOf<T> operator-(const RangeOf<T> &rhs) const {
         RangeOf<T> result{first, last};
         result.sub(rhs.first, rhs.last);
         return result;
     }
-    INLINE void sub(T sub_first, T sub_last) {
+    INLINE_XPU void sub(T sub_first, T sub_last) {
         if (sub_last < sub_first) {
             T tmp = sub_last;
             sub_last = sub_first;
@@ -275,30 +282,33 @@ struct RectOf {
         };
     };
 
-    RectOf(const RectOf<T> &other) : RectOf{other.x_range, other.y_range} {}
-    RectOf(const RangeOf<T> &x_range, const RangeOf<T> &y_range) : x_range{x_range}, y_range{y_range} {}
-    RectOf(T left = 0, T right = 0, T top = 0, T bottom = 0) : left{left}, right{right}, top{top}, bottom{bottom} {}
+    INLINE_XPU RectOf(const RectOf<T> &other) : RectOf{other.x_range, other.y_range} {}
+    INLINE_XPU RectOf(const RangeOf<T> &x_range, const RangeOf<T> &y_range) : x_range{x_range}, y_range{y_range} {}
+    INLINE_XPU RectOf(T left = 0, T right = 0, T top = 0, T bottom = 0) : left{left}, right{right}, top{top}, bottom{bottom} {
+        if (right < left) swap(&right, &left);
+        if (bottom < top) swap(&top, &bottom);
+    }
 
-    INLINE bool contains(T x, T y) const { return x_range.contains(x) && y_range.contains(y); }
-    INLINE bool bounds(T x, T y) const { return x_range.bounds(x) && y_range.bounds(y); }
-    INLINE bool operator!() const { return !x_range || !y_range; }
-    INLINE bool isOutsideOf(const RectOf<T> &other) {
+    INLINE_XPU bool contains(T x, T y) const { return x_range.contains(x) && y_range.contains(y); }
+    INLINE_XPU bool bounds(T x, T y) const { return x_range.bounds(x) && y_range.bounds(y); }
+    INLINE_XPU bool operator!() const { return !x_range || !y_range; }
+    INLINE_XPU bool isOutsideOf(const RectOf<T> &other) {
         return (
                 other.right < left || right < other.left ||
                 other.bottom < top || bottom < other.top
         );
     }
-    INLINE void operator+=(T offset) {x_range += offset; y_range += offset;}
-    INLINE void operator-=(T offset) {x_range -= offset; y_range -= offset;}
-    INLINE void operator*=(T factor) {x_range *= factor; y_range *= factor;}
-    INLINE void operator/=(T factor) {x_range /= factor; y_range /= factor;}
-    INLINE void operator-=(const RectOf<T> &rhs) { sub(rhs.x_range, rhs.y_range); }
-    INLINE RectOf<T> operator-(const RectOf<T> &rhs) const {
+    INLINE_XPU void operator+=(T offset) {x_range += offset; y_range += offset;}
+    INLINE_XPU void operator-=(T offset) {x_range -= offset; y_range -= offset;}
+    INLINE_XPU void operator*=(T factor) {x_range *= factor; y_range *= factor;}
+    INLINE_XPU void operator/=(T factor) {x_range /= factor; y_range /= factor;}
+    INLINE_XPU void operator-=(const RectOf<T> &rhs) { sub(rhs.x_range, rhs.y_range); }
+    INLINE_XPU RectOf<T> operator-(const RectOf<T> &rhs) const {
         RectOf<T> result{x_range, y_range};
         result.sub(rhs.x_range, rhs.y_range);
         return result;
     }
-    INLINE void sub(const RangeOf<T> &other_x_range, const RangeOf<T> &other_y_range) {
+    INLINE_XPU void sub(const RangeOf<T> &other_x_range, const RangeOf<T> &other_y_range) {
         x_range -= other_x_range;
         y_range -= other_y_range;
     }
@@ -462,12 +472,37 @@ enum ColorID {
     DarkYellow
 };
 
+struct ByteColor {
+    union {
+        struct { u8 B, G, R, A; };
+        u8 components[4];
+        u32 value;
+    };
+
+    INLINE_XPU ByteColor(u8 R = 0, u8 G = 0, u8 B = 0, u8 A = 0) : B{B}, G{G}, R{R}, A{A} {}
+    INLINE_XPU ByteColor(f32 r, f32 g, f32 b, f32 a = 0.0f) :
+        B{(u8)(b * FLOAT_TO_COLOR_COMPONENT)},
+        G{(u8)(g * FLOAT_TO_COLOR_COMPONENT)},
+        R{(u8)(r * FLOAT_TO_COLOR_COMPONENT)},
+        A{(u8)(a * FLOAT_TO_COLOR_COMPONENT)} {}
+
+    INLINE_XPU ByteColor(u32 value) :
+        B{(u8)value},
+        G{(u8)(value >> 8)},
+        R{(u8)(value >> 16)},
+        A{(u8)(value >> 24)} {}
+};
+
 struct Color {
     union {
         struct { f32 red, green, blue; };
         struct { f32 r  , g    , b   ; };
+        f32 components[3];
     };
 
+    INLINE_XPU Color(u8 R, u8 G, u8 B) : red{(f32)R * COLOR_COMPONENT_TO_FLOAT}, green{(f32)G * COLOR_COMPONENT_TO_FLOAT}, blue{(f32)B * COLOR_COMPONENT_TO_FLOAT} {}
+    INLINE_XPU Color(ByteColor byte_color) : Color{byte_color.R, byte_color.G, byte_color.B} {}
+    INLINE_XPU Color(u32 value) : Color{ByteColor{value}} {}
     INLINE_XPU Color(f32 value) : red{value}, green{value}, blue{value} {}
     INLINE_XPU Color(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f) : red{red}, green{green}, blue{blue} {}
     INLINE_XPU Color(enum ColorID color_id) : Color{} {
@@ -571,11 +606,27 @@ struct Color {
         }
     }
 
+    INLINE_XPU void applyGamma(f32 gamma = 2.2f) {
+        r = powf(r, gamma);
+        g = powf(g, gamma);
+        b = powf(b, gamma);
+    }
+
+    INLINE_XPU Color gammaCorrected(f32 gamma = 2.2f) const {
+        Color color{*this};
+        color.applyGamma(gamma);
+        return color;
+    }
+
+    INLINE_XPU ByteColor toByteColor(f32 opacity = 1.0f) const {
+        return ByteColor{r, g, b, opacity};
+    }
+
     INLINE_XPU Color clamped() const {
         return {
-            clampedValue(r),
-            clampedValue(g),
-            clampedValue(b)
+                clampedValue(r),
+                clampedValue(g),
+                clampedValue(b)
         };
     }
 
@@ -592,6 +643,16 @@ struct Color {
 
     INLINE_XPU Color& operator = (ColorID color_id) {
         *this  = Color(color_id);
+        return *this;
+    }
+
+    INLINE_XPU Color& operator = (ByteColor byte_color) {
+        *this  = Color(byte_color);
+        return *this;
+    }
+
+    INLINE_XPU Color& operator = (u32 value) {
+        *this  = Color(value);
         return *this;
     }
 
@@ -657,17 +718,17 @@ struct Color {
 
     INLINE_XPU Color operator * (const Color &rhs) const {
         return {
-            r * rhs.r,
-            g * rhs.g,
-            b * rhs.b
+                r * rhs.r,
+                g * rhs.g,
+                b * rhs.b
         };
     }
 
     INLINE_XPU Color operator * (f32 scalar) const {
         return {
-            r * scalar,
-            g * scalar,
-            b * scalar
+                r * scalar,
+                g * scalar,
+                b * scalar
         };
     }
 
@@ -738,6 +799,36 @@ struct Pixel {
     INLINE_XPU Pixel(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f, f32 opacity = 0.0f) : color{red, green, blue}, opacity{opacity} {}
     INLINE_XPU Pixel(enum ColorID color_id, f32 opacity = 1.0f) : Pixel{Color(color_id), opacity} {}
 
+    INLINE_XPU Pixel(ByteColor byte_color) : color{Color{byte_color}}, opacity{((f32)byte_color.A) * COLOR_COMPONENT_TO_FLOAT} {}
+    INLINE_XPU Pixel(u32 value) : Pixel{ByteColor{value}} {}
+    INLINE_XPU Pixel(u8 R, u8 G, u8 B, u8 A) : Pixel{ByteColor{R, G, B, A}} {}
+    INLINE_XPU Pixel(f32 value, f32 opacity = 1.0f) : color{Color{value, value, value}}, opacity{opacity} {}
+
+    INLINE_XPU Pixel& operator = (f32 value) {
+        color = value;
+        opacity = 0.0f;
+        return *this;
+    }
+
+    INLINE_XPU Pixel& operator = (ColorID color_id) {
+        color = color_id;
+        opacity = 0.0f;
+        return *this;
+    }
+
+    INLINE_XPU Pixel& operator = (ByteColor byte_color) {
+        color = byte_color;
+        opacity = ((f32)byte_color.A) * COLOR_COMPONENT_TO_FLOAT;
+        return *this;
+    }
+
+    INLINE_XPU Pixel& operator = (u32 value) {
+        ByteColor byte_color{value};
+        color = byte_color;
+        opacity = ((f32)byte_color.A) * COLOR_COMPONENT_TO_FLOAT;;
+        return *this;
+    }
+
     INLINE_XPU Pixel operator * (f32 factor) const {
         return {
             color * factor,
@@ -776,17 +867,124 @@ struct Pixel {
     }
 };
 
-struct ImageHeader {
+struct TiledGridDimensions {
     u32 width = 0;
     u32 height = 0;
-    u32 depth = 24;
-    f32 gamma = 2.2f;
+    u32 size = 0;
+    u32 stride = 0;
+
+    u32 tile_width = 0;
+    u32 tile_height = 0;
+
+    XPU void updateDimensions(u32 Width, u32 Height, u32 Stride = 0) {
+        stride = Stride == 0 ? Width : Stride;
+        width = Width;
+        height = Height;
+        size = stride * height;
+    }
+
+    XPU void updateTileDimensions(u32 TileWidth, u32 TileHeight) {
+        tile_width = TileWidth;
+        tile_height = TileHeight;
+    }
 };
 
-struct Image : ImageHeader {
-    Pixel *pixels = nullptr;
-    Pixel* operator[] (int row) const { return pixels + row*width; }
+struct TiledGridInfo {
+    u32 tile_width = 0;
+    u32 tile_height = 0;
+    u32 tile_size = 0;
+    u32 rows = 0;
+    u32 columns = 0;
+    u32 right_halo = 0;
+    u32 bottom_halo = 0;
+    u32 right_column = 0;
+    u32 bottom_row = 0;
+    u32 right_column_tile_stride = 0;
+    u32 right_column_tile_size = 0;
+    u32 bottom_row_tile_height = 0;
+    u32 bottom_row_tile_size = 0;
+    u32 row_size = 0;
+
+    u32 tile_x = 0;
+    u32 tile_y = 0;
+    u32 column = 0;
+    u32 row = 0;
+    u32 x = 0;
+    u32 y = 0;
+
+    INLINE_XPU TiledGridInfo(const TiledGridDimensions &dim) :
+            tile_width{dim.tile_width},
+            tile_height{dim.tile_height},
+            tile_size{dim.tile_width * dim.tile_height},
+            rows{   ((dim.height - 1) / dim.tile_height) + 1},
+            columns{((dim.width  - 1) / dim.tile_width ) + 1},
+            right_column{ dim.stride % dim.tile_width},
+            right_halo{ dim.stride % dim.tile_width},
+            bottom_halo{dim.height % dim.tile_height}
+    {
+        right_column = columns - 1;
+        bottom_row = rows - 1;
+        right_column_tile_stride = right_halo == 0 ? tile_width : right_halo;
+        right_column_tile_size = right_column_tile_stride * tile_height;
+        bottom_row_tile_height = bottom_halo == 0 ? tile_height : bottom_halo;
+        bottom_row_tile_size = tile_width * bottom_row_tile_height;
+        row_size = right_column * tile_size + right_column_tile_size;
+    }
+
+    INLINE_XPU void setCoords(u32 X, u32 Y) {
+        x = X;
+        y = Y;
+        tile_x = x % tile_width;
+        tile_y = y % tile_height;
+        column = x / tile_width;
+        row    = y / tile_height;
+    }
+
+    INLINE_XPU void updateGlobalCoords() {
+        x = tile_x + column * tile_width;
+        y = tile_y + row * tile_height;
+    }
+
+    INLINE_XPU u32 getOffset() const {
+        u32 row_tile_stride = column == right_column ? right_column_tile_stride : tile_width;
+        u32 row_tile_size = row == bottom_row ? bottom_row_tile_size : tile_size;
+        return row * row_size + column * row_tile_size + row_tile_stride * tile_y + tile_x;
+    }
+
+    INLINE_XPU u32 getOffset(u32 X, u32 Y) {
+        setCoords(X, Y);
+        return getOffset();
+    }
 };
+
+union ImageFlags {
+    struct {
+        unsigned int alpha:1;
+        unsigned int linear:1;
+        unsigned int tile:1;
+        unsigned int channel:1;
+        unsigned int mipmap:1;
+        unsigned int flip:1;
+        unsigned int wrap:1;
+    };
+    u32 flags = 0;
+};
+
+struct ImageInfo : TiledGridDimensions {
+    u32 mip_count = 0;
+    ImageFlags flags;
+};
+
+
+template <typename T>
+struct Image : ImageInfo {
+    T* content = nullptr;
+    INLINE_XPU T* operator[] (int row) const { return content + row*(flags.channel ? (width * (flags.alpha ? 4 : 3)) : width); }
+};
+
+struct PixelImage : Image<Pixel> {};
+struct FloatImage : Image<f32> {};
+struct ByteColorImage : Image<ByteColor> {};
 
 #define PIXEL_SIZE (sizeof(Pixel))
 #define CANVAS_PIXELS_SIZE (MAX_WINDOW_SIZE * PIXEL_SIZE * 4)
@@ -1049,4 +1247,72 @@ namespace window {
     u16 height{DEFAULT_HEIGHT};
     char* title{(char*)""};
     u32 *content{nullptr};
+}
+
+void writeHeader(const ImageInfo &info, void *file) {
+    os::writeToFile((void*)&info,  sizeof(info),  file);
+}
+void readHeader(ImageInfo &info, void *file) {
+    os::readFromFile(&info,  sizeof(info),  file);
+}
+
+template <typename T>
+bool saveHeader(const T &value, char *file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeHeader(value, file);
+    os::closeFile(file);
+    return true;
+}
+
+template <typename T>
+bool loadHeader(T &value, char *file_path) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+    readHeader(value, file);
+    os::closeFile(file);
+    return true;
+}
+
+template <typename T>
+bool saveContent(const T &value, char *file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeContent(value, file);
+    os::closeFile(file);
+    return true;
+}
+
+template <typename T>
+bool loadContent(T &value, char *file_path) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+    readContent(value, file);
+    os::closeFile(file);
+    return true;
+}
+
+template <typename T>
+bool save(const T &value, char* file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeHeader(value, file);
+    writeContent(value, file);
+    os::closeFile(file);
+    return true;
+}
+
+template <typename T>
+bool load(T &value, char *file_path, memory::MonotonicAllocator *memory_allocator = nullptr) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+
+    if (memory_allocator) {
+        new(&value) T{};
+        readHeader(value, file);
+        if (!allocateMemory(value, memory_allocator)) return false;
+    }
+    readContent(value, file);
+    os::closeFile(file);
+    return true;
 }

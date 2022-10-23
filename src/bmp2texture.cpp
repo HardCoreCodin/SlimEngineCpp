@@ -116,7 +116,7 @@ void loadMips(Texture &texture, TextureMipLoader *mips) {
             start += stride;
         }
 
-        next_mip->load(texture.wrap);
+        next_mip->load(texture.flags.wrap);
 
         current_mip++;
         next_mip++;
@@ -129,9 +129,12 @@ int main(int argc, char *argv[]) {
     char* bitmap_file_path = argv[1];
     char* texture_file_path = argv[2];
     for (u8 i = 3; i < (u8)argc; i++) {
-        if (     argv[i][0] == '-' && argv[i][1] == 'm') texture.mipmap = true;
-        else if (argv[i][0] == '-' && argv[i][1] == 'w') texture.wrap = true;
-        else if (argv[i][0] == '-' && argv[i][1] == 'l') texture.gamma = 1.0f;
+        if (     argv[i][0] == '-' && argv[i][1] == 'f') texture.flags.flip = true;
+        else if (argv[i][0] == '-' && argv[i][1] == 'c') texture.flags.channel = true;
+        else if (argv[i][0] == '-' && argv[i][1] == 'l') texture.flags.linear = true;
+        else if (argv[i][0] == '-' && argv[i][1] == 't') texture.flags.tile = true;
+        else if (argv[i][0] == '-' && argv[i][1] == 'm') texture.flags.mipmap = true;
+        else if (argv[i][0] == '-' && argv[i][1] == 'w') texture.flags.wrap = true;
         else return 0;
     }
 
@@ -140,7 +143,7 @@ int main(int argc, char *argv[]) {
     u32 mip_width  = texture.width;
     u32 mip_height = texture.height;
     texture.mip_count = 1;
-    if (texture.mipmap)
+    if (texture.flags.mipmap)
         while (mip_width > 4 && mip_height > 4) {
             mip_width /= 2;
             mip_height /= 2;
@@ -150,8 +153,8 @@ int main(int argc, char *argv[]) {
     auto *mips = new TextureMipLoader[texture.mip_count];
     mips->init(texture.width, texture.height);
     componentsToPixels(components, texture, mips->texels);
-    mips->load(texture.wrap);
-    if (texture.mipmap) loadMips(texture, mips);
+    mips->load(texture.flags.wrap);
+    if (texture.flags.mipmap) loadMips(texture, mips);
 
     texture.mips = new TextureMip[texture.mip_count];
     TextureMip *mip = texture.mips;

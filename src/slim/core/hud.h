@@ -3,13 +3,13 @@
 #include "../core/string.h"
 
 struct HUDLine {
-    String title{}, alternate_value{};
-    NumberString value{};
-    enum ColorID title_color{BrightGrey};
-    enum ColorID value_color{BrightGrey};
-    enum ColorID alternate_value_color{Grey};
-    bool *use_alternate{nullptr};
-    bool invert_alternate_use{false};
+    String title, alternate_value;
+    NumberString value;
+    enum ColorID title_color = BrightGrey;
+    enum ColorID value_color = BrightGrey;
+    enum ColorID alternate_value_color = Grey;
+    bool *use_alternate = nullptr;
+    bool invert_alternate_use = false;
 
     HUDLine(enum ColorID default_color = BrightGrey) :
             title{},
@@ -53,19 +53,19 @@ struct HUDLine {
 };
 
 struct HUDSettings {
-    u32 line_count{0};
-    f32 line_height{1.0f};
-    enum ColorID default_color{BrightGrey};
+    u32 line_count = 0;
+    f32 line_height = 1.2f;
+    enum ColorID default_color = BrightGrey;
 
     HUDSettings(u32 line_count = 0,
-                f32 line_height = 1.0f,
+                f32 line_height = 1.2f,
                 ColorID default_color = BrightGrey) : line_count{line_count}, line_height{line_height}, default_color{default_color} {}
 };
 struct HUD {
     HUDSettings settings;
     HUDLine *lines = nullptr;
     i32 left = 10, top = 10;
-    bool enabled{true};
+    bool enabled = true;
 
     HUD() = default;
     HUD(HUDSettings settings,

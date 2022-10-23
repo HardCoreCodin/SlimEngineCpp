@@ -202,8 +202,14 @@ INLINE_XPU i32 clampedValue(i32 value) {
 }
 
 INLINE_XPU f32 smoothStep(f32 from, f32 to, f32 t) {
+    if (t <= from) return 0;
+    if (t >= to) return 1;
     t = (t - from) / (to - from);
     return t * t * (3.0f - 2.0f * t);
+}
+
+INLINE_XPU f32 smoothStep(f32 t) {
+    return smoothStep(0.0f, 1.0f, t);
 }
 
 INLINE_XPU f32 approach(f32 src, f32 trg, f32 diff) {
@@ -216,36 +222,37 @@ INLINE_XPU f32 approach(f32 src, f32 trg, f32 diff) {
 }
 
 template <typename T>
-INLINE void swap(T *a, T *b) {
+INLINE_XPU void swap(T *a, T *b) {
     T t = *a;
     *a = *b;
     *b = t;
 }
 
+
 template <typename T>
 struct RangeOf {
     T first, last;
 
-    RangeOf() : RangeOf{0, 0} {}
-    RangeOf(T first, T last) : first{first}, last{last} {}
-    RangeOf(const RangeOf<T> &other) : RangeOf{other.first, other.last} {}
+    INLINE_XPU RangeOf() : RangeOf{0, 0} {}
+    INLINE_XPU RangeOf(T first, T last) : first{first}, last{last} {}
+    INLINE_XPU RangeOf(const RangeOf<T> &other) : RangeOf{other.first, other.last} {}
 
-    INLINE bool contains(i32 v) const { return (first <= v) && (v <= last); }
-    INLINE bool bounds(i32 v) const { return (first < v) && (v < last); }
-    INLINE bool operator!() const { return last < first; }
-    INLINE bool operator[](T v) const { return contains(v); }
-    INLINE bool operator()(T v) const { return bounds(v); }
-    INLINE void operator+=(T offset) {first += offset; last += offset;}
-    INLINE void operator-=(T offset) {first -= offset; last -= offset;}
-    INLINE void operator*=(T factor) {first *= factor; last *= factor;}
-    INLINE void operator/=(T factor) {factor = 1 / factor; first *= factor; last *= factor;}
-    INLINE void operator-=(const RangeOf<T> &rhs) { sub(rhs.first, rhs.last); }
-    INLINE RangeOf<T> operator-(const RangeOf<T> &rhs) const {
+    INLINE_XPU bool contains(i32 v) const { return (first <= v) && (v <= last); }
+    INLINE_XPU bool bounds(i32 v) const { return (first < v) && (v < last); }
+    INLINE_XPU bool operator!() const { return last < first; }
+    INLINE_XPU bool operator[](T v) const { return contains(v); }
+    INLINE_XPU bool operator()(T v) const { return bounds(v); }
+    INLINE_XPU void operator+=(T offset) {first += offset; last += offset;}
+    INLINE_XPU void operator-=(T offset) {first -= offset; last -= offset;}
+    INLINE_XPU void operator*=(T factor) {first *= factor; last *= factor;}
+    INLINE_XPU void operator/=(T factor) {factor = 1 / factor; first *= factor; last *= factor;}
+    INLINE_XPU void operator-=(const RangeOf<T> &rhs) { sub(rhs.first, rhs.last); }
+    INLINE_XPU RangeOf<T> operator-(const RangeOf<T> &rhs) const {
         RangeOf<T> result{first, last};
         result.sub(rhs.first, rhs.last);
         return result;
     }
-    INLINE void sub(T sub_first, T sub_last) {
+    INLINE_XPU void sub(T sub_first, T sub_last) {
         if (sub_last < sub_first) {
             T tmp = sub_last;
             sub_last = sub_first;
@@ -277,30 +284,33 @@ struct RectOf {
         };
     };
 
-    RectOf(const RectOf<T> &other) : RectOf{other.x_range, other.y_range} {}
-    RectOf(const RangeOf<T> &x_range, const RangeOf<T> &y_range) : x_range{x_range}, y_range{y_range} {}
-    RectOf(T left = 0, T right = 0, T top = 0, T bottom = 0) : left{left}, right{right}, top{top}, bottom{bottom} {}
+    INLINE_XPU RectOf(const RectOf<T> &other) : RectOf{other.x_range, other.y_range} {}
+    INLINE_XPU RectOf(const RangeOf<T> &x_range, const RangeOf<T> &y_range) : x_range{x_range}, y_range{y_range} {}
+    INLINE_XPU RectOf(T left = 0, T right = 0, T top = 0, T bottom = 0) : left{left}, right{right}, top{top}, bottom{bottom} {
+        if (right < left) swap(&right, &left);
+        if (bottom < top) swap(&top, &bottom);
+    }
 
-    INLINE bool contains(T x, T y) const { return x_range.contains(x) && y_range.contains(y); }
-    INLINE bool bounds(T x, T y) const { return x_range.bounds(x) && y_range.bounds(y); }
-    INLINE bool operator!() const { return !x_range || !y_range; }
-    INLINE bool isOutsideOf(const RectOf<T> &other) {
+    INLINE_XPU bool contains(T x, T y) const { return x_range.contains(x) && y_range.contains(y); }
+    INLINE_XPU bool bounds(T x, T y) const { return x_range.bounds(x) && y_range.bounds(y); }
+    INLINE_XPU bool operator!() const { return !x_range || !y_range; }
+    INLINE_XPU bool isOutsideOf(const RectOf<T> &other) {
         return (
                 other.right < left || right < other.left ||
                 other.bottom < top || bottom < other.top
         );
     }
-    INLINE void operator+=(T offset) {x_range += offset; y_range += offset;}
-    INLINE void operator-=(T offset) {x_range -= offset; y_range -= offset;}
-    INLINE void operator*=(T factor) {x_range *= factor; y_range *= factor;}
-    INLINE void operator/=(T factor) {x_range /= factor; y_range /= factor;}
-    INLINE void operator-=(const RectOf<T> &rhs) { sub(rhs.x_range, rhs.y_range); }
-    INLINE RectOf<T> operator-(const RectOf<T> &rhs) const {
+    INLINE_XPU void operator+=(T offset) {x_range += offset; y_range += offset;}
+    INLINE_XPU void operator-=(T offset) {x_range -= offset; y_range -= offset;}
+    INLINE_XPU void operator*=(T factor) {x_range *= factor; y_range *= factor;}
+    INLINE_XPU void operator/=(T factor) {x_range /= factor; y_range /= factor;}
+    INLINE_XPU void operator-=(const RectOf<T> &rhs) { sub(rhs.x_range, rhs.y_range); }
+    INLINE_XPU RectOf<T> operator-(const RectOf<T> &rhs) const {
         RectOf<T> result{x_range, y_range};
         result.sub(rhs.x_range, rhs.y_range);
         return result;
     }
-    INLINE void sub(const RangeOf<T> &other_x_range, const RangeOf<T> &other_y_range) {
+    INLINE_XPU void sub(const RangeOf<T> &other_x_range, const RangeOf<T> &other_y_range) {
         x_range -= other_x_range;
         y_range -= other_y_range;
     }
@@ -464,12 +474,37 @@ enum ColorID {
     DarkYellow
 };
 
+struct ByteColor {
+    union {
+        struct { u8 B, G, R, A; };
+        u8 components[4];
+        u32 value;
+    };
+
+    INLINE_XPU ByteColor(u8 R = 0, u8 G = 0, u8 B = 0, u8 A = 0) : B{B}, G{G}, R{R}, A{A} {}
+    INLINE_XPU ByteColor(f32 r, f32 g, f32 b, f32 a = 0.0f) :
+        B{(u8)(b * FLOAT_TO_COLOR_COMPONENT)},
+        G{(u8)(g * FLOAT_TO_COLOR_COMPONENT)},
+        R{(u8)(r * FLOAT_TO_COLOR_COMPONENT)},
+        A{(u8)(a * FLOAT_TO_COLOR_COMPONENT)} {}
+
+    INLINE_XPU ByteColor(u32 value) :
+        B{(u8)value},
+        G{(u8)(value >> 8)},
+        R{(u8)(value >> 16)},
+        A{(u8)(value >> 24)} {}
+};
+
 struct Color {
     union {
         struct { f32 red, green, blue; };
         struct { f32 r  , g    , b   ; };
+        f32 components[3];
     };
 
+    INLINE_XPU Color(u8 R, u8 G, u8 B) : red{(f32)R * COLOR_COMPONENT_TO_FLOAT}, green{(f32)G * COLOR_COMPONENT_TO_FLOAT}, blue{(f32)B * COLOR_COMPONENT_TO_FLOAT} {}
+    INLINE_XPU Color(ByteColor byte_color) : Color{byte_color.R, byte_color.G, byte_color.B} {}
+    INLINE_XPU Color(u32 value) : Color{ByteColor{value}} {}
     INLINE_XPU Color(f32 value) : red{value}, green{value}, blue{value} {}
     INLINE_XPU Color(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f) : red{red}, green{green}, blue{blue} {}
     INLINE_XPU Color(enum ColorID color_id) : Color{} {
@@ -573,11 +608,27 @@ struct Color {
         }
     }
 
+    INLINE_XPU void applyGamma(f32 gamma = 2.2f) {
+        r = powf(r, gamma);
+        g = powf(g, gamma);
+        b = powf(b, gamma);
+    }
+
+    INLINE_XPU Color gammaCorrected(f32 gamma = 2.2f) const {
+        Color color{*this};
+        color.applyGamma(gamma);
+        return color;
+    }
+
+    INLINE_XPU ByteColor toByteColor(f32 opacity = 1.0f) const {
+        return ByteColor{r, g, b, opacity};
+    }
+
     INLINE_XPU Color clamped() const {
         return {
-            clampedValue(r),
-            clampedValue(g),
-            clampedValue(b)
+                clampedValue(r),
+                clampedValue(g),
+                clampedValue(b)
         };
     }
 
@@ -594,6 +645,16 @@ struct Color {
 
     INLINE_XPU Color& operator = (ColorID color_id) {
         *this  = Color(color_id);
+        return *this;
+    }
+
+    INLINE_XPU Color& operator = (ByteColor byte_color) {
+        *this  = Color(byte_color);
+        return *this;
+    }
+
+    INLINE_XPU Color& operator = (u32 value) {
+        *this  = Color(value);
         return *this;
     }
 
@@ -659,17 +720,17 @@ struct Color {
 
     INLINE_XPU Color operator * (const Color &rhs) const {
         return {
-            r * rhs.r,
-            g * rhs.g,
-            b * rhs.b
+                r * rhs.r,
+                g * rhs.g,
+                b * rhs.b
         };
     }
 
     INLINE_XPU Color operator * (f32 scalar) const {
         return {
-            r * scalar,
-            g * scalar,
-            b * scalar
+                r * scalar,
+                g * scalar,
+                b * scalar
         };
     }
 
@@ -740,6 +801,36 @@ struct Pixel {
     INLINE_XPU Pixel(f32 red = 0.0f, f32 green = 0.0f, f32 blue = 0.0f, f32 opacity = 0.0f) : color{red, green, blue}, opacity{opacity} {}
     INLINE_XPU Pixel(enum ColorID color_id, f32 opacity = 1.0f) : Pixel{Color(color_id), opacity} {}
 
+    INLINE_XPU Pixel(ByteColor byte_color) : color{Color{byte_color}}, opacity{((f32)byte_color.A) * COLOR_COMPONENT_TO_FLOAT} {}
+    INLINE_XPU Pixel(u32 value) : Pixel{ByteColor{value}} {}
+    INLINE_XPU Pixel(u8 R, u8 G, u8 B, u8 A) : Pixel{ByteColor{R, G, B, A}} {}
+    INLINE_XPU Pixel(f32 value, f32 opacity = 1.0f) : color{Color{value, value, value}}, opacity{opacity} {}
+
+    INLINE_XPU Pixel& operator = (f32 value) {
+        color = value;
+        opacity = 0.0f;
+        return *this;
+    }
+
+    INLINE_XPU Pixel& operator = (ColorID color_id) {
+        color = color_id;
+        opacity = 0.0f;
+        return *this;
+    }
+
+    INLINE_XPU Pixel& operator = (ByteColor byte_color) {
+        color = byte_color;
+        opacity = ((f32)byte_color.A) * COLOR_COMPONENT_TO_FLOAT;
+        return *this;
+    }
+
+    INLINE_XPU Pixel& operator = (u32 value) {
+        ByteColor byte_color{value};
+        color = byte_color;
+        opacity = ((f32)byte_color.A) * COLOR_COMPONENT_TO_FLOAT;;
+        return *this;
+    }
+
     INLINE_XPU Pixel operator * (f32 factor) const {
         return {
             color * factor,
@@ -778,17 +869,124 @@ struct Pixel {
     }
 };
 
-struct ImageHeader {
+
+struct TiledGridDimensions {
     u32 width = 0;
     u32 height = 0;
-    u32 depth = 24;
-    f32 gamma = 2.2f;
+    u32 size = 0;
+    u32 stride = 0;
+
+    u32 tile_width = 0;
+    u32 tile_height = 0;
+
+    XPU void updateDimensions(u32 Width, u32 Height, u32 Stride = 0) {
+        stride = Stride == 0 ? Width : Stride;
+        width = Width;
+        height = Height;
+        size = stride * height;
+    }
+
+    XPU void updateTileDimensions(u32 TileWidth, u32 TileHeight) {
+        tile_width = TileWidth;
+        tile_height = TileHeight;
+    }
 };
 
-struct Image : ImageHeader {
-    Pixel *pixels = nullptr;
-    Pixel* operator[] (int row) const { return pixels + row*width; }
+struct TiledGridInfo {
+    u32 tile_width = 0;
+    u32 tile_height = 0;
+    u32 tile_size = 0;
+    u32 rows = 0;
+    u32 columns = 0;
+    u32 right_halo = 0;
+    u32 bottom_halo = 0;
+    u32 right_column = 0;
+    u32 bottom_row = 0;
+    u32 right_column_tile_stride = 0;
+    u32 right_column_tile_size = 0;
+    u32 bottom_row_tile_height = 0;
+    u32 bottom_row_tile_size = 0;
+    u32 row_size = 0;
+
+    u32 tile_x = 0;
+    u32 tile_y = 0;
+    u32 column = 0;
+    u32 row = 0;
+    u32 x = 0;
+    u32 y = 0;
+
+    INLINE_XPU TiledGridInfo(const TiledGridDimensions &dim) :
+            tile_width{dim.tile_width},
+            tile_height{dim.tile_height},
+            tile_size{dim.tile_width * dim.tile_height},
+            rows{   ((dim.height - 1) / dim.tile_height) + 1},
+            columns{((dim.width  - 1) / dim.tile_width ) + 1},
+            right_column{ dim.stride % dim.tile_width},
+            right_halo{ dim.stride % dim.tile_width},
+            bottom_halo{dim.height % dim.tile_height}
+    {
+        right_column = columns - 1;
+        bottom_row = rows - 1;
+        right_column_tile_stride = right_halo == 0 ? tile_width : right_halo;
+        right_column_tile_size = right_column_tile_stride * tile_height;
+        bottom_row_tile_height = bottom_halo == 0 ? tile_height : bottom_halo;
+        bottom_row_tile_size = tile_width * bottom_row_tile_height;
+        row_size = right_column * tile_size + right_column_tile_size;
+    }
+
+    INLINE_XPU void setCoords(u32 X, u32 Y) {
+        x = X;
+        y = Y;
+        tile_x = x % tile_width;
+        tile_y = y % tile_height;
+        column = x / tile_width;
+        row    = y / tile_height;
+    }
+
+    INLINE_XPU void updateGlobalCoords() {
+        x = tile_x + column * tile_width;
+        y = tile_y + row * tile_height;
+    }
+
+    INLINE_XPU u32 getOffset() const {
+        u32 row_tile_stride = column == right_column ? right_column_tile_stride : tile_width;
+        u32 row_tile_size = row == bottom_row ? bottom_row_tile_size : tile_size;
+        return row * row_size + column * row_tile_size + row_tile_stride * tile_y + tile_x;
+    }
+
+    INLINE_XPU u32 getOffset(u32 X, u32 Y) {
+        setCoords(X, Y);
+        return getOffset();
+    }
 };
+
+union ImageFlags {
+    struct {
+        unsigned int alpha:1;
+        unsigned int linear:1;
+        unsigned int tile:1;
+        unsigned int channel:1;
+        unsigned int mipmap:1;
+        unsigned int flip:1;
+        unsigned int wrap:1;
+    };
+    u32 flags = 0;
+};
+
+struct ImageInfo : TiledGridDimensions {
+    u32 mip_count = 0;
+    ImageFlags flags;
+};
+
+template <typename T>
+struct Image : ImageInfo {
+    T* content = nullptr;
+    INLINE_XPU T* operator[] (int row) const { return content + row*(flags.channel ? (width * (flags.alpha ? 4 : 3)) : width); }
+};
+
+struct PixelImage : Image<Pixel> {};
+struct FloatImage : Image<f32> {};
+struct ByteColorImage : Image<ByteColor> {};
 
 #define PIXEL_SIZE (sizeof(Pixel))
 #define CANVAS_PIXELS_SIZE (MAX_WINDOW_SIZE * PIXEL_SIZE * 4)
@@ -1053,6 +1251,74 @@ namespace window {
     u32 *content{nullptr};
 }
 
+void writeHeader(const ImageInfo &info, void *file) {
+    os::writeToFile((void*)&info,  sizeof(info),  file);
+}
+void readHeader(ImageInfo &info, void *file) {
+    os::readFromFile(&info,  sizeof(info),  file);
+}
+
+template <typename T>
+bool saveHeader(const T &value, char *file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeHeader(value, file);
+    os::closeFile(file);
+    return true;
+}
+
+template <typename T>
+bool loadHeader(T &value, char *file_path) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+    readHeader(value, file);
+    os::closeFile(file);
+    return true;
+}
+
+template <typename T>
+bool saveContent(const T &value, char *file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeContent(value, file);
+    os::closeFile(file);
+    return true;
+}
+
+template <typename T>
+bool loadContent(T &value, char *file_path) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+    readContent(value, file);
+    os::closeFile(file);
+    return true;
+}
+
+template <typename T>
+bool save(const T &value, char* file_path) {
+    void *file = os::openFileForWriting(file_path);
+    if (!file) return false;
+    writeHeader(value, file);
+    writeContent(value, file);
+    os::closeFile(file);
+    return true;
+}
+
+template <typename T>
+bool load(T &value, char *file_path, memory::MonotonicAllocator *memory_allocator = nullptr) {
+    void *file = os::openFileForReading(file_path);
+    if (!file) return false;
+
+    if (memory_allocator) {
+        new(&value) T{};
+        readHeader(value, file);
+        if (!allocateMemory(value, memory_allocator)) return false;
+    }
+    readContent(value, file);
+    os::closeFile(file);
+    return true;
+}
+
 struct String {
     u32 length;
     char *char_ptr;
@@ -1224,14 +1490,216 @@ struct NumberString {
     }
 };
 
+
+template <typename T>
+u32 getSizeInBytes(const Image<T> &image) {
+    return sizeof(T) * image.size * (image.flags.channel ? (image.flags.alpha ? 4 : 3) : 1);
+}
+
+template <typename T>
+bool allocateMemory(Image<T> &image, memory::MonotonicAllocator *memory_allocator) {
+    u32 size = getSizeInBytes(image);
+    if (size > (memory_allocator->capacity - memory_allocator->occupied)) return false;
+    image.content = (T*)memory_allocator->allocate(size);
+    return true;
+}
+
+template <typename T>
+void readContent(Image<T> &image, void *file) {
+    os::readFromFile((void*)image.content, getSizeInBytes(image), file);
+}
+
+template <typename T>
+void writeContent(const Image<T> &image, void *file) {
+    os::writeToFile((void*)image.content, getSizeInBytes(image), file);
+}
+
+template <typename T>
+u32 getTotalMemoryForImages(String *image_files, u32 image_count) {
+    u32 memory_size{0};
+    for (u32 i = 0; i < image_count; i++) {
+        Image<T> image;
+        loadHeader(image, image_files[i].char_ptr);
+        memory_size += getSizeInBytes(image);
+    }
+    return memory_size;
+}
+
+template <typename T>
+struct ImagePack {
+    ImagePack(u8 count, Image<T> *images, char **files, char* adjacent_file, u64 memory_base = Terabytes(3)) {
+        char string_buffer[200];
+        u32 memory_size{0};
+        Image<T> *image = images;
+        for (u32 i = 0; i < count; i++, image++) {
+            String string = String::getFilePath(files[i], string_buffer, adjacent_file);
+            loadHeader(*image, string.char_ptr);
+            memory_size += getSizeInBytes(*image);
+        }
+        memory::MonotonicAllocator memory_allocator{memory_size, memory_base};
+
+        image = images;
+        for (u32 i = 0; i < count; i++, image++) {
+            String string = String::getFilePath(files[i], string_buffer, adjacent_file);
+            load(*image, string.char_ptr, &memory_allocator);
+        }
+    }
+};
+
+struct TexelQuadComponent {
+    u8 TL, TR, BL, BR;
+};
+
+struct TexelQuad {
+    TexelQuadComponent R, G, B;
+};
+
+struct TextureMip {
+    u32 width, height;
+    TexelQuad *texel_quads;
+
+    INLINE_XPU Pixel sample(f32 u, f32 v) const {
+        if (u > 1) u -= (f32)((u32)u);
+        if (v > 1) v -= (f32)((u32)v);
+
+        const f32 U = u * (f32)width  + 0.5f;
+        const f32 V = v * (f32)height + 0.5f;
+        const u32 x = (u32)U;
+        const u32 y = (u32)V;
+        const f32 r = U - (f32)x;
+        const f32 b = V - (f32)y;
+        const f32 l = 1 - r;
+        const f32 t = 1 - b;
+        const f32 tl = t * l * COLOR_COMPONENT_TO_FLOAT;
+        const f32 tr = t * r * COLOR_COMPONENT_TO_FLOAT;
+        const f32 bl = b * l * COLOR_COMPONENT_TO_FLOAT;
+        const f32 br = b * r * COLOR_COMPONENT_TO_FLOAT;
+
+        const TexelQuad texel_quad = texel_quads[y * (width + 1) + x];
+        return {
+                fast_mul_add((f32)texel_quad.R.BR, br, fast_mul_add((f32)texel_quad.R.BL, bl, fast_mul_add((f32)texel_quad.R.TR, tr, (f32)texel_quad.R.TL * tl))),
+                fast_mul_add((f32)texel_quad.G.BR, br, fast_mul_add((f32)texel_quad.G.BL, bl, fast_mul_add((f32)texel_quad.G.TR, tr, (f32)texel_quad.G.TL * tl))),
+                fast_mul_add((f32)texel_quad.B.BR, br, fast_mul_add((f32)texel_quad.B.BL, bl, fast_mul_add((f32)texel_quad.B.TR, tr, (f32)texel_quad.B.TL * tl))),
+                1.0f
+        };
+    }
+};
+
+struct Texture : ImageInfo {
+    TextureMip *mips = nullptr;
+
+    XPU static u32 GetMipLevel(f32 texel_area, u32 mip_count) {
+        u32 mip_level = 0;
+        while (texel_area > 1 && ++mip_level < mip_count) texel_area *= 0.25f;
+        if (mip_level >= mip_count)
+            mip_level = mip_count - 1;
+
+        return mip_level;
+    }
+
+    XPU static u32 GetMipLevel(u32 width, u32 height, u32 mip_count, f32 uv_area) {
+        return GetMipLevel(uv_area * (f32)(width * height), mip_count);
+    }
+
+    XPU static u32 GetMipLevel(const Texture &texture, f32 uv_area) {
+        return GetMipLevel(uv_area * (f32)(texture.width * texture.height), texture.mip_count);
+    }
+
+    INLINE_XPU Pixel sample(f32 u, f32 v, f32 uv_area) const {
+        return mips[flags.mipmap ? GetMipLevel(uv_area * (f32)(width * height), mip_count) : 0].sample(u, v);
+    }
+};
+
+u32 getSizeInBytes(const Texture &texture) {
+    u32 mip_width  = texture.width;
+    u32 mip_height = texture.height;
+    u32 memory_size = 0;
+
+    do {
+        memory_size += sizeof(TextureMip);
+        memory_size += (mip_width + 1) * (mip_height + 1) * sizeof(TexelQuad);
+
+        mip_width /= 2;
+        mip_height /= 2;
+    } while (texture.flags.mipmap && mip_width > 2 && mip_height > 2);
+
+    return memory_size;
+}
+
+bool allocateMemory(Texture &texture, memory::MonotonicAllocator *memory_allocator) {
+    u32 size = getSizeInBytes(texture);
+    if (size > (memory_allocator->capacity - memory_allocator->occupied)) return false;
+    texture.mips = (TextureMip*)memory_allocator->allocate(sizeof(TextureMip) * texture.mip_count);
+    TextureMip *texture_mip = texture.mips;
+    u32 mip_width  = texture.width;
+    u32 mip_height = texture.height;
+
+    do {
+        texture_mip->texel_quads = (TexelQuad*)memory_allocator->allocate(sizeof(TexelQuad) * (mip_height + 1) * (mip_width + 1));
+        mip_width /= 2;
+        mip_height /= 2;
+        texture_mip++;
+    } while (texture.flags.mipmap && mip_width > 2 && mip_height > 2);
+
+    return true;
+}
+
+void readContent(Texture &texture, void *file) {
+    TextureMip *texture_mip = texture.mips;
+    for (u8 mip_index = 0; mip_index < texture.mip_count; mip_index++, texture_mip++) {
+        os::readFromFile(&texture_mip->width,  sizeof(u32), file);
+        os::readFromFile(&texture_mip->height, sizeof(u32), file);
+        os::readFromFile(texture_mip->texel_quads, sizeof(TexelQuad) * (texture_mip->width + 1) * (texture_mip->height + 1), file);
+    }
+}
+void writeContent(const Texture &texture, void *file) {
+    TextureMip *texture_mip = texture.mips;
+    for (u8 mip_index = 0; mip_index < texture.mip_count; mip_index++, texture_mip++) {
+        os::writeToFile(&texture_mip->width,  sizeof(u32), file);
+        os::writeToFile(&texture_mip->height, sizeof(u32), file);
+        os::writeToFile(texture_mip->texel_quads, sizeof(TexelQuad) * (texture_mip->width + 1) * (texture_mip->height + 1), file);
+    }
+}
+
+u32 getTotalMemoryForTextures(String *texture_files, u32 texture_count) {
+    u32 memory_size{0};
+    for (u32 i = 0; i < texture_count; i++) {
+        Texture texture;
+        loadHeader(texture, texture_files[i].char_ptr);
+        memory_size += getSizeInBytes(texture);
+    }
+    return memory_size;
+}
+
+struct TexturePack {
+    TexturePack(u8 count, Texture *textures, char **files, char* adjacent_file, u64 memory_base = Terabytes(3)) {
+        char string_buffer[200];
+        u32 memory_size{0};
+        Texture *texture = textures;
+        for (u32 i = 0; i < count; i++, texture++) {
+            String string = String::getFilePath(files[i], string_buffer, adjacent_file);
+            loadHeader(*texture, string.char_ptr);
+            memory_size += getSizeInBytes(*texture);
+        }
+        memory::MonotonicAllocator memory_allocator{memory_size, memory_base};
+
+        texture = textures;
+        for (u32 i = 0; i < count; i++, texture++) {
+            String string = String::getFilePath(files[i], string_buffer, adjacent_file);
+            load(*texture, string.char_ptr, &memory_allocator);
+        }
+    }
+};
+
+
 struct HUDLine {
-    String title{}, alternate_value{};
-    NumberString value{};
-    enum ColorID title_color{BrightGrey};
-    enum ColorID value_color{BrightGrey};
-    enum ColorID alternate_value_color{Grey};
-    bool *use_alternate{nullptr};
-    bool invert_alternate_use{false};
+    String title, alternate_value;
+    NumberString value;
+    enum ColorID title_color = BrightGrey;
+    enum ColorID value_color = BrightGrey;
+    enum ColorID alternate_value_color = Grey;
+    bool *use_alternate = nullptr;
+    bool invert_alternate_use = false;
 
     HUDLine(enum ColorID default_color = BrightGrey) :
             title{},
@@ -1249,12 +1717,12 @@ struct HUDLine {
     HUDLine(char* title_char_ptr,
             char* value_char_ptr,
             enum ColorID default_color = BrightGrey) :
-            title{title_char_ptr},
-            alternate_value{},
-            value{value_char_ptr},
-            title_color{default_color},
-            alternate_value_color{default_color}
-    {}
+                    title{title_char_ptr},
+                    alternate_value{},
+                    value{value_char_ptr},
+                    title_color{default_color},
+                    alternate_value_color{default_color}
+                    {}
     HUDLine(char* title_char_ptr,
             char* value_char_ptr,
             char* alternate_value_char_ptr,
@@ -1275,28 +1743,28 @@ struct HUDLine {
 };
 
 struct HUDSettings {
-    u32 line_count{0};
-    f32 line_height{1.0f};
-    enum ColorID default_color{BrightGrey};
+    u32 line_count = 0;
+    f32 line_height = 1.2f;
+    enum ColorID default_color = BrightGrey;
 
     HUDSettings(u32 line_count = 0,
-                f32 line_height = 1.0f,
+                f32 line_height = 1.2f,
                 ColorID default_color = BrightGrey) : line_count{line_count}, line_height{line_height}, default_color{default_color} {}
 };
 struct HUD {
     HUDSettings settings;
     HUDLine *lines = nullptr;
     i32 left = 10, top = 10;
-    bool enabled{true};
+    bool enabled = true;
 
     HUD() = default;
     HUD(HUDSettings settings,
         HUDLine *lines,
         i32 left = 10,
         i32 top = 10) :
-            settings{settings}, lines{lines}, left{left}, top{top} {
+        settings{settings}, lines{lines}, left{left}, top{top} {
         if (settings.default_color != BrightGrey) for (u32 i = 0; i < settings.line_count; i++)
-                lines[i].title_color = lines[i].alternate_value_color = lines[i].value_color = settings.default_color;
+            lines[i].title_color = lines[i].alternate_value_color = lines[i].value_color = settings.default_color;
     }
     HUD(HUDSettings settings, memory::AllocateMemory allocate_memory = nullptr, i32 left = 10, i32 top = 10) : settings{settings}, left{left}, top{top} {
         if (settings.line_count) {
@@ -1308,15 +1776,15 @@ struct HUD {
 };
 
 
-
 #define SLIM_VEC2
+
 
 struct vec2i {
     i32 x, y;
 
     INLINE_XPU vec2i() noexcept : vec2i{0} {}
     INLINE_XPU vec2i(i32 x, i32 y) noexcept : x(x), y(y) {}
-    INLINE_XPU vec2i(const vec2i &other) noexcept : vec2i{other.x, other.y} {}
+    INLINE_XPU vec2i(vec2i &other) noexcept : vec2i{other.x, other.y} {}
     INLINE_XPU explicit vec2i(i32 value) noexcept : vec2i{value, value} {}
 
     INLINE_XPU bool operator == (const vec2i &other) const {
@@ -4950,346 +5418,6 @@ u32 getTotalMemoryForMeshes(String *mesh_files, u32 mesh_count, u8 *max_bvh_heig
     return memory_size;
 }
 
-u32 getSizeInBytes(const Image &image) {
-    return image.width * image.height * sizeof(Pixel);
-}
-
-bool allocateMemory(Image &image, memory::MonotonicAllocator *memory_allocator) {
-    if (getSizeInBytes(image) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
-    image.pixels = (Pixel*)memory_allocator->allocate(sizeof(Pixel) * image.width * image.height);
-    return true;
-}
-
-void writeHeader(const ImageHeader &image_header, void *file) {
-    os::writeToFile((void*)&image_header.width,  sizeof(u32),  file);
-    os::writeToFile((void*)&image_header.height, sizeof(u32),  file);
-    os::writeToFile((void*)&image_header.depth,  sizeof(u32),  file);
-    os::writeToFile((void*)&image_header.gamma,  sizeof(f32),  file);
-}
-void readHeader(ImageHeader &image_header, void *file) {
-    os::readFromFile(&image_header.width,  sizeof(u32),  file);
-    os::readFromFile(&image_header.height, sizeof(u32),  file);
-    os::readFromFile(&image_header.depth,  sizeof(u32),  file);
-    os::readFromFile(&image_header.gamma,  sizeof(f32),  file);
-}
-
-bool saveHeader(const Image &image, char *file_path) {
-    void *file = os::openFileForWriting(file_path);
-    if (!file) return false;
-    writeHeader(image, file);
-    os::closeFile(file);
-    return true;
-}
-
-bool loadHeader(Image &image, char *file_path) {
-    void *file = os::openFileForReading(file_path);
-    if (!file) return false;
-    readHeader(image, file);
-    os::closeFile(file);
-    return true;
-}
-
-void readContent(Image &image, void *file) {
-    os::readFromFile((void*)image.pixels, sizeof(Pixel) * image.width * image.height, file);
-}
-void writeContent(const Image &image, void *file) {
-    os::writeToFile((void*)image.pixels, sizeof(Pixel) * image.width * image.height, file);
-}
-
-bool saveContent(const Image &image, char *file_path) {
-    void *file = os::openFileForWriting(file_path);
-    if (!file) return false;
-    writeContent(image, file);
-    os::closeFile(file);
-    return true;
-}
-
-bool loadContent(Image &image, char *file_path) {
-    void *file = os::openFileForReading(file_path);
-    if (!file) return false;
-    readContent(image, file);
-    os::closeFile(file);
-    return true;
-}
-
-bool save(const Image &image, char* file_path) {
-    void *file = os::openFileForWriting(file_path);
-    if (!file) return false;
-    writeHeader(image, file);
-    writeContent(image, file);
-    os::closeFile(file);
-    return true;
-}
-
-bool load(Image &image, char *file_path, memory::MonotonicAllocator *memory_allocator = nullptr) {
-    void *file = os::openFileForReading(file_path);
-    if (!file) return false;
-
-    if (memory_allocator) {
-        new(&image) Image{};
-        readHeader(image, file);
-        if (!allocateMemory(image, memory_allocator)) return false;
-    } else if (!image.pixels) return false;
-    readContent(image, file);
-    os::closeFile(file);
-    return true;
-}
-
-u32 getTotalMemoryForImages(String *image_files, u32 image_count) {
-    u32 memory_size{0};
-    for (u32 i = 0; i < image_count; i++) {
-        Image image;
-        loadHeader(image, image_files[i].char_ptr);
-        memory_size += getSizeInBytes(image);
-    }
-    return memory_size;
-}
-
-struct ImagePack {
-    ImagePack(u8 count, Image *images, char **files, char* adjacent_file, u64 memory_base = Terabytes(3)) {
-        char string_buffer[200];
-        u32 memory_size{0};
-        Image *image = images;
-        for (u32 i = 0; i < count; i++, image++) {
-            String string = String::getFilePath(files[i], string_buffer, adjacent_file);
-            loadHeader(*image, string.char_ptr);
-            memory_size += getSizeInBytes(*image);
-        }
-        memory::MonotonicAllocator memory_allocator{memory_size, memory_base};
-
-        image = images;
-        for (u32 i = 0; i < count; i++, image++) {
-            String string = String::getFilePath(files[i], string_buffer, adjacent_file);
-            load(*image, string.char_ptr, &memory_allocator);
-        }
-    }
-};
-
-
-struct TexelQuadComponent {
-    u8 TL, TR, BL, BR;
-};
-
-struct TexelQuad {
-    TexelQuadComponent R, G, B;
-};
-
-struct TextureMip {
-    u32 width, height;
-    TexelQuad *texel_quads;
-
-    INLINE_XPU Pixel sample(f32 u, f32 v) const {
-        if (u > 1) u -= (f32)((u32)u);
-        if (v > 1) v -= (f32)((u32)v);
-
-        const f32 U = u * (f32)width  + 0.5f;
-        const f32 V = v * (f32)height + 0.5f;
-        const u32 x = (u32)U;
-        const u32 y = (u32)V;
-        const f32 r = U - (f32)x;
-        const f32 b = V - (f32)y;
-        const f32 l = 1 - r;
-        const f32 t = 1 - b;
-        const f32 tl = t * l * COLOR_COMPONENT_TO_FLOAT;
-        const f32 tr = t * r * COLOR_COMPONENT_TO_FLOAT;
-        const f32 bl = b * l * COLOR_COMPONENT_TO_FLOAT;
-        const f32 br = b * r * COLOR_COMPONENT_TO_FLOAT;
-
-        const TexelQuad texel_quad = texel_quads[y * (width + 1) + x];
-        return {
-                fast_mul_add((f32)texel_quad.R.BR, br, fast_mul_add((f32)texel_quad.R.BL, bl, fast_mul_add((f32)texel_quad.R.TR, tr, (f32)texel_quad.R.TL * tl))),
-                fast_mul_add((f32)texel_quad.G.BR, br, fast_mul_add((f32)texel_quad.G.BL, bl, fast_mul_add((f32)texel_quad.G.TR, tr, (f32)texel_quad.G.TL * tl))),
-                fast_mul_add((f32)texel_quad.B.BR, br, fast_mul_add((f32)texel_quad.B.BL, bl, fast_mul_add((f32)texel_quad.B.TR, tr, (f32)texel_quad.B.TL * tl))),
-                1.0f
-        };
-    }
-};
-
-struct TextureHeader : ImageHeader {
-    u16 mip_count = 1;
-    bool mipmap = false;
-    bool wrap = false;
-};
-
-struct Texture : TextureHeader {
-    TextureMip *mips = nullptr;
-
-    XPU static u8 GetMipLevel(f32 texel_area, u16 mip_count) {
-        u8 mip_level = 0;
-        while (texel_area > 1 && ++mip_level < mip_count) texel_area *= 0.25f;
-        if (mip_level >= mip_count)
-            mip_level = mip_count - 1;
-
-        return mip_level;
-    }
-
-    XPU static u8 GetMipLevel(u32 width, u32 height, u16 mip_count, f32 uv_area) {
-        return GetMipLevel(uv_area * (f32)(width * height), mip_count);
-    }
-
-    XPU static u8 GetMipLevel(const Texture &texture, f32 uv_area) {
-        return GetMipLevel(uv_area * (f32)(texture.width * texture.height), texture.mip_count);
-    }
-
-    INLINE_XPU Pixel sample(f32 u, f32 v, f32 uv_area) const {
-        return mips[mipmap ? GetMipLevel(uv_area * (f32)(width * height), mip_count) : 0].sample(u, v);
-    }
-};
-
-u32 getSizeInBytes(const Texture &texture) {
-    u32 mip_width  = texture.width;
-    u32 mip_height = texture.height;
-    u32 memory_size = 0;
-
-    do {
-        memory_size += sizeof(TextureMip);
-        memory_size += (mip_width + 1) * (mip_height + 1) * sizeof(TexelQuad);
-
-        mip_width /= 2;
-        mip_height /= 2;
-    } while (texture.mipmap && mip_width > 2 && mip_height > 2);
-
-    return memory_size;
-}
-
-bool allocateMemory(Texture &texture, memory::MonotonicAllocator *memory_allocator) {
-    if (getSizeInBytes(texture) > (memory_allocator->capacity - memory_allocator->occupied)) return false;
-    texture.mips = (TextureMip*)memory_allocator->allocate(sizeof(TextureMip) * texture.mip_count);
-    TextureMip *texture_mip = texture.mips;
-    u32 mip_width  = texture.width;
-    u32 mip_height = texture.height;
-
-    do {
-        texture_mip->texel_quads = (TexelQuad * )memory_allocator->allocate(sizeof(TexelQuad ) * (mip_height + 1) * (mip_width + 1));
-        mip_width /= 2;
-        mip_height /= 2;
-        texture_mip++;
-    } while (texture.mipmap && mip_width > 2 && mip_height > 2);
-
-    return true;
-}
-
-void writeHeader(const TextureHeader &texture_header, void *file) {
-    os::writeToFile((void*)&texture_header.width,  sizeof(u32),  file);
-    os::writeToFile((void*)&texture_header.height, sizeof(u32),  file);
-    os::writeToFile((void*)&texture_header.depth,  sizeof(u32),  file);
-    os::writeToFile((void*)&texture_header.gamma,  sizeof(f32),  file);
-    os::writeToFile((void*)&texture_header.mip_count, sizeof(u16),  file);
-    os::writeToFile((void*)&texture_header.mipmap,    sizeof(bool),  file);
-    os::writeToFile((void*)&texture_header.wrap,      sizeof(bool),  file);
-}
-void readHeader(TextureHeader &texture_header, void *file) {
-    os::readFromFile(&texture_header.width,  sizeof(u32),  file);
-    os::readFromFile(&texture_header.height, sizeof(u32),  file);
-    os::readFromFile(&texture_header.depth,  sizeof(u32),  file);
-    os::readFromFile(&texture_header.gamma,  sizeof(f32),  file);
-    os::readFromFile(&texture_header.mip_count, sizeof(u16),  file);
-    os::readFromFile(&texture_header.mipmap,    sizeof(bool),  file);
-    os::readFromFile(&texture_header.wrap,      sizeof(bool),  file);
-}
-
-bool saveHeader(const Texture &texture, char *file_path) {
-    void *file = os::openFileForWriting(file_path);
-    if (!file) return false;
-    writeHeader(texture, file);
-    os::closeFile(file);
-    return true;
-}
-
-bool loadHeader(Texture &texture, char *file_path) {
-    void *file = os::openFileForReading(file_path);
-    if (!file) return false;
-    readHeader(texture, file);
-    os::closeFile(file);
-    return true;
-}
-
-void readContent(Texture &texture, void *file) {
-    TextureMip *texture_mip = texture.mips;
-    for (u8 mip_index = 0; mip_index < texture.mip_count; mip_index++, texture_mip++) {
-        os::readFromFile(&texture_mip->width,  sizeof(u32), file);
-        os::readFromFile(&texture_mip->height, sizeof(u32), file);
-        os::readFromFile(texture_mip->texel_quads, sizeof(TexelQuad) * (texture_mip->width + 1) * (texture_mip->height + 1), file);
-    }
-}
-void writeContent(const Texture &texture, void *file) {
-    TextureMip *texture_mip = texture.mips;
-    for (u8 mip_index = 0; mip_index < texture.mip_count; mip_index++, texture_mip++) {
-        os::writeToFile(&texture_mip->width,  sizeof(u32), file);
-        os::writeToFile(&texture_mip->height, sizeof(u32), file);
-        os::writeToFile(texture_mip->texel_quads, sizeof(TexelQuad) * (texture_mip->width + 1) * (texture_mip->height + 1), file);
-    }
-}
-
-bool saveContent(const Texture &texture, char *file_path) {
-    void *file = os::openFileForWriting(file_path);
-    if (!file) return false;
-    writeContent(texture, file);
-    os::closeFile(file);
-    return true;
-}
-
-bool loadContent(Texture &texture, char *file_path) {
-    void *file = os::openFileForReading(file_path);
-    if (!file) return false;
-    readContent(texture, file);
-    os::closeFile(file);
-    return true;
-}
-
-bool save(const Texture &texture, char* file_path) {
-    void *file = os::openFileForWriting(file_path);
-    if (!file) return false;
-    writeHeader(texture, file);
-    writeContent(texture, file);
-    os::closeFile(file);
-    return true;
-}
-
-bool load(Texture &texture, char *file_path, memory::MonotonicAllocator *memory_allocator = nullptr) {
-    void *file = os::openFileForReading(file_path);
-    if (!file) return false;
-
-    if (memory_allocator) {
-        new(&texture) Texture{};
-        readHeader(texture, file);
-        if (!allocateMemory(texture, memory_allocator)) return false;
-    } else if (!texture.mips) return false;
-    readContent(texture, file);
-    os::closeFile(file);
-    return true;
-}
-
-u32 getTotalMemoryForTextures(String *texture_files, u32 texture_count) {
-    u32 memory_size{0};
-    for (u32 i = 0; i < texture_count; i++) {
-        Texture texture;
-        loadHeader(texture, texture_files[i].char_ptr);
-        memory_size += getSizeInBytes(texture);
-    }
-    return memory_size;
-}
-
-struct TexturePack {
-    TexturePack(u8 count, Texture *textures, char **files, char* adjacent_file, u64 memory_base = Terabytes(3)) {
-        char string_buffer[200];
-        u32 memory_size{0};
-        Texture *texture = textures;
-        for (u32 i = 0; i < count; i++, texture++) {
-            String string = String::getFilePath(files[i], string_buffer, adjacent_file);
-            loadHeader(*texture, string.char_ptr);
-            memory_size += getSizeInBytes(*texture);
-        }
-        memory::MonotonicAllocator memory_allocator{memory_size, memory_base};
-
-        texture = textures;
-        for (u32 i = 0; i < count; i++, texture++) {
-            String string = String::getFilePath(files[i], string_buffer, adjacent_file);
-            load(*texture, string.char_ptr, &memory_allocator);
-        }
-    }
-};
-
 struct BVHPartitionSide {
     AABB *aabbs;
     f32 *surface_areas;
@@ -6100,7 +6228,6 @@ enum AntiAliasing {
     SSAA
 };
 
-
 struct Canvas {
     Dimensions dimensions;
     Pixel *pixels{nullptr};
@@ -6153,27 +6280,46 @@ struct Canvas {
         if (depths) for (i32 i = 0; i < depths_count; i++) depths[i] = depth;
     }
 
-    void drawFrom(Canvas &source_canvas, bool blend = true, bool include_depths = false, const RectI *viewport_bounds = nullptr) {
-        RectI bounds{
-                0, dimensions.width < source_canvas.dimensions.width ? dimensions.width : source_canvas.dimensions.width,
-                0, dimensions.height < source_canvas.dimensions.height ? dimensions.height : source_canvas.dimensions.height
+    void drawFrom(Canvas& source_canvas, const RectI* source_bounds = nullptr, const RectI* target_bounds = nullptr, f32 opacity = 1.0f, bool blend = true, bool include_depths = false) {
+        RectI src{
+                0, source_canvas.dimensions.width,
+                0, source_canvas.dimensions.height
         };
-        if (viewport_bounds)
-            bounds -= *viewport_bounds;
+        if (source_bounds)
+            src -= *source_bounds;
 
-        if ((antialias == SSAA) && (source_canvas.antialias == SSAA))
-            bounds *= 2;
+        RectI trg{
+                0, dimensions.width,
+                0, dimensions.height
+        };
+        if (target_bounds)
+            trg = *target_bounds;
+
+        if ((antialias == SSAA) && (source_canvas.antialias == SSAA)) {
+            src *= 2;
+            trg *= 2;
+        }
 
         f32 depth;
-        for (i32 y = bounds.top; y < bounds.bottom; y++) {
-            for (i32 x = bounds.left; x < bounds.right; x++) {
+
+        i32 src_y = src.top;
+        for (i32 y = trg.top; y < trg.bottom; y++, src_y++) {
+            if (y < 0 || y >= dimensions.height)
+                continue;
+
+            i32 src_x = src.left;
+
+            for (i32 x = trg.left; x < trg.right; x++, src_x++) {
+                if (x < 0 || x >= dimensions.width)
+                    continue;
+
                 i32 src_offset = source_canvas.antialias == SSAA ? (
-                        (source_canvas.dimensions.stride * (y >> 1) + (x >> 1)) * 4 + (2 * (y & 1)) + (x & 1)
+                        (source_canvas.dimensions.stride * (src_y >> 1) + (src_x >> 1)) * 4 + (2 * (src_y & 1)) + (src_x & 1)
                 ) : (
-                                         source_canvas.dimensions.stride * y + x
+                                         source_canvas.dimensions.stride * src_y + src_x
                                  );
 
-                Pixel &pixel{source_canvas.pixels[src_offset]};
+                Pixel& pixel{ source_canvas.pixels[src_offset] };
                 if ((pixel.opacity == 0.0f) || (
                         (pixel.color.r == 0.0f) &&
                         (pixel.color.g == 0.0f) &&
@@ -6184,8 +6330,9 @@ struct Canvas {
                     depth = source_canvas.depths[src_offset];
 
                 if (blend) {
-                    setPixel(x, y, pixel.color / pixel.opacity, pixel.opacity, include_depths ? depth : 0.0f);
-                } else {
+                    setPixel(x, y, pixel.color / pixel.opacity, pixel.opacity * opacity, include_depths ? depth : 0.0f);
+                }
+                else {
                     i32 trg_offset = antialias == SSAA ? (
                             (dimensions.stride * (y >> 1) + (x >> 1)) * 4 + (2 * (y & 1)) + (x & 1)
                     ) : (
@@ -6224,7 +6371,8 @@ struct Canvas {
             return;
 
         opacity = clampedValue(opacity);
-        Pixel pixel{color * color, opacity};
+        Pixel pixel{color.clamped(), opacity};
+        pixel.color *= pixel.color;
         if (opacity != 1.0f)
             pixel.color *= pixel.opacity;
 
@@ -6353,6 +6501,284 @@ private:
     }
 };
 
+
+void drawImage(const PixelImage &image, const Canvas &canvas, RectI bounds, f32 opacity = 1.0f) {
+    if (bounds.right < 0 ||
+        bounds.bottom < 0 ||
+        bounds.left >= canvas.dimensions.width ||
+        bounds.top >= canvas.dimensions.height)
+        return;
+
+    i32 image_width = (i32)image.width;
+    i32 image_height = (i32)image.height;
+    i32 width = bounds.right - bounds.left;
+    i32 height = bounds.bottom - bounds.top;
+    if (width > image_width) {
+        width = image_width;
+        bounds.right = bounds.left + width;
+    }
+    if (height > image_height) {
+        height = image_height;
+        bounds.bottom = bounds.top + height;
+    }
+
+    Pixel *pixel = image.content;
+    if (image.flags.tile) {
+        TiledGridInfo grid{image};
+        u32 X, Y = 0;
+        for (grid.row = 0; grid.row < grid.rows; grid.row++) {
+            X = 0;
+            u32 tile_height = grid.row == grid.bottom_row ? grid.bottom_row_tile_height : image.tile_height;
+            for (grid.column = 0; grid.column < grid.columns; grid.column++) {
+                u32 tile_width = grid.column == grid.right_column ? grid.right_column_tile_stride : image.tile_width;
+
+                for (u32 y = 0; y < tile_height; y++)
+                    for (u32 x = 0; x < tile_width; x++, pixel++)
+                        canvas.setPixel(X + x, Y + y, pixel->color, image.flags.alpha ? (pixel->opacity * opacity) : opacity);
+
+                X += image.tile_width;
+            }
+            Y += image.tile_height;
+        }
+    } else {
+        i32 remainder_x = image_width - width;
+        for (i32 y = bounds.top; y <= bounds.bottom; y++) {
+            for (i32 x = bounds.left; x <= bounds.right; x++, pixel++)
+                canvas.setPixel(x, y, pixel->color, image.flags.alpha ? (pixel->opacity * opacity) : opacity);
+
+            pixel += remainder_x;
+        }
+    }
+}
+
+void drawImage(const FloatImage &image, const Canvas &canvas, RectI bounds, f32 opacity = 1.0f) {
+    if (bounds.right < 0 ||
+        bounds.bottom < 0 ||
+        bounds.left >= canvas.dimensions.width ||
+        bounds.top >= canvas.dimensions.height)
+        return;
+
+    i32 image_width = (i32)image.width;
+    i32 image_height = (i32)image.height;
+    i32 width = bounds.right - bounds.left;
+    i32 height = bounds.bottom - bounds.top;
+    if (width > image_width) {
+        width = image_width;
+        bounds.right = bounds.left + width;
+    }
+    if (height > image_height) {
+        height = image_height;
+        bounds.bottom = bounds.top + height;
+    }
+
+    bool has_opacity = image.flags.alpha;
+    i32 channels_per_pixel = has_opacity ? 4 : 3;
+    Color color;
+    f32 pixel_opacity;
+    f32 *channel = image.content;
+    if (image.flags.tile) {
+        TiledGridInfo grid{image};
+        u32 X, Y = 0;
+        for (grid.row = 0; grid.row < grid.rows; grid.row++) {
+            X = 0;
+            u32 tile_height = grid.row == grid.bottom_row ? grid.bottom_row_tile_height : image.tile_height;
+            for (grid.column = 0; grid.column < grid.columns; grid.column++) {
+                u32 tile_width = grid.column == grid.right_column ? grid.right_column_tile_stride : image.tile_width;
+
+                for (u32 y = 0; y < tile_height; y++) {
+                    for (u32 x = 0; x < tile_width; x++) {
+                        color.r = *(channel++);
+                        color.g = *(channel++);
+                        color.b = *(channel++);
+                        if (has_opacity)
+                            pixel_opacity = *(channel++);
+                        else
+                            pixel_opacity = 1.0f;
+
+                        canvas.setPixel(X + x, Y + y, color, pixel_opacity * opacity);
+                    }
+                }
+
+                X += image.tile_width;
+            }
+            Y += image.tile_height;
+        }
+    } else {
+        i32 remainder_x = ((i32)image.stride - width) * channels_per_pixel;
+        for (i32 y = bounds.top; y <= bounds.bottom; y++) {
+            for (i32 x = bounds.left; x <= bounds.right; x++) {
+                color.r = *(channel++);
+                color.g = *(channel++);
+                color.b = *(channel++);
+                if (has_opacity)
+                    pixel_opacity = *(channel++);
+                else
+                    pixel_opacity = 1.0f;
+
+                canvas.setPixel(x, y, color, pixel_opacity * opacity);
+            }
+
+            channel += remainder_x;
+        }
+    }
+}
+
+void drawImage(const ByteColorImage &image, const Canvas &canvas, RectI bounds, f32 opacity = 1.0f) {
+    if (bounds.right < 0 ||
+        bounds.bottom < 0 ||
+        bounds.left >= canvas.dimensions.width ||
+        bounds.top >= canvas.dimensions.height)
+        return;
+
+    i32 image_width = (i32)image.width;
+    i32 image_height = (i32)image.height;
+    i32 width = bounds.right - bounds.left;
+    i32 height = bounds.bottom - bounds.top;
+    if (width > image_width) {
+        width = image_width;
+        bounds.right = bounds.left + width;
+    }
+    if (height > image_height) {
+        height = image_height;
+        bounds.bottom = bounds.top + height;
+    }
+
+    Pixel pixel;;
+    ByteColor *byte_color = image.content;
+    if (image.flags.tile) {
+        TiledGridInfo grid{image};
+        u32 X, Y = 0;
+        for (grid.row = 0; grid.row < grid.rows; grid.row++) {
+            X = 0;
+            u32 tile_height = grid.row == grid.bottom_row ? grid.bottom_row_tile_height : image.tile_height;
+            for (grid.column = 0; grid.column < grid.columns; grid.column++) {
+                u32 tile_width = grid.column == grid.right_column ? grid.right_column_tile_stride : image.tile_width;
+
+                for (u32 y = 0; y < tile_height; y++) {
+                    for (u32 x = 0; x < tile_width; x++, byte_color++) {
+                        pixel = *byte_color;
+                        canvas.setPixel(X + x, Y + y, pixel.color, image.flags.alpha ? (pixel.opacity * opacity) : opacity);
+                    }
+                }
+
+                X += image.tile_width;
+            }
+            Y += image.tile_height;
+        }
+    } else {
+        i32 remainder_x = (i32)image.stride - width;
+        for (i32 y = bounds.top; y <= bounds.bottom; y++) {
+            for (i32 x = bounds.left; x <= bounds.right; x++, byte_color++) {
+                pixel = *byte_color;
+                canvas.setPixel(x, y, pixel.color, image.flags.alpha ? (pixel.opacity * opacity) : opacity);
+            }
+
+            byte_color += remainder_x;
+        }
+    }
+}
+
+void drawImageToWindow(const ByteColorImage &image, RectI bounds, f32 opacity = 1.0f) {
+    if (bounds.right < 0 ||
+        bounds.bottom < 0 ||
+        bounds.left >= window::width ||
+        bounds.top >= window::height)
+        return;
+
+    i32 image_width = (i32)image.width;
+    i32 image_height = (i32)image.height;
+    i32 width = bounds.right - bounds.left;
+    i32 height = bounds.bottom - bounds.top;
+    if (width > image_width) {
+        width = image_width;
+        bounds.right = bounds.left + width;
+    }
+    if (height > image_height) {
+        height = image_height;
+        bounds.bottom = bounds.top + height;
+    }
+
+    ByteColor *byte_color = image.content;
+    if (image.flags.tile) {
+        TiledGridInfo grid{image};
+        u32 X, Y = 0;
+        for (grid.row = 0; grid.row < grid.rows; grid.row++) {
+            X = 0;
+            u32 tile_height = grid.row == grid.bottom_row ? grid.bottom_row_tile_height : image.tile_height;
+            for (grid.column = 0; grid.column < grid.columns; grid.column++) {
+                u32 tile_width = grid.column == grid.right_column ? grid.right_column_tile_stride : image.tile_width;
+
+                for (u32 y = 0; y < tile_height; y++)
+                    for (u32 x = 0; x < tile_width; x++, byte_color++)
+                        window::content[window::width * (Y + y) + X + x] = byte_color->value;
+
+                X += image.tile_width;
+            }
+            Y += image.tile_height;
+        }
+    } else {
+        i32 remainder_x = (i32)image.stride - width;
+        for (i32 y = bounds.top; y <= bounds.bottom; y++) {
+            for (i32 x = bounds.left; x <= bounds.right; x++, byte_color++)
+                window::content[window::width * y + x] = byte_color->value;
+
+            byte_color += remainder_x;
+        }
+    }
+}
+
+void drawTextureMip(const TextureMip &texture_mip, const Canvas &canvas, const RectI draw_bounds, bool cropped = true, f32 opacity = 1.0f) {
+    Color texel_color;
+    i32 draw_width = draw_bounds.right - draw_bounds.left+1;
+    i32 draw_height = draw_bounds.bottom - draw_bounds.top+1;
+    if (cropped) {
+        if (draw_width > (i32)texture_mip.width) draw_width = (i32)texture_mip.width;
+        if (draw_height > (i32)texture_mip.height) draw_height = (i32)texture_mip.height;
+        i32 remainder_x = 1 + (i32)texture_mip.width - draw_width;
+        TexelQuad *texel_quad = texture_mip.texel_quads;
+        i32 Y = draw_bounds.top;
+        for (i32 y = 0; y < draw_height; y++, Y++) {
+            i32 X = draw_bounds.left;
+            for (i32 x = 0; x < draw_width; x++, X++, texel_quad++) {
+                texel_color.r = (f32)texel_quad->R.BR * COLOR_COMPONENT_TO_FLOAT;
+                texel_color.g = (f32)texel_quad->G.BR * COLOR_COMPONENT_TO_FLOAT;
+                texel_color.b = (f32)texel_quad->B.BR * COLOR_COMPONENT_TO_FLOAT;
+                canvas.setPixel(X, Y, texel_color, opacity);
+            }
+            texel_quad += remainder_x;
+        }
+    } else {
+        f32 u_step = 1.0f / (f32)draw_width;
+        f32 v_step = 1.0f / (f32)draw_height;
+        f32 v = v_step * 0.5f;
+        i32 Y = draw_bounds.top;
+        for (i32 y = 0; y < draw_height; y++, Y++, v += v_step) {
+            i32 X = draw_bounds.left;
+            f32 u = u_step * 0.5f;
+            for (i32 x = 0; x < draw_width; x++, X++, u += u_step) {
+                texel_color = texture_mip.sample(u, v).color;
+                canvas.setPixel(X, Y, texel_color, opacity);
+            }
+        }
+    }
+}
+
+void drawTexture(const Texture &texture, const Canvas &canvas, const RectI draw_bounds, bool cropped = true, f32 opacity = 1.0f) {
+    if (draw_bounds.right < 0 ||
+        draw_bounds.bottom < 0 ||
+        draw_bounds.left >= canvas.dimensions.width ||
+        draw_bounds.top >= canvas.dimensions.height)
+        return;
+
+    u32 mip_level = 0;
+    if (!cropped) {
+        i32 draw_width = draw_bounds.right - draw_bounds.left+1;
+        i32 draw_height = draw_bounds.bottom - draw_bounds.top+1;
+        f32 texel_area = (f32)(texture.width * texture.height) / (f32)(draw_width * draw_height);
+        mip_level = Texture::GetMipLevel(texel_area, texture.mip_count);
+    }
+    drawTextureMip(texture.mips[mip_level], canvas, draw_bounds, cropped, opacity);
+}
 
 void _drawHLine(RangeI x_range, i32 y, const Canvas &canvas, const Color &color, f32 opacity, const RectI *viewport_bounds) {
     RangeI y_range{0, canvas.dimensions.height - 1};
@@ -7102,11 +7528,11 @@ void _fillTriangle(f32 x1, f32 y1, f32 z1,
             A = 1 - B - C;
 
             // Skip the pixel if it's outside:
-            if (fminf(A, fminf(B, C)) < 0)
+            if (A < 0 || B < 0 || C < 0)
                 continue;
 
-            if (depth_provided) {}
-            depth = A*z1 + B*z2 + C*z3;
+            if (depth_provided)
+                depth = A*z1 + B*z2 + C*z3;
 
             canvas.setPixel(x, y, color, opacity, depth);
         }
@@ -7227,82 +7653,6 @@ void fillTriangle(vec3 p1, vec3 p2, vec3 p3, const Canvas &canvas,
 }
 
 
-
-void drawImage(const Image &image, const Canvas &canvas, const RectI draw_bounds, f32 opacity = 1.0f) {
-    if (draw_bounds.right < 0 ||
-        draw_bounds.bottom < 0 ||
-        draw_bounds.left >= canvas.dimensions.width ||
-        draw_bounds.top >= canvas.dimensions.height)
-        return;
-
-    i32 draw_width = draw_bounds.right - draw_bounds.left;
-    i32 draw_height = draw_bounds.bottom - draw_bounds.top;
-    if (draw_width > (i32)image.width) draw_width = (i32)image.width;
-    if (draw_height > (i32)image.height) draw_height = (i32)image.height;
-    i32 remainder_x = (i32)image.width - draw_width;
-    Pixel *pixel = image.pixels;
-    i32 Y = draw_bounds.top;
-    for (i32 y = 0; y < draw_height; y++, Y++) {
-        i32 X = draw_bounds.left;
-        for (i32 x = 0; x < draw_width; x++, X++, pixel++)
-            canvas.setPixel(X, Y, pixel->color, opacity);
-
-        pixel += remainder_x;
-    }
-}
-
-void drawTextureMip(const TextureMip &texture_mip, const Canvas &canvas, const RectI draw_bounds, bool cropped = true, f32 opacity = 1.0f) {
-    Color texel_color;
-    i32 draw_width = draw_bounds.right - draw_bounds.left+1;
-    i32 draw_height = draw_bounds.bottom - draw_bounds.top+1;
-    if (cropped) {
-        if (draw_width > (i32)texture_mip.width) draw_width = (i32)texture_mip.width;
-        if (draw_height > (i32)texture_mip.height) draw_height = (i32)texture_mip.height;
-        i32 remainder_x = 1 + (i32)texture_mip.width - draw_width;
-        TexelQuad *texel_quad = texture_mip.texel_quads;
-        i32 Y = draw_bounds.top;
-        for (i32 y = 0; y < draw_height; y++, Y++) {
-            i32 X = draw_bounds.left;
-            for (i32 x = 0; x < draw_width; x++, X++, texel_quad++) {
-                texel_color.r = (f32)texel_quad->R.BR * COLOR_COMPONENT_TO_FLOAT;
-                texel_color.g = (f32)texel_quad->G.BR * COLOR_COMPONENT_TO_FLOAT;
-                texel_color.b = (f32)texel_quad->B.BR * COLOR_COMPONENT_TO_FLOAT;
-                canvas.setPixel(X, Y, texel_color, opacity);
-            }
-            texel_quad += remainder_x;
-        }
-    } else {
-        f32 u_step = 1.0f / (f32)draw_width;
-        f32 v_step = 1.0f / (f32)draw_height;
-        f32 v = v_step * 0.5f;
-        i32 Y = draw_bounds.top;
-        for (i32 y = 0; y < draw_height; y++, Y++, v += v_step) {
-            i32 X = draw_bounds.left;
-            f32 u = u_step * 0.5f;
-            for (i32 x = 0; x < draw_width; x++, X++, u += u_step) {
-                texel_color = texture_mip.sample(u, v).color;
-                canvas.setPixel(X, Y, texel_color, opacity);
-            }
-        }
-    }
-}
-
-void drawTexture(const Texture &texture, const Canvas &canvas, const RectI draw_bounds, bool cropped = true, f32 opacity = 1.0f) {
-    if (draw_bounds.right < 0 ||
-        draw_bounds.bottom < 0 ||
-        draw_bounds.left >= canvas.dimensions.width ||
-        draw_bounds.top >= canvas.dimensions.height)
-        return;
-
-    u16 mip_level = 0;
-    if (!cropped) {
-        i32 draw_width = draw_bounds.right - draw_bounds.left+1;
-        i32 draw_height = draw_bounds.bottom - draw_bounds.top+1;
-        f32 texel_area = (f32)(texture.width * texture.height) / (f32)(draw_width * draw_height);
-        mip_level = Texture::GetMipLevel(texel_area, texture.mip_count);
-    }
-    drawTextureMip(texture.mips[mip_level], canvas, draw_bounds, cropped, opacity);
-}
 
 #define LINE_HEIGHT 14
 #define FIRST_CHARACTER_CODE 32
